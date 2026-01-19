@@ -1,12 +1,12 @@
-from odoo import models, fields, api
-from datetime import timedelta
 import logging
+from datetime import date, datetime, timedelta
+from typing import List, Dict, Any, Optional
+
+import pyodbc
+from odoo import models, fields, api
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
-
-class ShiftDataStruct:
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
 
 class ExternalImportWizard(models.TransientModel):
     _name = 'mes.external.import.wizard'
@@ -16,11 +16,18 @@ class ExternalImportWizard(models.TransientModel):
     end_date = fields.Date(string='End Date', default=fields.Date.context_today)
     clear_existing = fields.Boolean(string='Clear Existing Alarms', default=False)
 
-    def action_load_data(self):
-        # 1. Get data from external DB
-        imported_data = self._get_data_from_external_db(self.start_date, self.end_date)
+    def action_load_data(self) -> Dict[str, Any]:
+        """
+        Main entry point (Action) triggered by the UI button.
+        Coordinates fetching data and loading it into Odoo.
+        """
+        # 1. Get raw data from external DB
+        imported_data: List[Dict[str, Any]] = self._get_data_from_external_db(
+            self.start_date, 
+            self.end_date
+        )
         
-        # 2. Load data into Odoo
+        # 2. Process and save data
         self._load_merged_events(imported_data)
         
         return {
@@ -34,10 +41,8 @@ class ExternalImportWizard(models.TransientModel):
             }
         }
 
-    def _get_data_from_external_db(self, start_date, end_date):
-        import pyodbc
-        from datetime import timedelta
-        
+    def _get_connection_string(self) -> str:
+        """Constructs ODBC connection string from System Parameters."""
         params = self.env['ir.config_parameter'].sudo()
         
         server = params.get_param('gemba.sql_server')
@@ -45,11 +50,10 @@ class ExternalImportWizard(models.TransientModel):
         username = params.get_param('gemba.sql_user')
         password = params.get_param('gemba.sql_password')
         
-        # Is settings filled up
         if not all([server, database, username, password]):
              raise UserError("SQL Connection settings are missing! Please configure them in Settings.")
         
-        connection_string = (
+        return (
             'DRIVER={ODBC Driver 17 for SQL Server};'
             f'SERVER={server};'
             f'DATABASE={database};'
@@ -58,20 +62,30 @@ class ExternalImportWizard(models.TransientModel):
             'TrustServerCertificate=yes;'
         )
 
+    def _get_data_from_external_db(self, start_date: date, end_date: date) -> List[Dict[str, Any]]:
+        """
+        Connects to MS SQL, fetches shifts and alarms, and merges them.
+        Returns a structured list of documents ready for import.
+        """
+        connection_string = self._get_connection_string()
+
         try:
             conn = pyodbc.connect(connection_string, timeout=10)
             cursor = conn.cursor()
             
-            # --- 1. Shifts ---
+            # --- 1. Fetch Shifts ---
+            # Using 'shifts' instead of 'vt_shifts' (PEP 8 clean naming)
+            shifts: List[Dict[str, Any]] = []
+            
             query_shifts = """
                 SELECT 
                     Shift.AssetShiftID, 
                     Shift.ShiftDate,
                     Shift.AssetID AS AssetCode,
-                    Shift.AssetID AS MachineName, -- В 1С это было поле Code, берем ID пока
+                    Shift.AssetID AS MachineName,
                     Shift.StartTime AS ShiftStartTime,
                     Shift.EndTime AS ShiftEndTime,
-                    Shift.ShiftID -- Название смены
+                    Shift.ShiftID
                 FROM 
                     dbo.tblDATAssetShift AS Shift
                 WHERE 
@@ -80,32 +94,32 @@ class ExternalImportWizard(models.TransientModel):
             cursor.execute(query_shifts, (start_date, end_date))
             rows_shifts = cursor.fetchall()
             
-            vt_shifts = []
             if not rows_shifts:
                 conn.close()
                 return []
 
-            min_date = rows_shifts[0].ShiftStartTime
-            max_date = rows_shifts[0].ShiftEndTime
+            # Initial bounds for event search
+            min_date: datetime = rows_shifts[0].ShiftStartTime
+            max_date: datetime = rows_shifts[0].ShiftEndTime
 
             for row in rows_shifts:
-                # Shift struct
-                vt_shifts.append({
+                shifts.append({
                     'AssetShiftID': row.AssetShiftID,
                     'ShiftDate': row.ShiftDate,
                     'AssetCode': row.AssetCode,
                     'MachineName': row.MachineName, 
                     'ShiftStartTime': row.ShiftStartTime,
                     'ShiftEndTime': row.ShiftEndTime,
-                    'ShiftID': str(row.ShiftID) # Приводим к строке
+                    'ShiftID': str(row.ShiftID)
                 })
                 
-                # Calculate min/max for events search
-                if row.ShiftStartTime < min_date: min_date = row.ShiftStartTime
-                if row.ShiftEndTime > max_date: max_date = row.ShiftEndTime
+                # Expand time window
+                if row.ShiftStartTime < min_date: 
+                    min_date = row.ShiftStartTime
+                if row.ShiftEndTime > max_date: 
+                    max_date = row.ShiftEndTime
 
-            # --- 2. Events ---
-            # Extend search range by 1 day backward
+            # --- 2. Fetch Events (Alarms) ---
             search_start = min_date - timedelta(days=1)
             
             query_events = """
@@ -135,132 +149,133 @@ class ExternalImportWizard(models.TransientModel):
             cursor.execute(query_events, (search_start, max_date))
             rows_events = cursor.fetchall()
             
-            vt_events = []
+            events: List[Dict[str, Any]] = []
             for row in rows_events:
-                vt_events.append({
+                events.append({
                     'StartTime': row.StartTime,
                     'Comment': row.Comment,
                     'AlarmCode': row.AlarmCode,
                     'Alarm': row.Alarm,
                     'AlarmType': row.AlarmType,
                     'AssetCode': row.AssetCode,
-                    'CalculatedEndTime': None # Пока пусто
+                    'CalculatedEndTime': None 
                 })
 
             conn.close()
 
-            # --- 3. Data Processing ---
-            if not vt_events:
+            # --- 3. Logic Processing ---
+            if not events:
                 return []
 
-            # 3.1. CalculatedEndTime filling
-            for i in range(len(vt_events)):
-                row = vt_events[i]
-                next_row = vt_events[i+1] if i < len(vt_events) - 1 else None
+            # 3.1. Fill Gaps (CalculatedEndTime)
+            # Using specific type hints for loop variables helps IDE
+            for i in range(len(events)):
+                current_event = events[i]
+                next_event = events[i+1] if i < len(events) - 1 else None
                 
-                if next_row and next_row['AssetCode'] == row['AssetCode']:
-                    row['CalculatedEndTime'] = next_row['StartTime']
+                if next_event and next_event['AssetCode'] == current_event['AssetCode']:
+                    current_event['CalculatedEndTime'] = next_event['StartTime']
                 else:
-                    row['CalculatedEndTime'] = None
+                    current_event['CalculatedEndTime'] = None
 
-            # 3.2. Shift-Event Matching
-            data_table = []
-            current_time = fields.Datetime.now()
+            # 3.2. Merge Shifts and Events
+            result_data: List[Dict[str, Any]] = []
+            current_time = datetime.now()
 
-            for shift_row in vt_shifts:
-                # Current machine events
-                machine_events = [e for e in vt_events if e['AssetCode'] == shift_row['AssetCode']]
+            for shift in shifts:
+                # Filter events for current machine
+                machine_events = [e for e in events if e['AssetCode'] == shift['AssetCode']]
                 
-                alarms_struct = []
+                valid_alarms: List[Dict[str, Any]] = []
                 
-                for event_row in machine_events:
-                    raw_end_time = event_row['CalculatedEndTime']
+                for event in machine_events:
+                    raw_end_time = event['CalculatedEndTime']
                     
-                    # Undefined end time handling
+                    # Handle open-ended events
                     if not raw_end_time:
-                        if shift_row['ShiftEndTime'] > current_time:
+                        if shift['ShiftEndTime'] > current_time:
                             raw_end_time = current_time
                         else:
-                            raw_end_time = shift_row['ShiftEndTime']
+                            raw_end_time = shift['ShiftEndTime']
                     
-                    # Period overlap check
-                    if event_row['StartTime'] < shift_row['ShiftEndTime'] and raw_end_time > shift_row['ShiftStartTime']:
+                    # Check overlap: (StartA < EndB) and (EndA > StartB)
+                    if (event['StartTime'] < shift['ShiftEndTime']) and (raw_end_time > shift['ShiftStartTime']):
                         
-                        # Calculate final StartTime and EndTime
-                        start_val = max(event_row['StartTime'], shift_row['ShiftStartTime'])
+                        # Clamp time to shift boundaries
+                        start_val = max(event['StartTime'], shift['ShiftStartTime'])
                         
-                        if raw_end_time > shift_row['ShiftEndTime']:
-                            if shift_row['ShiftEndTime'] > current_time:
+                        # Complex logic for end time clamping
+                        if raw_end_time > shift['ShiftEndTime']:
+                            if shift['ShiftEndTime'] > current_time:
                                 end_val = min(raw_end_time, current_time)
                             else:
-                                end_val = shift_row['ShiftEndTime']
+                                end_val = shift['ShiftEndTime']
                         else:
                             end_val = raw_end_time
                             
-                        # Final check
                         if end_val > start_val:
-                            alarms_struct.append({
-                                'AlarmCode': event_row['AlarmCode'],
-                                'AlarmType': event_row['AlarmType'],
-                                'Alarm': event_row['Alarm'],
-                                'Comment': event_row['Comment'],
+                            valid_alarms.append({
+                                'AlarmCode': event['AlarmCode'],
+                                'AlarmType': event['AlarmType'],
+                                'Alarm': event['Alarm'],
+                                'Comment': event['Comment'],
                                 'StartTime': start_val,
                                 'EndTime': end_val
                             })
 
-                # If there are alarms for this shift, add to data_table
-                if alarms_struct:
-                    data_table.append({
-                        'MachineName': shift_row['MachineName'],
-                        'DocDate': shift_row['ShiftDate'],
-                        'Shift': shift_row['ShiftID'],
-                        'Alarms': alarms_struct
+                if valid_alarms:
+                    result_data.append({
+                        'MachineName': shift['MachineName'],
+                        'DocDate': shift['ShiftDate'],
+                        'Shift': shift['ShiftID'],
+                        'Alarms': valid_alarms
                     })
                     
-            return data_table
+            return result_data
 
         except Exception as e:
             _logger.error(f"External DB Import Failed: {e}")
             return []
 
-    def _load_merged_events(self, data_table):
-        
+    def _load_merged_events(self, data_table: List[Dict[str, Any]]) -> None:
+        """
+        Creates or updates Odoo documents based on prepared data.
+        Optimized for batch creation of alarm lines.
+        """
         ReportModel = self.env['mes.shift.report']
         WorkcenterModel = self.env['mrp.workcenter']
         LossModel = self.env['mrp.workcenter.productivity.loss']
         
+        shift_map = {
+            '1. Mornings': 'morning', 'Morning': 'morning',
+            '2. Afternoons': 'afternoon', 'Afternoon': 'afternoon',
+            'Night': 'night'
+        }
+
         for doc_row in data_table:
-            # 1. Shift mapping
-            shift_map = {
-                '1. Mornings': 'morning', 'Morning': 'morning',
-                '2. Afternoons': 'afternoon', 'Afternoon': 'afternoon',
-                'Night': 'night'
-            }
+            # 1. Resolve Shift
             shift_selection = shift_map.get(doc_row['Shift'], 'night')
 
-            # 2. Search or Create Machine
-            machine = WorkcenterModel.search([('name', '=', doc_row['MachineName'])], limit=1)
+            # 2. Resolve Machine
+            machine_name = doc_row['MachineName']
+            machine = WorkcenterModel.search([('name', '=', machine_name)], limit=1)
+            
+            if not machine and ' - ' in machine_name:
+                imatec_name = machine_name.split(' - ')[1].strip()
+                machine = WorkcenterModel.search([('code_imatec', '=', imatec_name)], limit=1)
             
             if not machine:
-                if ' - ' in doc_row['MachineName']:
-                    parts = doc_row['MachineName'].split(' - ')
-                    if len(parts) > 1:
-                        imatec_name = parts[1].strip()
-                        machine = WorkcenterModel.search([('code_imatec', '=', imatec_name)], limit=1)
-            if not machine:
-                # create new machine
-                vals = {'name': doc_row['MachineName']}
-                if ' - ' in doc_row['MachineName']:
-                     vals['code_imatec'] = doc_row['MachineName'].split(' - ')[1].strip()
+                vals = {'name': machine_name}
+                if ' - ' in machine_name:
+                     vals['code_imatec'] = machine_name.split(' - ')[1].strip()
                 machine = WorkcenterModel.create(vals)
 
-            # 3. Search or Create Report
-            domain = [
+            # 3. Resolve Report Document
+            report = ReportModel.search([
                 ('workcenter_id', '=', machine.id),
                 ('date', '=', doc_row['DocDate']),
                 ('shift_type', '=', shift_selection)
-            ]
-            report = ReportModel.search(domain, limit=1)
+            ], limit=1)
             
             if not report:
                 report = ReportModel.create({
@@ -269,34 +284,33 @@ class ExternalImportWizard(models.TransientModel):
                     'shift_type': shift_selection
                 })
 
-            # 4. Table part: Alarms
-            # Clear or update existing alarms
-            current_alarm_count = len(report.alarm_ids)
-            incoming_alarm_count = len(doc_row['Alarms'])
+            # 4. Update Alarms
+            current_count = len(report.alarm_ids)
+            incoming_count = len(doc_row['Alarms'])
             
-            need_write = True
-            if current_alarm_count > 0:
-                if self.clear_existing or (current_alarm_count < incoming_alarm_count):
-                    report.alarm_ids.unlink() # Очистка
+            # Logic: Update only if we have more data or forced clear
+            should_update = True
+            if current_count > 0:
+                if self.clear_existing or (current_count < incoming_count):
+                    report.alarm_ids.unlink()
                 else:
-                    need_write = False
+                    should_update = False
             
-            if need_write:
-                new_alarms = []
+            if should_update:
+                alarms_to_create = []
                 for alarm_data in doc_row['Alarms']:
-                    # Alarm search or create
-                    alarm_reason = LossModel.search([('alarm_code', '=', alarm_data['AlarmCode'])], limit=1)
                     
+                    # Find or Create Alarm Reason
+                    alarm_reason = LossModel.search([('alarm_code', '=', alarm_data['AlarmCode'])], limit=1)
                     if not alarm_reason:
-                        # create new alarm reason
                         alarm_reason = LossModel.create({
-                            'name': alarm_data['Alarm'], # Description
+                            'name': alarm_data['Alarm'],
                             'alarm_code': alarm_data['AlarmCode'],
-                            'category': 'availability', # Default category
+                            'category': 'availability',
                             'manual': True
                         })
                     
-                    new_alarms.append({
+                    alarms_to_create.append({
                         'report_id': report.id,
                         'loss_id': alarm_reason.id,
                         'start_time': alarm_data['StartTime'],
@@ -304,5 +318,6 @@ class ExternalImportWizard(models.TransientModel):
                         'comment': alarm_data['Comment']
                     })
                 
-                # Create all alarms at once
-                self.env['mes.shift.alarm'].create(new_alarms)
+                # Batch create is much faster than creating in a loop
+                if alarms_to_create:
+                    self.env['mes.shift.alarm'].create(alarms_to_create)
