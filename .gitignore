@@ -205,3 +205,32 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ---------------------------------
+# CUSTOM ODOO & DOCKER ADDITIONS
+# ---------------------------------
+
+# --- Odoo Internals ---
+# Ignore session data and attachments if mapped locally
+filestore/
+sessions/
+.odoo/
+
+# --- Docker & Database ---
+# Local database data (mapped volumes)
+pg_data/
+db_data/
+docker-compose.override.yml
+
+# --- VS Code (Smart Ignore) ---
+# Override standard behavior: ignore the folder, but KEEP config files
+# This ensures your extensions/launch config works in Codespaces
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
