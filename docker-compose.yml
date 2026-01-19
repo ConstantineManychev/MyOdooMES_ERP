@@ -10,7 +10,8 @@ services:
     restart: unless-stopped
 
   odoo:
-    image: odoo:17.0
+    build: .
+    # image: odoo:17.0
     depends_on:
       - db
     ports:

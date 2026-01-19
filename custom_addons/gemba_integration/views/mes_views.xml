@@ -1,0 +1,107 @@
+<odoo>
+    <record id="view_mes_shift_report_form" model="ir.ui.view">
+        <field name="name">mes.shift.report.form</field>
+        <field name="model">mes.shift.report</field>
+        <field name="arch" type="xml">
+            <form>
+                <header></header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="date"/>
+                            <field name="shift_type"/>
+                        </group>
+                        <group>
+                            <field name="workcenter_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Alarms">
+                            <field name="alarm_ids">
+                                <tree editable="bottom">
+                                    <field name="start_time"/>
+                                    <field name="end_time"/>
+                                    <field name="loss_id"/>
+                                    <field name="duration" sum="Total"/>
+                                    <field name="comment"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Rejections">
+                            <field name="rejection_ids">
+                                <tree editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="qty"/>
+                                    <field name="reason"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_mes_shift_report_tree" model="ir.ui.view">
+        <field name="name">mes.shift.report.tree</field>
+        <field name="model">mes.shift.report</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="date"/>
+                <field name="shift_type"/>
+                <field name="workcenter_id"/>
+                <field name="name"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_mes_report_list" model="ir.actions.act_window">
+        <field name="name">Production Reports</field>
+        <field name="res_model">mes.shift.report</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <record id="view_mes_import_wizard_form" model="ir.ui.view">
+        <field name="name">mes.import.wizard.form</field>
+        <field name="model">mes.external.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Import External Data">
+                <group>
+                    <group>
+                        <field name="start_date"/>
+                        <field name="end_date"/>
+                    </group>
+                    <group>
+                        <field name="clear_existing"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_load_data" string="Load Data" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mes_import_wizard" model="ir.actions.act_window">
+        <field name="name">Import From Gemba</field>
+        <field name="res_model">mes.external.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_mes_root" name="MES Data" web_icon="base,static/description/settings.png"/>
+    
+    <menuitem id="menu_mes_reports" 
+              parent="menu_mes_root" 
+              action="action_mes_report_list" 
+              sequence="10"/>
+              
+    <menuitem id="menu_mes_import" 
+              parent="menu_mes_root" 
+              action="action_mes_import_wizard" 
+              sequence="20"/>
+</odoo>

@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_mes_shift_report,mes.shift.report,model_mes_shift_report,base.group_user,1,1,1,1
+access_mes_shift_alarm,mes.shift.alarm,model_mes_shift_alarm,base.group_user,1,1,1,1
+access_mes_shift_rejection,mes.shift.rejection,model_mes_shift_rejection,base.group_user,1,1,1,1
+access_mes_import_wizard,mes.external.import.wizard,model_mes_external_import_wizard,base.group_user,1,1,1,1
