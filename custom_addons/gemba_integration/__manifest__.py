@@ -13,7 +13,8 @@
         'security/ir.model.access.csv',
         
         # Views
-        'views/mes_views.xml',         # MES Models Views
+        'views/mes_views.xml',
+        'views/res_config_settings_view.xml',
     ],
     
     'installable': True,

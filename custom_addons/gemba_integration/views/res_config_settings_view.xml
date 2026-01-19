@@ -1,0 +1,39 @@
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.gemba</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority" eval="10"/>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                
+                <app data-string="Gemba Integration" string="Gemba Integration" name="gemba_integration">
+                    <block title="VerifySystems (SQL Connection)">
+                        <setting help="Connection details for external MS SQL Server">
+                            <group>
+                                <field name="gemba_sql_server"/>
+                                <field name="gemba_sql_database"/>
+                                <field name="gemba_sql_user"/>
+                                <field name="gemba_sql_password" password="True"/>
+                            </group>
+                        </setting>
+                    </block>
+
+                    <block title="MaintainX Integration">
+                        <setting help="API Token for MaintainX functionality">
+                            <group>
+                                <field name="maintainx_api_token" password="True"/>
+                            </group>
+                            <div class="mt16">
+                                <a href="https://www.getmaintainx.com/" target="_blank">
+                                    Open MaintainX Console
+                                </a>
+                            </div>
+                        </setting>
+                    </block>
+                </app>
+
+            </xpath>
+        </field>
+    </record>
+</odoo>

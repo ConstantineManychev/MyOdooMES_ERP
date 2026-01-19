@@ -38,11 +38,16 @@ class ExternalImportWizard(models.TransientModel):
         import pyodbc
         from datetime import timedelta
         
-        # Connection parameters
-        server = 'ServerName' 
-        database = 'DBName'
-        username = 'UserName' #Read permission
-        password = 'UserPassword'
+        params = self.env['ir.config_parameter'].sudo()
+        
+        server = params.get_param('gemba.sql_server')
+        database = params.get_param('gemba.sql_database')
+        username = params.get_param('gemba.sql_user')
+        password = params.get_param('gemba.sql_password')
+        
+        # Is settings filled up
+        if not all([server, database, username, password]):
+             raise UserError("SQL Connection settings are missing! Please configure them in Settings.")
         
         connection_string = (
             'DRIVER={ODBC Driver 17 for SQL Server};'
