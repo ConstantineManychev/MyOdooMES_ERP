@@ -6,13 +6,13 @@ class ResConfigSettings(models.TransientModel):
     # --- Gemba (SQL) Settings ---
     gemba_sql_server = fields.Char(
         string="SQL Server Host", 
-        config_parameter='gemba.sql_server', # Имя ключа в базе
-        default='AB-AS03'
+        config_parameter='gemba.sql_server',
+        default='ServerName'
     )
     gemba_sql_database = fields.Char(
         string="SQL Database", 
         config_parameter='gemba.sql_database', 
-        default='Connect'
+        default='DBName'
     )
     gemba_sql_user = fields.Char(
         string="SQL User", 
