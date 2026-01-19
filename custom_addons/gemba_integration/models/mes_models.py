@@ -1,6 +1,9 @@
+import pytz
+from datetime import datetime
+from typing import Dict, Any, Optional
 from odoo import models, fields, api
-from typing import Optional, Tuple
 
+# --- 1. Catalog: Machines ---
 class MesWorkcenter(models.Model):
     """
     Extension of Workcenter to support integration with Gemba/VerifySystems.
@@ -19,9 +22,6 @@ class MesWorkcenter(models.Model):
         """
         Finds a workcenter by standard name or external Imatec code.
         Creates a new one if not found.
-        
-        :param machine_name: Raw string from external DB (e.g. 'M1 - IMA3')
-        :return: Workcenter recordset (singleton)
         """
         # 1. Try exact match by name
         machine = self.search([('name', '=', machine_name)], limit=1)
@@ -46,6 +46,7 @@ class MesWorkcenter(models.Model):
         return self.create(vals)
 
 
+# --- 2. Catalog: Alarms ---
 class MesAlarmReason(models.Model):
     _inherit = 'mrp.workcenter.productivity.loss'
 
@@ -66,6 +67,7 @@ class MesAlarmReason(models.Model):
         return reason
 
 
+# --- 3. Document: Shift Report ---
 class MesShiftReport(models.Model):
     _name = 'mes.shift.report'
     _description = 'Machine Shift Production Report'
@@ -95,7 +97,74 @@ class MesShiftReport(models.Model):
             vals['name'] = f"{vals.get('date')} - {vals.get('workcenter_id')}"
         return super().create(vals)
 
+    @api.model
+    def process_external_batch(self, doc_data: Dict[str, Any], clear_existing: bool = False) -> None:
+        """
+        Transactional logic to process a single shift document from external source.
+        """
+        Workcenter = self.env['mrp.workcenter']
+        Loss = self.env['mrp.workcenter.productivity.loss']
+        AlarmLine = self.env['mes.shift.alarm']
 
+        # 1. Shift Mapping
+        shift_map = {
+            '1. Mornings': 'morning', 'Morning': 'morning',
+            '2. Afternoons': 'afternoon', 'Afternoon': 'afternoon',
+            'Night': 'night'
+        }
+        shift_selection = shift_map.get(doc_data['Shift'], 'night')
+
+        # 2. Resolve Machine
+        machine = Workcenter.get_or_create_from_external(doc_data['MachineName'])
+
+        # 3. Find/Create Report
+        report = self.search([
+            ('workcenter_id', '=', machine.id),
+            ('date', '=', doc_data['DocDate']),
+            ('shift_type', '=', shift_selection)
+        ], limit=1)
+
+        if not report:
+            report = self.create({
+                'workcenter_id': machine.id,
+                'date': doc_data['DocDate'],
+                'shift_type': shift_selection
+            })
+
+        # 4. Decide on Update
+        current_alarms = report.alarm_ids
+        incoming_alarms = doc_data['Alarms']
+        
+        should_update = True
+        if current_alarms:
+            if clear_existing or (len(current_alarms) < len(incoming_alarms)):
+                current_alarms.unlink()
+            else:
+                should_update = False
+        
+        # 5. Create Alarms Batch
+        if should_update and incoming_alarms:
+            alarms_to_create = []
+            for alarm_row in incoming_alarms:
+                
+                reason = Loss.get_or_create_by_code(
+                    alarm_row['AlarmCode'], 
+                    alarm_row['Alarm']
+                )
+                
+                alarms_to_create.append({
+                    'report_id': report.id,
+                    'loss_id': reason.id,
+                    'start_time': alarm_row['StartTime'],
+                    'end_time': alarm_row['EndTime'],
+                    'comment': alarm_row['Comment']
+                })
+            
+            if alarms_to_create:
+                AlarmLine.create(alarms_to_create)
+
+
+# --- 4. Lines ---
 class MesShiftAlarm(models.Model):
     _name = 'mes.shift.alarm'
     _description = 'Shift Alarm Line'

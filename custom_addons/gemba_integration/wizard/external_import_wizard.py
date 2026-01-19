@@ -8,7 +8,7 @@ from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
-# --- SQL Constants (Separation of Concerns) ---
+# --- SQL Constants ---
 QUERY_SHIFTS = """
     SELECT 
         Shift.AssetShiftID, 
@@ -100,7 +100,7 @@ class ExternalImportWizard(models.TransientModel):
             
             # 1. Fetch Shifts
             shifts: List[Dict[str, Any]] = []
-            cursor.execute(QUERY_SHIFTS, (start_date, end_date)) # Using constant
+            cursor.execute(QUERY_SHIFTS, (start_date, end_date))
             rows_shifts = cursor.fetchall()
             
             if not rows_shifts:
@@ -125,7 +125,7 @@ class ExternalImportWizard(models.TransientModel):
 
             # 2. Fetch Events
             search_start = min_date - timedelta(days=1)
-            cursor.execute(QUERY_EVENTS, (search_start, max_date)) # Using constant
+            cursor.execute(QUERY_EVENTS, (search_start, max_date))
             rows_events = cursor.fetchall()
             
             events: List[Dict[str, Any]] = []
@@ -158,7 +158,9 @@ class ExternalImportWizard(models.TransientModel):
 
             # 3.2. Merge
             result_data: List[Dict[str, Any]] = []
-            current_time = datetime.now()
+            
+            # Use current Odoo Server time (UTC) for future clamping
+            current_time = fields.Datetime.now() 
 
             for shift in shifts:
                 machine_events = [e for e in events if e['AssetCode'] == shift['AssetCode']]
@@ -166,15 +168,23 @@ class ExternalImportWizard(models.TransientModel):
                 
                 for event in machine_events:
                     raw_end_time = event['CalculatedEndTime']
+                    
+                    # --- FIXED TIME LOGIC ---
                     if not raw_end_time:
-                        raw_end_time = min(shift['ShiftEndTime'], current_time) if shift['ShiftEndTime'] > current_time else shift['ShiftEndTime']
+                        # If shift ended in the past, close event at shift end
+                        if shift['ShiftEndTime'] < current_time:
+                            raw_end_time = shift['ShiftEndTime']
+                        else:
+                            # If shift is still running, close at 'now'
+                            raw_end_time = current_time
                     
                     if (event['StartTime'] < shift['ShiftEndTime']) and (raw_end_time > shift['ShiftStartTime']):
                         start_val = max(event['StartTime'], shift['ShiftStartTime'])
                         end_val = raw_end_time
                         
+                        # Clamp end time to shift end if it spills over
                         if raw_end_time > shift['ShiftEndTime']:
-                            end_val = min(raw_end_time, current_time) if shift['ShiftEndTime'] > current_time else shift['ShiftEndTime']
+                             end_val = shift['ShiftEndTime']
 
                         if end_val > start_val:
                             valid_alarms.append({
@@ -202,67 +212,9 @@ class ExternalImportWizard(models.TransientModel):
 
     def _load_merged_events(self, data_table: List[Dict[str, Any]]) -> None:
         """
-        Refactored to use Model Methods for finding/creating records.
-        Code is now much cleaner and follows 'Fat Model, Thin Controller' pattern.
+        Delegates processing to the Model.
         """
         ReportModel = self.env['mes.shift.report']
-        WorkcenterModel = self.env['mrp.workcenter']
-        LossModel = self.env['mrp.workcenter.productivity.loss']
         
-        shift_map = {
-            '1. Mornings': 'morning', 'Morning': 'morning',
-            '2. Afternoons': 'afternoon', 'Afternoon': 'afternoon',
-            'Night': 'night'
-        }
-
         for doc_row in data_table:
-            shift_selection = shift_map.get(doc_row['Shift'], 'night')
-            
-            # --- REFACTORED: Delegate logic to Model ---
-            machine = WorkcenterModel.get_or_create_from_external(doc_row['MachineName'])
-            
-            # Find Report
-            report = ReportModel.search([
-                ('workcenter_id', '=', machine.id),
-                ('date', '=', doc_row['DocDate']),
-                ('shift_type', '=', shift_selection)
-            ], limit=1)
-            
-            if not report:
-                report = ReportModel.create({
-                    'workcenter_id': machine.id,
-                    'date': doc_row['DocDate'],
-                    'shift_type': shift_selection
-                })
-
-            # Update Alarms
-            current_count = len(report.alarm_ids)
-            incoming_count = len(doc_row['Alarms'])
-            
-            should_update = True
-            if current_count > 0:
-                if self.clear_existing or (current_count < incoming_count):
-                    report.alarm_ids.unlink()
-                else:
-                    should_update = False
-            
-            if should_update:
-                alarms_to_create = []
-                for alarm_data in doc_row['Alarms']:
-                    
-                    # --- REFACTORED: Delegate logic to Model ---
-                    alarm_reason = LossModel.get_or_create_by_code(
-                        alarm_data['AlarmCode'], 
-                        alarm_data['Alarm']
-                    )
-                    
-                    alarms_to_create.append({
-                        'report_id': report.id,
-                        'loss_id': alarm_reason.id,
-                        'start_time': alarm_data['StartTime'],
-                        'end_time': alarm_data['EndTime'],
-                        'comment': alarm_data['Comment']
-                    })
-                
-                if alarms_to_create:
-                    self.env['mes.shift.alarm'].create(alarms_to_create)
+            ReportModel.process_external_batch(doc_row, self.clear_existing)
