@@ -8,12 +8,14 @@
     'data': [
         'security/mes_security.xml',
         'security/ir.model.access.csv',
-        'views/mes_menus.xml',
+        
         'views/mes_dictionaries_views.xml',
         'views/mes_machine_performance_view.xml',
         'views/mes_production_report_view.xml',
         'views/mes_task_view.xml',
         'views/res_config_settings_view.xml',
+        
+        'views/mes_menus.xml',
     ],
     'installable': True,
     'application': True,
