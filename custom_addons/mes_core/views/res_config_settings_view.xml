@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//form" position="inside">
                 
-                <app data-string="Gemba Integration" string="Gemba Integration" name="gemba_integration">
+                <app data-string="Gemba Integration" string="Gemba Integration" name="mes_core">
                     <block title="VerifySystems (SQL Connection)">
                         <setting help="Connection details for external MS SQL Server">
                             <group>

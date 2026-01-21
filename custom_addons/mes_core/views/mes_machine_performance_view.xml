@@ -1,0 +1,94 @@
+<odoo>
+    <record id="view_mes_machine_performance_tree" model="ir.ui.view">
+        <field name="name">mes.machine.performance.tree</field>
+        <field name="model">mes.machine.performance</field>
+        <field name="arch" type="xml">
+            <tree decoration-info="state == 'draft'" decoration-muted="state == 'done'">
+                <field name="date"/>
+                <field name="shift_id"/>
+                <field name="machine_id"/>
+                <field name="name"/>
+                <field name="state" widget="badge" decoration-success="state == 'done'"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_machine_performance_form" model="ir.ui.view">
+        <field name="name">mes.machine.performance.form</field>
+        <field name="model">mes.machine.performance</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <field name="state" widget="statusbar" clickable="1" groups="mes_core.group_mes_manager"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="date"/>
+                            <field name="shift_id"/>
+                        </group>
+                        <group>
+                            <field name="machine_id"/>
+                        </group>
+                    </group>
+                    
+                    <notebook>
+                        <page string="Alarms (Downtime)">
+                            <field name="alarm_ids">
+                                <tree editable="bottom" decoration-danger="duration &gt; 10">
+                                    <field name="start_time"/>
+                                    <field name="end_time"/>
+                                    <field name="loss_id"/>
+                                    <field name="duration" sum="Total Downtime"/>
+                                    <field name="comment"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Rejections (Scrap)">
+                            <field name="rejection_ids">
+                                <tree editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="reason_id"/>
+                                    <field name="qty" sum="Total Scrap"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_mes_machine_performance_search" model="ir.ui.view">
+        <field name="name">mes.machine.performance.search</field>
+        <field name="model">mes.machine.performance</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="machine_id"/>
+                <field name="date"/>
+                <filter string="Today" name="today" domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Machine" name="group_machine" context="{'group_by': 'machine_id'}"/>
+                    <filter string="Shift" name="group_shift" context="{'group_by': 'shift_id'}"/>
+                    <filter string="Date" name="group_date" context="{'group_by': 'date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mes_machine_performance" model="ir.actions.act_window">
+        <field name="name">Machine Performance</field>
+        <field name="res_model">mes.machine.performance</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{'search_default_today': 1}</field>
+    </record>
+</odoo>

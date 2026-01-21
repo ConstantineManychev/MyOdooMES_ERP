@@ -1,0 +1,67 @@
+<odoo>
+    <record id="view_mes_shift_tree" model="ir.ui.view">
+        <field name="name">mes.shift.tree</field>
+        <field name="model">mes.shift</field>
+        <field name="arch" type="xml">
+            <tree editable="bottom">
+                <field name="name"/>
+                <field name="code"/>
+                <field name="start_hour" widget="float_time"/>
+                <field name="duration" widget="float_time"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_mes_shift" model="ir.actions.act_window">
+        <field name="name">Work Shifts</field>
+        <field name="res_model">mes.shift</field>
+        <field name="view_mode">tree</field>
+    </record>
+
+    <record id="view_mes_defect_tree" model="ir.ui.view">
+        <field name="name">mes.defect.tree</field>
+        <field name="model">mes.defect</field>
+        <field name="arch" type="xml">
+            <tree editable="bottom">
+                <field name="name"/>
+                <field name="code"/>
+                <field name="description"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_mes_defect" model="ir.actions.act_window">
+        <field name="name">Defect Types</field>
+        <field name="res_model">mes.defect</field>
+        <field name="view_mode">tree</field>
+    </record>
+
+    <record id="view_mes_rejection_reason_tree" model="ir.ui.view">
+        <field name="name">mes.rejection.reason.tree</field>
+        <field name="model">mes.rejection.reason</field>
+        <field name="arch" type="xml">
+            <tree editable="bottom">
+                <field name="name"/>
+                <field name="code"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_mes_rejection_reason" model="ir.actions.act_window">
+        <field name="name">Rejection Reasons</field>
+        <field name="res_model">mes.rejection.reason</field>
+        <field name="view_mode">tree</field>
+    </record>
+
+    <record id="view_mrp_workcenter_form_inherit_mes" model="ir.ui.view">
+        <field name="name">mrp.workcenter.form.inherit.mes</field>
+        <field name="model">mrp.workcenter</field>
+        <field name="inherit_id" ref="mrp.view_mrp_workcenter_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='group_general']" position="inside">
+                <field name="machine_number"/>
+                <field name="code_imatec"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

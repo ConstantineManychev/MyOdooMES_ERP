@@ -50,7 +50,7 @@ docker-compose up -d --build
 Once the container is running, execute the following command to install the integration module and its dependencies:
 
 ```bash
-docker-compose exec odoo odoo -i gemba_integration -d Odoo --db_host=db --db_user=odoo --db_password=odoo --stop-after-init
+docker-compose exec odoo odoo -i mes_core -d Odoo --db_host=db --db_user=odoo --db_password=odoo --stop-after-init
 ```
 (Note: Replace Odoo with your actual database name if it differs).
 
@@ -94,7 +94,7 @@ Wait for the container to build, then open the "Ports" tab to access Odoo.
 ```bash
 ├── config/                 # Odoo server configuration
 ├── custom_addons/          # Custom modules
-│   └── gemba_integration/  # Main integration module
+│   └── mes_core/  # Main integration module
 │       ├── models/         # Business logic (Fat Models)
 │       ├── wizard/         # Data fetchers (Thin Controllers)
 │       └── views/          # UI definitions (XML)

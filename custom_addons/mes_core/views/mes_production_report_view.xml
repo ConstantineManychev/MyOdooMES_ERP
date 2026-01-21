@@ -1,0 +1,105 @@
+<odoo>
+    <record id="view_mes_production_report_form" model="ir.ui.view">
+        <field name="name">mes.production.report.form</field>
+        <field name="model">mes.production.report</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="date"/>
+                            <field name="shift_id"/>
+                            <field name="machine_id"/>
+                        </group>
+                        <group>
+                            <field name="product_id"/>
+                            <field name="job_number"/>
+                            <field name="start_time"/>
+                            <field name="end_time"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Packers">
+                            <field name="packer_ids">
+                                <tree editable="bottom">
+                                    <field name="employee_id"/>
+                                    <field name="start_time"/>
+                                    <field name="end_time"/>
+                                </tree>
+                            </field>
+                        </page>
+
+                        <page string="Shippers &amp; Outers">
+                            <field name="shipper_ids">
+                                <tree>
+                                    <field name="name"/>
+                                    <field name="product_id"/>
+                                    <field name="qty"/>
+                                </tree>
+                                <form>
+                                    <group>
+                                        <field name="name"/>
+                                        <field name="product_id"/>
+                                        <field name="qty"/>
+                                    </group>
+                                    <separator string="Outers in this Shipper"/>
+                                    <field name="outer_ids">
+                                        <tree editable="bottom">
+                                            <field name="name"/>
+                                            <field name="qty"/>
+                                        </tree>
+                                    </field>
+                                </form>
+                            </field>
+                        </page>
+
+                        <page string="QC &amp; Defects">
+                            <field name="qc_ids">
+                                <tree>
+                                    <field name="check_time"/>
+                                    <field name="checked_by"/>
+                                    <field name="result"/>
+                                </tree>
+                                <form>
+                                    <group>
+                                        <field name="check_time"/>
+                                        <field name="checked_by"/>
+                                        <field name="result"/>
+                                    </group>
+                                    <separator string="Defects Found"/>
+                                    <field name="defect_ids">
+                                        <tree editable="bottom">
+                                            <field name="defect_id"/>
+                                            <field name="qty"/>
+                                            <field name="comment"/>
+                                        </tree>
+                                    </field>
+                                </form>
+                            </field>
+                        </page>
+
+                        <page string="Ingredients">
+                            <field name="ingredient_ids">
+                                <tree editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="lot_number"/>
+                                    <field name="qty_used"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+</odoo>
