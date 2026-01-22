@@ -1,6 +1,6 @@
 # MES Core System for Odoo 17
 
-This project is a comprehensive **Manufacturing Execution System (MES)** module for Odoo 17. It bridges the gap between machine automation (Level 2) and ERP (Level 4), providing tools for OEE tracking, manual production reporting, and shop-floor task management.
+This project is a comprehensive **Manufacturing Execution System (MES)** module for Odoo 17. It bridges the gap between machine automation (Level 2) and ERP (Level 4), providing tools for OEE tracking, manual production reporting, shop-floor task management, and external integrations.
 
 ## 🚀 Key Features
 
@@ -19,16 +19,22 @@ This project is a comprehensive **Manufacturing Execution System (MES)** module 
 * **Quality Control (QC):** Record QC checks and specific **Defects** found during the shift.
 * **Ingredients:** Track raw material batch/lot usage per shift.
 
-### 3. ✅ Task Management
+### 3. ✅ Task Management & MaintainX Sync
 * **Shop-Floor Issues:** Create tasks for maintenance or process issues directly linked to a **Machine**.
-* **Workflow:** `New` -> `Assigned` -> `Done` -> `Confirmed` (by Author).
-* **Notifications:** Integrated with Odoo Chatter for history tracking and team communication.
+* **Two-Way Sync Logic (MaintainX):**
+    * **Import:** Automatically pulls "Open" Work Orders from MaintainX.
+    * **Updates:** Syncs status changes (Open -> In Progress -> Done) and Assignees history.
+    * **Mapping:** Intelligent mapping of Priorities (High/Medium/Low) and Assets (Machines).
+* **History Tracking:** detailed log of status changes and assignee updates.
+* **Workflow:** `Open` -> `On Hold` -> `In Progress` -> `Done` -> `Cancelled`.
+* **Visuals:** Kanban view with priority color coding and MaintainX indicators.
 
-### 4. ⚙️ Configuration & Dictionaries
+### 4. ⚙️ Configuration & Master Data
 * **Work Shifts:** Custom shift schedules (Start time, Duration).
-* **Defect Types:** Standardized list of QC defects.
-* **Rejection Reasons:** Codes for machine scrap.
-* **Machines:** Extended Odoo Workcenters with 'Imatec Code' for external mapping.
+* **Machine Hierarchy:**
+    * **Machines:** Extended Workcenters with 'Imatec Code' and 'MaintainX ID'.
+    * **Streams & Wheels:** Configure sub-components for specific production lines.
+* **Dictionaries:** Standardized lists for **Defect Types**, **Rejection Reasons**, and **Alarms**.
 
 ---
 
@@ -37,7 +43,9 @@ This project is a comprehensive **Manufacturing Execution System (MES)** module 
 * **Odoo Version:** 17.0 (Community/Enterprise)
 * **Language:** Python 3.10, XML
 * **Database:** PostgreSQL 15
-* **External Connection:** `pyodbc` + Microsoft ODBC Driver 17 for SQL Server
+* **External Connections:**
+    * **SQL:** `pyodbc` + Microsoft ODBC Driver 17 (for Gemba/Legacy DB).
+    * **API:** REST API integration with MaintainX.
 * **Containerization:** Docker & Docker Compose
 
 ---
@@ -66,7 +74,9 @@ docker-compose exec odoo odoo -i mes_core -d Odoo --db_host=db --db_user=odoo --
 ### 1. External Database Connection
 Go to MES System -> Configuration -> Settings:
 
-Enter the Host, Database, User, and Password for the legacy SQL Server (Gemba).
+Gemba Integration: Enter SQL Host, Database, User, and Password.
+
+MaintainX Integration: Enter your private API Token.
 
 ### 2. Master Data Setup
 Before importing data, ensure you have configured:
