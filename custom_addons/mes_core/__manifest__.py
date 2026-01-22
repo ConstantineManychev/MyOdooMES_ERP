@@ -8,6 +8,8 @@
     'data': [
         'security/mes_security.xml',
         'security/ir.model.access.csv',
+
+        'data/mes_cron.xml',
         
         'views/mes_dictionaries_views.xml',
         'views/mes_machine_performance_view.xml',

@@ -29,3 +29,14 @@ access_mes_production_subtables_user6,mes.production.subtables.user6,model_mes_p
 
 access_mes_task_user,mes.task.user,model_mes_task,mes_core.group_mes_user,1,1,1,0
 access_mes_task_manager,mes.task.manager,model_mes_task,mes_core.group_mes_manager,1,1,1,1
+access_mes_task_status_history,mes.task.status.history,model_mes_task_status_history,group_mes_user,1,1,1,1
+
+access_mes_external_import_wizard,access_mes_external_import_wizard,model_mes_external_import_wizard,mes_core.group_mes_manager,1,1,1,0
+access_mes_alarm,access_mes_alarm,model_mes_alarm,mes_core.group_mes_user,1,0,0,0
+access_mes_alarm_manager,access_mes_alarm_manager,model_mes_alarm,mes_core.group_mes_manager,1,1,1,1
+
+access_mes_stream_user,access_mes_stream_user,model_mes_stream,mes_core.group_mes_user,1,0,0,0
+access_mes_stream_manager,access_mes_stream_manager,model_mes_stream,mes_core.group_mes_manager,1,1,1,1
+
+access_mes_wheel_user,access_mes_wheel_user,model_mes_wheel,mes_core.group_mes_user,1,0,0,0
+access_mes_wheel_manager,access_mes_wheel_manager,model_mes_wheel,mes_core.group_mes_manager,1,1,1,1

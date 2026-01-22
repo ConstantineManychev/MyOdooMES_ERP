@@ -53,17 +53,18 @@
         <field name="view_mode">tree</field>
     </record>
 
-    <!-- DISABLED: XPath doesn't match MRP Workcenter form structure
+
     <record id="view_mrp_workcenter_form_inherit_mes" model="ir.ui.view">
         <field name="name">mrp.workcenter.form.inherit.mes</field>
         <field name="model">mrp.workcenter</field>
         <field name="inherit_id" ref="mrp.mrp_workcenter_view"/>
         <field name="arch" type="xml">
-            <xpath expr="//group[@name='group_general']" position="inside">
+            <xpath expr="//field[@name='code']" position="after">
                 <field name="machine_number"/>
                 <field name="code_imatec"/>
+                <field name="maintainx_id"/>
             </xpath>
         </field>
     </record>
-    -->
+
 </odoo>

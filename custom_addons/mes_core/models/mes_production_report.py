@@ -73,6 +73,7 @@ class MesQC(models.Model):
 
 class MesQCDefect(models.Model):
     _name = 'mes.production.qc.defect'
+    _description = 'Quality Control Defect'
     
     qc_id = fields.Many2one('mes.production.qc')
     defect_id = fields.Many2one('mes.defect', string='Defect Type')
@@ -81,6 +82,7 @@ class MesQCDefect(models.Model):
 
 class MesIngredient(models.Model):
     _name = 'mes.production.ingredient'
+    _description = 'Production Ingredient/Material Used'
     
     report_id = fields.Many2one('mes.production.report')
     product_id = fields.Many2one('product.product', string='Material', domain=[('detailed_type', '=', 'product')])
