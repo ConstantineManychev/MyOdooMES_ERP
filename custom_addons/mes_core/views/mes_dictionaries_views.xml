@@ -53,6 +53,58 @@
         <field name="view_mode">tree</field>
     </record>
 
+    <record id="view_mes_alarm_tree" model="ir.ui.view">
+        <field name="name">mes.alarm.tree</field>
+        <field name="model">mes.alarm</field>
+        <field name="arch" type="xml">
+            <tree editable="bottom">
+                <field name="name"/>
+                <field name="code"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_mes_alarm" model="ir.actions.act_window">
+        <field name="name">Alarms</field>
+        <field name="res_model">mes.alarm</field>
+        <field name="view_mode">tree</field>
+    </record>
+
+    <record id="view_mes_stream_tree" model="ir.ui.view">
+        <field name="name">mes.stream.tree</field>
+        <field name="model">mes.stream</field>
+        <field name="arch" type="xml">
+            <tree editable="bottom">
+                <field name="stream_number"/>
+                <field name="machine_id"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_mes_stream" model="ir.actions.act_window">
+        <field name="name">Streams</field>
+        <field name="res_model">mes.stream</field>
+        <field name="view_mode">tree</field>
+    </record>
+
+    <record id="view_mes_wheel_tree" model="ir.ui.view">
+        <field name="name">mes.wheel.tree</field>
+        <field name="model">mes.wheel</field>
+        <field name="arch" type="xml">
+            <tree editable="bottom">
+                <field name="wheel_number"/>
+                <field name="stream_id"/>
+                <field name="modules_amount"/>
+                <field name="maintainx_id"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_mes_wheel" model="ir.actions.act_window">
+        <field name="name">Wheels</field>
+        <field name="res_model">mes.wheel</field>
+        <field name="view_mode">tree</field>
+    </record>
 
     <record id="view_mrp_workcenter_form_inherit_mes" model="ir.ui.view">
         <field name="name">mrp.workcenter.form.inherit.mes</field>
@@ -66,5 +118,4 @@
             </xpath>
         </field>
     </record>
-
 </odoo>

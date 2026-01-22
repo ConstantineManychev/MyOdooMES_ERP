@@ -42,14 +42,14 @@ class MesAlarms(models.Model):
     _name = 'mes.alarm'
     _description = 'Alarm'
 
-    name = fields.Char(string='Reason', required=True)
+    name = fields.Char(string='Alarm Name', required=True)
     code = fields.Char(string='Code')
 
 class MesWorkcenter(models.Model):
     _inherit = 'mrp.workcenter'
 
     machine_number = fields.Integer(string='Machine Number')
-    maintainX_id = fields.Integer(string='MaintainX ID', help="ID used in MaintainX system")
+    maintainx_id = fields.Integer(string='MaintainX ID', help="ID used in MaintainX system")
     code_imatec = fields.Char(string='Imatec Name', help="Name used in external DB (e.g. IMA3)")
     
     _sql_constraints = [
@@ -61,13 +61,20 @@ class MesStreams(models.Model):
     _description = 'Stream'
 
     stream_number = fields.Integer(string='Stream Number')
-    machine = fields.Many2one('mes.workcenter', string='Machine')
+    machine_id = fields.Many2one('mrp.workcenter', string='Machine')
+    
+    def name_get(self):
+        result = []
+        for rec in self:
+            name = f"Stream {rec.stream_number} ({rec.machine_id.name})"
+            result.append((rec.id, name))
+        return result
 
 class MesWheels(models.Model):
     _name = 'mes.wheel'
     _description = 'Wheel'
 
     wheel_number = fields.Integer(string='Wheel Number')
-    maintainX_id = fields.Integer(string='MaintainX ID', help="ID used in MaintainX system")
-    stream = fields.Many2one('mes.stream', string='Parent Stream')
+    maintainx_id = fields.Integer(string='MaintainX ID', help="ID used in MaintainX system")
+    stream_id = fields.Many2one('mes.stream', string='Parent Stream')
     modules_amount = fields.Integer(string='Number of Modules')

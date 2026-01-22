@@ -106,7 +106,8 @@ class MesTask(models.Model):
 
     def _process_single_wo(self, wo):
         # 1. Data Extraction
-        wo_id = str(wo.get('id'))
+        wo_id_raw = wo.get('id')
+        wo_id = str(wo_id_raw).strip() if wo_id_raw is not None else ''
         title = wo.get('title', 'No Title')
         desc = wo.get('description', '') or ''
         
@@ -145,7 +146,15 @@ class MesTask(models.Model):
         current_assignees_str = ", ".join(current_assignees_list)
 
         # 2. Search or Create/Update Task
-        task = self.search([('maintainx_id', '=', wo_id)], limit=1)
+        # Try exact match first; if not found, try ilike to tolerate minor format differences
+        task = self.search([('maintainx_id', '=', wo_id)], limit=1) if wo_id else self.search([('maintainx_id', '=', False)], limit=1)
+        if not task and wo_id:
+            task = self.search([('maintainx_id', 'ilike', wo_id)], limit=1)
+
+        if task:
+            _logger.debug(f"Found existing task for MaintainX id={wo_id}: {task.id}")
+        else:
+            _logger.debug(f"No existing task for MaintainX id={wo_id}; will create new.")
 
         vals = {
             'priority': odoo_priority,

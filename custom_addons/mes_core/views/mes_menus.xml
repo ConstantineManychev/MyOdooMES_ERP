@@ -46,6 +46,24 @@
               parent="menu_mes_configuration" 
               action="action_mes_rejection_reason" 
               sequence="40"/>
+
+    <menuitem id="menu_mes_alarms" 
+              name="Alarms" 
+              parent="menu_mes_configuration" 
+              action="action_mes_alarm" 
+              sequence="40"/>
+
+              <menuitem id="menu_mes_stream" 
+              name="Streams" 
+              parent="menu_mes_configuration" 
+              action="action_mes_stream" 
+              sequence="25"/>
+
+    <menuitem id="menu_mes_wheel" 
+              name="Wheels" 
+              parent="menu_mes_configuration" 
+              action="action_mes_wheel" 
+              sequence="26"/>
               
     <menuitem id="menu_mes_settings" 
               name="Settings" 
