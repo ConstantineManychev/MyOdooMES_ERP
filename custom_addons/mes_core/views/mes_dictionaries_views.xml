@@ -54,9 +54,9 @@
         <field name="view_mode">tree</field>
     </record>
 
-    <record id="view_mes_alarm_tree" model="ir.ui.view">
-        <field name="name">mes.alarm.tree</field>
-        <field name="model">mes.alarm</field>
+    <record id="view_mes_event_tree" model="ir.ui.view">
+        <field name="name">mes.event.tree</field>
+        <field name="model">mes.event</field>
         <field name="arch" type="xml">
             <tree editable="bottom">
                 <field name="name"/>
@@ -65,9 +65,9 @@
         </field>
     </record>
 
-    <record id="action_mes_alarm" model="ir.actions.act_window">
-        <field name="name">Alarms</field>
-        <field name="res_model">mes.alarm</field>
+    <record id="action_mes_event" model="ir.actions.act_window">
+        <field name="name">Events</field>
+        <field name="res_model">mes.event</field>
         <field name="view_mode">tree</field>
     </record>
 
