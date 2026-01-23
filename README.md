@@ -2,15 +2,15 @@
 
 This project is a comprehensive **Manufacturing Execution System (MES)** module for Odoo 17. It bridges the gap between machine automation (Level 2) and ERP (Level 4), providing tools for OEE tracking, manual production reporting, shop-floor task management, and external integrations.
 
-## 🚀 Key Features
+##      Key Features
 
-### 1. 🤖 Machine Performance (Automated OEE)
+###   Machine Performance (Automated OEE)
 * **Data Source:** Imports production data from **Gemba / VerifySystems** (MS SQL) and **Beckhoff** PLCs.
 * **Shift Logic:** Automatically maps data to "Morning", "Afternoon", and "Night" shifts based on timestamps.
 * **Downtime & Scrap:** Tracks alarms and rejection reasons mapped to Odoo Availability/Quality Losses.
 * **Smart Merging:** Handles open-ended events and fixes timezone discrepancies between PLC and Odoo.
 
-### 2. 📦 Production Reports (Manual Packing)
+###   Production Reports (Manual Packing)
 * **Digital Shift Report:** Replaces paper logs for packing lines.
 * **Team Tracking:** Log start/end times for **Packers** (linked to HR Employees).
 * **Output Tracking:**
@@ -19,7 +19,7 @@ This project is a comprehensive **Manufacturing Execution System (MES)** module 
 * **Quality Control (QC):** Record QC checks and specific **Defects** found during the shift.
 * **Ingredients:** Track raw material batch/lot usage per shift.
 
-### 3. ✅ Task Management & MaintainX Sync
+###   Task Management & MaintainX Sync
 * **Shop-Floor Issues:** Create tasks for maintenance or process issues directly linked to a **Machine**.
 * **Two-Way Sync Logic (MaintainX):**
     * **Import:** Automatically pulls "Open" Work Orders from MaintainX.
@@ -29,7 +29,7 @@ This project is a comprehensive **Manufacturing Execution System (MES)** module 
 * **Workflow:** `Open` -> `On Hold` -> `In Progress` -> `Done` -> `Cancelled`.
 * **Visuals:** Kanban view with priority color coding and MaintainX indicators.
 
-### 4. ⚙️ Configuration & Master Data
+###   Configuration & Master Data
 * **Work Shifts:** Custom shift schedules (Start time, Duration).
 * **Machine Hierarchy:**
     * **Machines:** Extended Workcenters with 'Imatec Code' and 'MaintainX ID'.
@@ -38,7 +38,7 @@ This project is a comprehensive **Manufacturing Execution System (MES)** module 
 
 ---
 
-## 🛠 Tech Stack
+##    Tech Stack
 
 * **Odoo Version:** 17.0 (Community/Enterprise)
 * **Language:** Python 3.10, XML
@@ -50,19 +50,19 @@ This project is a comprehensive **Manufacturing Execution System (MES)** module 
 
 ---
 
-## 🏗 Installation & Setup
+##    Installation & Setup
 
 ### Prerequisites
 * Docker Desktop & Git
 * Working knowledge of Docker Compose
 
-### 1. Clone & Build
+###  Clone & Build
 ```bash
 git clone [https://github.com/your-repo/MyOdooMES_ERP.git](https://github.com/your-repo/MyOdooMES_ERP.git)
 cd MyOdooMES_ERP
 docker-compose up -d --build
 ```
-### 2. Install the Module
+###  Install the Module
 Since the module structure has been updated to mes_core, use the following command to install it into a running container:
 
 ```bash
@@ -70,22 +70,22 @@ docker-compose exec odoo odoo -i mes_core -d Odoo --db_host=db --db_user=odoo --
 ```
 (Note: If you are reinstalling after a refactor, you may need to update the module list first: docker-compose exec odoo odoo -u base ...)
 
-## 💻 Configuration Guide
-### 1. External Database Connection
+##    Configuration Guide
+###  External Database Connection
 Go to MES System -> Configuration -> Settings:
 
 Gemba Integration: Enter SQL Host, Database, User, and Password.
 
 MaintainX Integration: Enter your private API Token.
 
-### 2. Master Data Setup
+###  Master Data Setup
 Before importing data, ensure you have configured:
 
 Machines: Set the Imatec Code (e.g., IMA3) on relevant Workcenters.
 
 Shifts: Define your standard shifts (Morning/Night).
 
-## 📂 Project Structure
+##    Project Structure
 Plaintext
 
 ```text
@@ -104,5 +104,5 @@ custom_addons/
     └── security/                       # Access Rights (User/Manager)
 ```
 
-## 📜 License
+##    License
 LGPL-3
