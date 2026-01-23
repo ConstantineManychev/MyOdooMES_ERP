@@ -25,7 +25,7 @@ class MesTask(models.Model):
     description = fields.Html(string='Description')
     
     maintainx_id = fields.Char(string="MaintainX ID", readonly=True, copy=False, index=True)
-    
+    maintainx_created_at = fields.Datetime(string="MX Created At", readonly=True)
     maintainx_assignees_history = fields.Text(string="Assignees History (MX)", readonly=True)
 
     author_id = fields.Many2one('res.users', string='Author', default=lambda self: self.env.user, readonly=True)

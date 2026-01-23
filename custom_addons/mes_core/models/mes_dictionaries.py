@@ -1,6 +1,6 @@
 from odoo import models, fields, api
 
-class MesShift(models.Model):
+class MesShifts(models.Model):
     _name = 'mes.shift'
     _description = 'Work Shifts'
     
@@ -23,7 +23,7 @@ class MesShift(models.Model):
             else:
                 shift.duration = 24.0 - shift.start_hour + shift.end_hour
 
-class MesDefect(models.Model):
+class MesDefects(models.Model):
     _name = 'mes.defect'
     _description = 'QC Defect Types'
     
@@ -38,11 +38,11 @@ class MesRejectionReason(models.Model):
     name = fields.Char(string='Reason', required=True)
     code = fields.Char(string='Code')
 
-class MesAlarms(models.Model):
-    _name = 'mes.alarm'
-    _description = 'Alarm'
+class MesEvents(models.Model):
+    _name = 'mes.event'
+    _description = 'Event'
 
-    name = fields.Char(string='Alarm Name', required=True)
+    name = fields.Char(string='Event Name', required=True)
     code = fields.Char(string='Code')
 
 class MesWorkcenter(models.Model):
@@ -78,3 +78,8 @@ class MesWheels(models.Model):
     maintainx_id = fields.Integer(string='MaintainX ID', help="ID used in MaintainX system")
     stream_id = fields.Many2one('mes.stream', string='Parent Stream')
     modules_amount = fields.Integer(string='Number of Modules')
+
+class MesEmployee(models.Model):
+    _inherit = 'hr.employee'
+
+    maintainx_id = fields.Char(string='MaintainX ID', help="User ID from MaintainX system")

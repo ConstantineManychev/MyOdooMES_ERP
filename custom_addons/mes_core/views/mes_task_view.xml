@@ -13,7 +13,6 @@
                        decoration-success="priority == 'low'"/>
                 <field name="machine_id"/>
                 <field name="name"/>
-                <field name="maintainx_current_assignee" string="MX Assignee"/>
                 <field name="maintainx_created_at"/>
                 <field name="state" widget="badge" 
                        decoration-info="state == 'new'" 
@@ -30,8 +29,7 @@
         <field name="arch" type="xml">
             <kanban default_group_by="state" class="o_kanban_small_column">
                 <field name="name"/>
-                <field name="user_id"/>
-                <field name="machine_id"/>
+                <field name="user_id"/> <field name="machine_id"/>
                 <field name="state"/>
                 <field name="priority"/>
                 <field name="maintainx_id"/>
@@ -77,13 +75,11 @@
                         <group string="Main Info">
                             <field name="machine_id"/>
                             <field name="priority" widget="radio" options="{'horizontal': true}"/>
-                            <field name="user_id"/>
-                        </group>
+                            <field name="assigned_id"/> </group>
                         <group string="MaintainX Sync">
                             <field name="maintainx_id"/>
                             <field name="maintainx_created_at"/>
-                            <field name="maintainx_current_assignee"/>
-                        </group>
+                            </group>
                     </group>
                     <notebook>
                         <page string="Description">
@@ -117,5 +113,4 @@
         <field name="view_mode">tree,kanban,form</field>
         <field name="context">{'search_default_state': 'new'}</field>
     </record>
-    
-    </odoo>
+</odoo>
