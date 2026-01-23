@@ -7,19 +7,19 @@
                   decoration-warning="priority == 'medium'" 
                   decoration-success="priority == 'low'"
                   decoration-muted="state == 'done'">
-                <field name="name"/>
-                <field name="machine_id"/>
-                <field name="maintainx_current_assignee" string="MX Assignee"/>
                 <field name="priority" widget="badge" 
                        decoration-danger="priority == 'high'" 
                        decoration-warning="priority == 'medium'" 
                        decoration-success="priority == 'low'"/>
+                <field name="machine_id"/>
+                <field name="name"/>
+                <field name="maintainx_current_assignee" string="MX Assignee"/>
+                <field name="maintainx_created_at"/>
                 <field name="state" widget="badge" 
                        decoration-info="state == 'new'" 
                        decoration-warning="state == 'on_hold'"
                        decoration-primary="state == 'assigned'" 
-                       decoration-success="state == 'done'"/>
-                <field name="maintainx_created_at"/>
+                       decoration-success="state == 'done'"/>          
             </tree>
         </field>
     </record>

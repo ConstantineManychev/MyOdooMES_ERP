@@ -24,21 +24,15 @@ class MesTask(models.Model):
     name = fields.Char(string='Task Title', required=True)
     description = fields.Html(string='Description')
     
-    # === MaintainX Data ===
     maintainx_id = fields.Char(string="MaintainX ID", readonly=True, copy=False, index=True)
-    maintainx_created_at = fields.Datetime(string="MX Created At", readonly=True)
     
-    # Assignees
-    maintainx_current_assignee = fields.Char(string="Current Assignee (MX)")
     maintainx_assignees_history = fields.Text(string="Assignees History (MX)", readonly=True)
 
-    # === Odoo Fields ===
     author_id = fields.Many2one('res.users', string='Author', default=lambda self: self.env.user, readonly=True)
-    user_id = fields.Many2one('res.users', string='Assigned To (Odoo)', tracking=True)
+    assigned_id = fields.Many2one('hr.employee', string='Assigned To', tracking=True)
     
     machine_id = fields.Many2one('mrp.workcenter', string='Machine', tracking=True)
     
-    # Update State
     state = fields.Selection([
         ('new', 'Open'),
         ('on_hold', 'On Hold'),
@@ -47,19 +41,25 @@ class MesTask(models.Model):
         ('cancel', 'Cancelled')
     ], string='Status', default='new', tracking=True)
 
-    # Priority
     priority = fields.Selection([
         ('low', 'Low'),
         ('medium', 'Medium'),
         ('high', 'High')
     ], string='Priority', default='low', tracking=True)
 
-    # Status History Table
-    status_history_ids = fields.One2many('mes.task.status.history', 'task_id', string="Status History")
+    parent_id = fields.Many2one('mes.task', string="Parent Task", ondelete='cascade', index=True)
+    child_ids = fields.One2many('mes.task', 'parent_id', string="Subtasks")
 
-    # ---------------------------------------------------------
-    # API CONFIG
-    # ---------------------------------------------------------
+    def action_open_task(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'mes.task',
+            'view_mode': 'form',
+            'res_id': self.id,
+            'target': 'current',
+        }
+
     def _get_maintainx_config(self):
         params = self.env['ir.config_parameter'].sudo()
         token = params.get_param('gemba.maintainx_token')
@@ -74,11 +74,8 @@ class MesTask(models.Model):
         }
         return base_url, headers
 
-    # ---------------------------------------------------------
-    # SYNC LOGIC
-    # ---------------------------------------------------------
     @api.model
-    def sync_tasks_from_maintainx(self):
+    def load_tasks_from_maintainx(self):
         _logger.info(">>> STARTING MaintainX Sync (Advanced)...")
         
         try:
@@ -87,7 +84,7 @@ class MesTask(models.Model):
             return
 
         endpoint = f"{base_url}/workorders"
-        params = {'limit': 50}
+        params = {'limit': 200}
 
         try:
             response = requests.get(endpoint, headers=headers, params=params, timeout=10)
@@ -105,17 +102,14 @@ class MesTask(models.Model):
             _logger.error(f"Sync Error: {e}")
 
     def _process_single_wo(self, wo):
-        # 1. Data Extraction
         wo_id_raw = wo.get('id')
         wo_id = str(wo_id_raw).strip() if wo_id_raw is not None else ''
         title = wo.get('title', 'No Title')
         desc = wo.get('description', '') or ''
         
-        # Status
         mx_status = str(wo.get('status', '')).upper() # OPEN, DONE, IN_PROGRESS, ON_HOLD
         odoo_state = self._map_status(mx_status)
         
-        # Created At
         created_at_str = wo.get('createdAt')
         created_at = None
         if created_at_str:
@@ -124,14 +118,11 @@ class MesTask(models.Model):
             except:
                 pass
 
-        # Updated At
         updated_at_str = wo.get('updatedAt')
 
-        # Priority
         mx_priority = str(wo.get('priority', 'LOW')).upper()
         odoo_priority = self._map_priority(mx_priority)
 
-        # MAchine (Asset)
         asset_data = wo.get('asset') or {}
         machine_name = asset_data.get('name')
         machine_id = False
@@ -140,13 +131,22 @@ class MesTask(models.Model):
             if machine:
                 machine_id = machine.id
 
-        # Assignees
         assignees_data = wo.get('assignees', [])
-        current_assignees_list = [str(a.get('id', 'Unknown')) for a in assignees_data if a.get('type') == 'USER']
+        current_assignees_list = []
+        employee_id = False 
+
+        for a in assignees_data:
+            if a.get('type') == 'USER':
+                mx_user_id = str(a.get('id', 'Unknown'))
+                current_assignees_list.append(mx_user_id)
+                
+                if not employee_id and mx_user_id != 'Unknown':
+                    found_employee = self.env['hr.employee'].search([('maintainx_id', '=', mx_user_id)], limit=1)
+                    if found_employee:
+                        employee_id = found_employee.id
+
         current_assignees_str = ", ".join(current_assignees_list)
 
-        # 2. Search or Create/Update Task
-        # Try exact match first; if not found, try ilike to tolerate minor format differences
         task = self.search([('maintainx_id', '=', wo_id)], limit=1) if wo_id else self.search([('maintainx_id', '=', False)], limit=1)
         if not task and wo_id:
             task = self.search([('maintainx_id', 'ilike', wo_id)], limit=1)
@@ -157,16 +157,16 @@ class MesTask(models.Model):
             _logger.debug(f"No existing task for MaintainX id={wo_id}; will create new.")
 
         vals = {
-            'priority': odoo_priority,
-            'maintainx_current_assignee': current_assignees_str,
+            'priority': odoo_priority
         }
+
+        if employee_id:
+            vals['assigned_id'] = employee_id
         
-        # if machine found, link it
         if machine_id:
             vals['machine_id'] = machine_id
 
         if not task:
-            # === Create ===
             _logger.info(f"Creating Task {wo_id}")
             vals.update({
                 'name': title,
@@ -177,7 +177,7 @@ class MesTask(models.Model):
                 'maintainx_assignees_history': f"{fields.Datetime.now()}: {current_assignees_str}\n"
             })
             new_task = self.create(vals)
-            # Record initial status in history
+
             self.env['mes.task.status.history'].create({
                 'task_id': new_task.id,
                 'status': mx_status,
@@ -185,29 +185,23 @@ class MesTask(models.Model):
             })
 
         else:
-            # === Update ===
-            
-            # If status changed, update and log history
             if task.state != odoo_state:
                 _logger.info(f"Updating status for {wo_id}: {task.state} -> {odoo_state}")
                 vals['state'] = odoo_state
                 
-                # Add to status history
                 self.env['mes.task.status.history'].create({
                     'task_id': task.id,
                     'status': mx_status,
                     'change_date': datetime.now()
                 })
 
-            # Update description and title if changed
-            if task.maintainx_current_assignee != current_assignees_str:
+            if task.assigned_id != employee_id:
                 history_line = f"{fields.Datetime.now()}: {current_assignees_str}\n"
                 vals['maintainx_assignees_history'] = (task.maintainx_assignees_history or "") + history_line
 
             task.write(vals)
 
     def _map_status(self, status):
-        """Map MaintainX status to Odoo state"""
         if status == 'OPEN':
             return 'new'
         elif status == 'ON_HOLD':
@@ -219,14 +213,12 @@ class MesTask(models.Model):
         return 'new'
 
     def _map_priority(self, priority):
-        """Map MaintainX priority to Odoo"""
         if priority == 'HIGH':
             return 'high'
         elif priority == 'MEDIUM':
             return 'medium'
         return 'low'
 
-    # Sending logic to MaintainX (not implemented)
     def action_send_to_maintainx(self):
         self.ensure_one()
         # ... TODO: Sending logic here ...
