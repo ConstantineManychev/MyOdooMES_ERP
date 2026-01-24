@@ -16,6 +16,7 @@ services:
       - db
     ports:
       - "8069:8069"
+      - "5678:5678"
     volumes:
       - ./config:/etc/odoo
       - ./custom_addons:/mnt/extra-addons 
@@ -25,3 +26,4 @@ services:
       - USER=odoo
       - PASSWORD=odoo
     restart: unless-stopped
+    command: python3 -m debugpy --listen 0.0.0.0:5678 /usr/bin/odoo -c /etc/odoo/odoo.conf
