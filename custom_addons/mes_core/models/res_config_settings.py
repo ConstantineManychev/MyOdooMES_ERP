@@ -28,3 +28,13 @@ class ResConfigSettings(models.TransientModel):
         string="MaintainX API Token",
         config_parameter='gemba.maintainx_token'
     )
+
+    # --- Stock SMS. Error fix ---
+    stock_move_sms_validation = fields.Boolean(
+        string="SMS Validation for Stock Moves"
+    )
+
+    stock_sms_confirmation_template_id = fields.Many2one(
+            'mail.template',
+            string="SMS Confirmation Template"
+        )
