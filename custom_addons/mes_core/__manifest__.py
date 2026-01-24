@@ -16,6 +16,7 @@
         'views/mes_production_report_view.xml',
         'views/mes_task_view.xml',
         'views/res_config_settings_view.xml',
+        'views/hr_employee_view.xml',
         
         'views/mes_menus.xml',
     ],

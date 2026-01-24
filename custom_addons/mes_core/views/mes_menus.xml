@@ -47,10 +47,10 @@
               action="action_mes_rejection_reason" 
               sequence="40"/>
 
-    <menuitem id="menu_mes_alarms" 
-              name="Alarms" 
+    <menuitem id="menu_mes_events" 
+              name="Events" 
               parent="menu_mes_configuration" 
-              action="action_mes_alarm" 
+              action="action_mes_event" 
               sequence="40"/>
 
               <menuitem id="menu_mes_stream" 
@@ -64,6 +64,12 @@
               parent="menu_mes_configuration" 
               action="action_mes_wheel" 
               sequence="26"/>
+              
+    <menuitem id="menu_mes_employees" 
+              name="Employees" 
+              parent="menu_mes_configuration" 
+              action="action_mes_config_employees" 
+              sequence="100"/>
               
     <menuitem id="menu_mes_settings" 
               name="Settings" 

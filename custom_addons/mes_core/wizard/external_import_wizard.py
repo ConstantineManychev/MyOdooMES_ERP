@@ -197,7 +197,7 @@ class ExternalImportWizard(models.TransientModel):
                 result_data.append({
                     'MachineName': shift['MachineName'],
                     'DocDate': shift['ShiftDate'],
-                    'ExternalShiftName': shift['ShiftName'], # Pass raw name to helper
+                    'ExternalShiftName': shift['ShiftName'],
                     'Alarms': valid_alarms
                 })
                     
@@ -217,13 +217,13 @@ class ExternalImportWizard(models.TransientModel):
         AlarmModel = self.env['mes.performance.alarm']
         
         for row in data:
-            # 1. Resolve Machine (using our custom method)
+            # Resolve Machine (using our custom method)
             machine = WorkcenterModel.get_or_create_from_external(row['MachineName'])
             
-            # 2. Resolve Shift
+            # Resolve Shift
             shift = self._find_shift_by_external_name(row['ExternalShiftName'])
             
-            # 3. Find or Create Header Document
+            # Find or Create Header Document
             performance_doc = PerformanceModel.search([
                 ('machine_id', '=', machine.id),
                 ('date', '=', row['DocDate']),
@@ -238,7 +238,7 @@ class ExternalImportWizard(models.TransientModel):
                     'state': 'draft'
                 })
 
-            # 4. Process Alarms
+            # Alarms
             existing_count = len(performance_doc.alarm_ids)
             incoming_count = len(row['Alarms'])
             
@@ -247,7 +247,7 @@ class ExternalImportWizard(models.TransientModel):
                 if self.clear_existing or (existing_count < incoming_count):
                     performance_doc.alarm_ids.unlink() # Clean old lines
                 else:
-                    should_update = False # Do not overwrite if we have more data locally
+                    should_update = False
             
             if should_update and row['Alarms']:
                 alarms_to_create = []
@@ -275,13 +275,8 @@ class ExternalImportWizard(models.TransientModel):
                     AlarmModel.create(alarms_to_create)
 
     def _find_shift_by_external_name(self, external_name: str):
-        """
-        Maps Gemba strings to Odoo mes.shift records.
-        """
         ShiftModel = self.env['mes.shift']
         
-        # Mapping Logic: External String -> Odoo Search Term
-        # Adjust these keys based on what exactly comes from SQL
         mapping = {
             '1. Mornings': 'Morning',
             'Morning': 'Morning',
@@ -291,11 +286,10 @@ class ExternalImportWizard(models.TransientModel):
             '3. Nights': 'Night'
         }
         
-        target_name = mapping.get(external_name, 'Morning') # Default to Morning if unknown
+        target_name = mapping.get(external_name, 'Morning')
         
         shift = ShiftModel.search([('name', '=', target_name)], limit=1)
         if not shift:
-            # Fallback: create if not exists to prevent crash
             shift = ShiftModel.create({'name': target_name})
             
         return shift
