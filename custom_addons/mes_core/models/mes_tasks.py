@@ -36,20 +36,24 @@ class MesTask(models.Model):
     
     state = fields.Selection([
         ('new', 'Open'),
-        ('on_hold', 'On Hold'),
         ('assigned', 'In Progress'),
+        ('on_hold', 'On Hold'),
         ('done', 'Done'),
         ('cancel', 'Cancelled')
-    ], string='Status', default='new', tracking=True)
+    ], string='Status', default='new', tracking=True, group_expand='_expand_states')
 
     priority = fields.Selection([
-        ('low', 'Low'),
-        ('medium', 'Medium'),
-        ('high', 'High')
-    ], string='Priority', default='low', tracking=True)
+        ('0', 'Low'),
+        ('1', 'Medium'),
+        ('2', 'High')
+    ], string='Priority', default='0', tracking=True)
 
     parent_id = fields.Many2one('mes.task', string="Parent Task", ondelete='cascade', index=True)
     child_ids = fields.One2many('mes.task', 'parent_id', string="Subtasks")
+
+    @api.model
+    def _expand_states(self, states, domain, order):
+        return ['new', 'assigned', 'on_hold', 'done']
 
     def action_open_task(self):
         self.ensure_one()
@@ -95,12 +99,16 @@ class MesTask(models.Model):
             workorders = data.get('workOrders') or data.get('items') or []
             
             _logger.info(f"Processing {len(workorders)} work orders...")
-
-            for wo in workorders:
-                self._process_single_wo(wo)
-
         except Exception as e:
             _logger.error(f"Sync Error: {e}")
+
+        for wo in workorders:
+            try:
+                with self.env.cr.savepoint():
+                    self._process_single_wo(wo)
+            except Exception as e:
+                wo_id = wo.get('id', 'Unknown')
+                _logger.error(f"SKIP WorkOrder {wo_id} due to error: {e}")
 
     def _process_single_wo(self, wo):
         wo_id_raw = wo.get('id')
@@ -115,8 +123,10 @@ class MesTask(models.Model):
         created_at = None
         if created_at_str:
             try:
-                created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
-            except:
+                dt_aware = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                created_at = dt_aware.replace(tzinfo=None)
+            except Exception as e:
+                _logger.warning(f"Date parsing error for {wo_id}: {e}")
                 pass
 
         updated_at_str = wo.get('updatedAt')
@@ -124,11 +134,10 @@ class MesTask(models.Model):
         mx_priority = str(wo.get('priority', 'LOW')).upper()
         odoo_priority = self._map_priority(mx_priority)
 
-        asset_data = wo.get('asset') or {}
-        machine_name = asset_data.get('name')
+        asset_data = wo.get('assetId') or {}
         machine_id = False
-        if machine_name:
-            machine = self.env['mrp.workcenter'].search([('name', '=', machine_name)], limit=1)
+        if asset_data:
+            machine = self.env['mrp.workcenter'].search([('maintainx_id', '=', asset_data)], limit=1)
             if machine:
                 machine_id = machine.id
 
@@ -214,11 +223,12 @@ class MesTask(models.Model):
         return 'new'
 
     def _map_priority(self, priority):
+        priority = str(priority).upper()
         if priority == 'HIGH':
-            return 'high'
+            return '2'
         elif priority == 'MEDIUM':
-            return 'medium'
-        return 'low'
+            return '1'
+        return '0'
 
     def action_send_to_maintainx(self):
         self.ensure_one()

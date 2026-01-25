@@ -27,11 +27,12 @@ class MesMachinePerformance(models.Model):
         ('uniq_report', 'unique(machine_id, date, shift_id)', 'Report for this shift already exists!')
     ]
 
-    @api.model
-    def create(self, vals):
-        if vals.get('name', 'New') == 'New':
-            vals['name'] = f"PERF/{vals.get('date')}/{vals.get('machine_id')}"
-        return super().create(vals)
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('name', 'New') == 'New':
+                vals['name'] = f"PERF/{vals.get('date')}/{vals.get('machine_id')}"
+        return super().create(vals_list)
 
 class MesPerformanceAlarm(models.Model):
     _name = 'mes.performance.alarm'
