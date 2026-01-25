@@ -1,79 +1,79 @@
 <odoo>
     <menuitem id="menu_mes_root" name="MES System" web_icon="mrp,static/description/icon.png"/>
 
-    <menuitem id="menu_mes_operations" name="Operations" parent="menu_mes_root" sequence="10"/>
+    <menuitem id="menu_mes_documents" name="Documents" parent="menu_mes_root" sequence="10"/>
 
     <menuitem id="menu_mes_machine_performance" 
               name="Machine Performance" 
-              parent="menu_mes_operations" 
+              parent="menu_mes_documents" 
               action="action_mes_machine_performance" 
               sequence="10"/>
 
     <menuitem id="menu_mes_production_report" 
               name="Production Reports" 
-              parent="menu_mes_operations" 
+              parent="menu_mes_documents" 
               action="action_mes_production_report" 
               sequence="20"/>
 
     <menuitem id="menu_mes_task" 
               name="Tasks" 
-              parent="menu_mes_operations" 
+              parent="menu_mes_documents" 
               action="action_mes_task" 
               sequence="30"/>
 
-    <menuitem id="menu_mes_configuration" name="Configuration" parent="menu_mes_root" sequence="90" groups="mes_core.group_mes_manager"/>
+    <menuitem id="menu_mes_catalogues" name="Catalogues" parent="menu_mes_root" sequence="90" groups="mes_core.group_mes_manager"/>
 
     <menuitem id="menu_mes_shift" 
               name="Shifts" 
-              parent="menu_mes_configuration" 
+              parent="menu_mes_catalogues" 
               action="action_mes_shift" 
               sequence="10"/>
 
     <menuitem id="menu_mes_workcenters" 
               name="Machines" 
-              parent="menu_mes_configuration" 
+              parent="menu_mes_catalogues" 
               action="mrp.mrp_workcenter_action" 
               sequence="20"/>
 
     <menuitem id="menu_mes_defect" 
               name="Defect Types" 
-              parent="menu_mes_configuration" 
+              parent="menu_mes_catalogues" 
               action="action_mes_defect" 
               sequence="30"/>
     
     <menuitem id="menu_mes_rejection_reason" 
               name="Rejection Reasons" 
-              parent="menu_mes_configuration" 
+              parent="menu_mes_catalogues" 
               action="action_mes_rejection_reason" 
               sequence="40"/>
 
     <menuitem id="menu_mes_events" 
               name="Events" 
-              parent="menu_mes_configuration" 
+              parent="menu_mes_catalogues" 
               action="action_mes_event" 
               sequence="40"/>
 
               <menuitem id="menu_mes_stream" 
               name="Streams" 
-              parent="menu_mes_configuration" 
+              parent="menu_mes_catalogues" 
               action="action_mes_stream" 
               sequence="25"/>
 
     <menuitem id="menu_mes_wheel" 
               name="Wheels" 
-              parent="menu_mes_configuration" 
+              parent="menu_mes_catalogues" 
               action="action_mes_wheel" 
               sequence="26"/>
               
     <menuitem id="menu_mes_employees" 
               name="Employees" 
-              parent="menu_mes_configuration" 
+              parent="menu_mes_catalogues" 
               action="action_mes_config_employees" 
               sequence="100"/>
               
     <menuitem id="menu_mes_settings" 
               name="Settings" 
-              parent="menu_mes_configuration" 
+              parent="menu_mes_catalogues" 
               action="action_mes_config_settings" 
               sequence="100"/>
 </odoo>
