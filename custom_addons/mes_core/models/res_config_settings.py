@@ -3,7 +3,6 @@ from odoo import fields, models
 class ResConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
 
-    # --- Gemba (SQL) Settings ---
     gemba_sql_server = fields.Char(
         string="SQL Server Host", 
         config_parameter='gemba.sql_server',
@@ -23,7 +22,6 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='gemba.sql_password'
     )
 
-    # --- MaintainX (API) Settings ---
     maintainx_api_token = fields.Char(
         string="MaintainX API Token",
         config_parameter='gemba.maintainx_token'

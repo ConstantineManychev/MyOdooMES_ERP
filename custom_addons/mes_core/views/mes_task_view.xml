@@ -50,6 +50,7 @@
                 <field name="machine_id"/>
                 <field name="name"/>
                 <field name="maintainx_created_at"/>
+                <field name="assigned_id"/>
                 <field name="state" widget="badge" 
                        decoration-info="state == 'new'" 
                        decoration-warning="state == 'on_hold'"

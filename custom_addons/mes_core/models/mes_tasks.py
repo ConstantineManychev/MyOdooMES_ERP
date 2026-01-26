@@ -6,6 +6,21 @@ from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
+_STATUS_MAPPING = {
+    'OPEN': 'new',
+    'IN_PROGRESS': 'assigned',
+    'ON_HOLD': 'on_hold',
+    'DONE': 'done',
+    'CANCELLED': 'cancel',
+    'COMPLETED': 'done',
+}
+
+_PRIORITY_MAPPING = {
+    'HIGH': '2',
+    'MEDIUM': '1',
+    'LOW': '0',
+}
+
 class MesTaskStatusHistory(models.Model):
     _name = 'mes.task.status.history'
     _description = 'Task Status History'
@@ -81,7 +96,7 @@ class MesTask(models.Model):
 
     @api.model
     def load_tasks_from_maintainx(self):
-        _logger.info(">>> STARTING MaintainX Sync (Advanced)...")
+        _logger.info(">>> Starting load_tasks_from_maintainx...")
         
         try:
             base_url, headers = self._get_maintainx_config()
@@ -105,19 +120,28 @@ class MesTask(models.Model):
         for wo in workorders:
             try:
                 with self.env.cr.savepoint():
-                    self._process_single_wo(wo)
+                    wo_id = wo.get('id', 'Unknown')
+                    self._process_single_wo(self._get_by_id('workOrders', wo_id))
             except Exception as e:
                 wo_id = wo.get('id', 'Unknown')
                 _logger.error(f"SKIP WorkOrder {wo_id} due to error: {e}")
 
     def _process_single_wo(self, wo):
+        _logger.info("wo: %s", wo)
         wo_id_raw = wo.get('id')
         wo_id = str(wo_id_raw).strip() if wo_id_raw is not None else ''
+        if not wo_id:
+            _logger.warning("WorkOrder has no ID")
+            return
+        
         title = wo.get('title', 'No Title')
         desc = wo.get('description', '') or ''
         
-        mx_status = str(wo.get('status', '')).upper() # OPEN, DONE, IN_PROGRESS, ON_HOLD
+        mx_status = str(wo.get('status', '')).upper().strip()
         odoo_state = self._map_status(mx_status)
+
+        mx_priority = str(wo.get('priority', 'LOW')).upper().strip()
+        odoo_priority = self._map_priority(mx_priority)
         
         created_at_str = wo.get('createdAt')
         created_at = None
@@ -131,29 +155,22 @@ class MesTask(models.Model):
 
         updated_at_str = wo.get('updatedAt')
 
-        mx_priority = str(wo.get('priority', 'LOW')).upper()
-        odoo_priority = self._map_priority(mx_priority)
+        machine_id = self._get_machine_from_asset(wo.get('asset') or {})
 
-        asset_data = wo.get('assetId') or {}
-        machine_id = False
-        if asset_data:
-            machine = self.env['mrp.workcenter'].search([('maintainx_id', '=', asset_data)], limit=1)
-            if machine:
-                machine_id = machine.id
-
-        assignees_data = wo.get('assignees', [])
+        assignee_ids = wo.get('assigneeIds', [])
         current_assignees_list = []
         employee_id = False 
 
-        for a in assignees_data:
-            if a.get('type') == 'USER':
-                mx_user_id = str(a.get('id', 'Unknown'))
-                current_assignees_list.append(mx_user_id)
-                
-                if not employee_id and mx_user_id != 'Unknown':
-                    found_employee = self.env['hr.employee'].search([('maintainx_id', '=', mx_user_id)], limit=1)
-                    if found_employee:
-                        employee_id = found_employee.id
+        _logger.info("assignee_ids: %s", assignee_ids)
+
+        for mx_user_id_raw in assignee_ids:
+            mx_user_id = str(mx_user_id_raw) 
+            current_assignees_list.append(mx_user_id)
+            _logger.info("mx_user_id_raw: %s", mx_user_id_raw)
+            if not employee_id:
+                found_employee = self._get_or_create_employee(mx_user_id)
+                if found_employee:
+                    employee_id = found_employee.id
 
         current_assignees_str = ", ".join(current_assignees_list)
 
@@ -162,7 +179,7 @@ class MesTask(models.Model):
             task = self.search([('maintainx_id', 'ilike', wo_id)], limit=1)
 
         if task:
-            _logger.debug(f"Found existing task for MaintainX id={wo_id}: {task.id}")
+            _logger.debug(f"Existing task for MaintainX id={wo_id}: {task.id}")
         else:
             _logger.debug(f"No existing task for MaintainX id={wo_id}; will create new.")
 
@@ -211,24 +228,109 @@ class MesTask(models.Model):
 
             task.write(vals)
 
+    def _get_or_create_employee(self, mx_user_id):
+        if not mx_user_id or str(mx_user_id) == 'Unknown':
+            return False
+        
+        mx_user_id = str(mx_user_id)
+
+        employee = self._find_employee_by_mx_id(mx_user_id)
+        if employee:
+            return employee
+
+        _logger.info(f"Employee {mx_user_id} not found by ID. Fetching info from API...")
+        user_data = self._get_by_id('users', mx_user_id)
+        
+        if not user_data:
+            _logger.warning(f"Could not fetch data for User ID {mx_user_id}")
+            return False
+
+        employee = self._find_employee_by_name(user_data)
+        if employee:
+            employee.write({'maintainx_id': mx_user_id})
+            _logger.info(f"Linked existing employee '{employee.name}' to MaintainX ID {mx_user_id}")
+            return employee
+
+        return self._create_mx_employee(user_data, mx_user_id)
+
+    def _find_employee_by_mx_id(self, mx_user_id):
+        return self.env['hr.employee'].search([('maintainx_id', '=', mx_user_id)], limit=1)
+
+    def _find_employee_by_name(self, assignee_data):
+        first_name = assignee_data.get('firstName', '').strip()
+        last_name = assignee_data.get('lastName', '').strip()
+        
+        full_name = f"{first_name} {last_name}".strip()
+        
+        if not full_name:
+            return False
+
+        return self.env['hr.employee'].search([('name', 'ilike', full_name)], limit=1)
+
+    def _create_mx_employee(self, assignee_data, mx_user_id):
+        first_name = assignee_data.get('firstName', '').strip()
+        last_name = assignee_data.get('lastName', '').strip()
+        full_name = f"{first_name} {last_name}".strip()
+        
+        name_to_create = full_name if full_name else f"MX User {mx_user_id}"
+        
+        try:
+            new_emp = self.env['hr.employee'].create({
+                'name': name_to_create,
+                'maintainx_id': mx_user_id,
+                'work_email': assignee_data.get('email')
+            })
+            _logger.info(f"Created new employee: {name_to_create} (MX ID: {mx_user_id})")
+            return new_emp
+        except Exception as e:
+            _logger.error(f"Failed to create employee {name_to_create}: {e}")
+            return False
+
+    def _get_by_id(self, area, id):
+        try:
+            base_url, headers = self._get_maintainx_config()
+        except UserError:
+            return None
+
+        endpoint = f"{base_url}/{area}/{id}"
+        params = {}
+
+        try:
+            response = requests.get(endpoint, headers=headers, params=params, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            if isinstance(data, list):
+                return data
+            
+            w = data.get(area[:-1]) or []
+            return w
+            
+        except Exception as e:
+            _logger.error(f"Sync Error: {e}")
+            return None
+
+        return None
+
+    def _get_machine_from_asset(self, asset_data):
+        if not asset_data:
+            return False
+        if asset_data:
+            if not asset_data.get('parentId'):
+                asset_id = asset_data.get('id')
+                machine = self.env['mrp.workcenter'].search([('maintainx_id', '=', asset_id)], limit=1)
+                if machine:
+                    return machine.id
+            else:
+                parent_id = asset_data.get('parentId') or {}
+                return self._get_machine_from_asset(self._get_by_id('assets', parent_id))
+        return False
+
     def _map_status(self, status):
-        if status == 'OPEN':
-            return 'new'
-        elif status == 'ON_HOLD':
-            return 'on_hold'
-        elif status == 'IN_PROGRESS':
-            return 'assigned'
-        elif status == 'DONE':
-            return 'done'
-        return 'new'
+        return _STATUS_MAPPING.get(status, 'new')
 
     def _map_priority(self, priority):
-        priority = str(priority).upper()
-        if priority == 'HIGH':
-            return '2'
-        elif priority == 'MEDIUM':
-            return '1'
-        return '0'
+        return _PRIORITY_MAPPING.get(priority, '0')
 
     def action_send_to_maintainx(self):
         self.ensure_one()

@@ -5,16 +5,14 @@ class MesMachinePerformance(models.Model):
     _name = 'mes.machine.performance'
     _description = 'Machine Performance Data (OEE)'
     _order = 'date desc, shift_id'
-    _inherit = ['mail.thread', 'mail.activity.mixin'] # Добавляем чаттер
+    _inherit = ['mail.thread', 'mail.activity.mixin']
 
     name = fields.Char(string='Doc ID', default='New', readonly=True)
     date = fields.Date(string='Date', required=True, default=fields.Date.context_today)
-    
-    # Shift
+
     shift_id = fields.Many2one('mes.shift', string='Shift', required=True)
     machine_id = fields.Many2one('mrp.workcenter', string='Machine', required=True)
-    
-    # Tables
+
     alarm_ids = fields.One2many('mes.performance.alarm', 'performance_id', string='Alarms')
     rejection_ids = fields.One2many('mes.performance.rejection', 'performance_id', string='Rejections')
 

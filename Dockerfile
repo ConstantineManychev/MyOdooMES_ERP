@@ -2,7 +2,6 @@ FROM odoo:17.0
 
 USER root
 
-# 1. Install MS SQL ODBC Driver
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg2 \
@@ -15,7 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Python lib installation
 RUN pip3 install pyodbc debugpy
 
 USER odoo

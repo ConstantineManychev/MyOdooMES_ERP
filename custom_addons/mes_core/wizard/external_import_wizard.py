@@ -8,7 +8,6 @@ from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
-# --- SQL CONSTANTS ---
 QUERY_SHIFTS = """
     SELECT 
         Shift.AssetShiftID, 
@@ -58,11 +57,8 @@ class ExternalImportWizard(models.TransientModel):
                                   help="If checked, existing alarms for these shifts will be deleted and re-imported.")
 
     def action_load_data(self):
-        """Main execution method triggered by button."""
-        # 1. Fetch Data
         imported_data = self._get_data_from_external_db(self.start_date, self.end_date)
         
-        # 2. Process & Save to Odoo
         self._create_performance_records(imported_data)
         
         return {
@@ -101,8 +97,7 @@ class ExternalImportWizard(models.TransientModel):
         try:
             conn = pyodbc.connect(connection_string, timeout=10)
             cursor = conn.cursor()
-            
-            # --- 1. Fetch Shifts ---
+
             shifts: List[Dict[str, Any]] = []
             cursor.execute(QUERY_SHIFTS, (start_date, end_date))
             rows_shifts = cursor.fetchall()
@@ -121,12 +116,11 @@ class ExternalImportWizard(models.TransientModel):
                     'MachineName': row.MachineName, 
                     'ShiftStartTime': row.ShiftStartTime,
                     'ShiftEndTime': row.ShiftEndTime,
-                    'ShiftName': str(row.ShiftID) # External Shift Name (e.g. "1. Mornings")
+                    'ShiftName': str(row.ShiftID)
                 })
                 if row.ShiftStartTime < min_date: min_date = row.ShiftStartTime
                 if row.ShiftEndTime > max_date: max_date = row.ShiftEndTime
 
-            # --- 2. Fetch Events ---
             search_start = min_date - timedelta(days=1)
             cursor.execute(QUERY_EVENTS, (search_start, max_date))
             rows_events = cursor.fetchall()
@@ -144,11 +138,9 @@ class ExternalImportWizard(models.TransientModel):
 
             conn.close()
 
-            # --- 3. Logic Processing (Clamping & Merging) ---
             if not events:
                 return []
 
-            # 3.1. Fill Gaps (CalculatedEndTime)
             for i in range(len(events)):
                 current_event = events[i]
                 next_event = events[i+1] if i < len(events) - 1 else None
@@ -158,7 +150,6 @@ class ExternalImportWizard(models.TransientModel):
                 else:
                     current_event['CalculatedEndTime'] = None
 
-            # 3.2. Merge Logic
             result_data: List[Dict[str, Any]] = []
             current_time = fields.Datetime.now()
 
@@ -169,19 +160,16 @@ class ExternalImportWizard(models.TransientModel):
                 for event in machine_events:
                     raw_end_time = event['CalculatedEndTime']
                     
-                    # Fix Open-Ended Events
                     if not raw_end_time:
                         if shift['ShiftEndTime'] < current_time:
                             raw_end_time = shift['ShiftEndTime']
                         else:
                             raw_end_time = current_time
                     
-                    # Check Overlap
                     if (event['StartTime'] < shift['ShiftEndTime']) and (raw_end_time > shift['ShiftStartTime']):
                         start_val = max(event['StartTime'], shift['ShiftStartTime'])
                         end_val = raw_end_time
                         
-                        # Clamp to shift end
                         if raw_end_time > shift['ShiftEndTime']:
                              end_val = shift['ShiftEndTime']
 
@@ -208,22 +196,16 @@ class ExternalImportWizard(models.TransientModel):
             raise UserError(f"Import Failed: {e}")
 
     def _create_performance_records(self, data: List[Dict[str, Any]]) -> None:
-        """
-        Creates or updates entries in mes.machine.performance.
-        """
         PerformanceModel = self.env['mes.machine.performance']
         WorkcenterModel = self.env['mrp.workcenter']
         LossModel = self.env['mrp.workcenter.productivity.loss']
         AlarmModel = self.env['mes.performance.alarm']
         
         for row in data:
-            # Resolve Machine (using our custom method)
             machine = WorkcenterModel.get_or_create_from_external(row['MachineName'])
             
-            # Resolve Shift
             shift = self._find_shift_by_external_name(row['ExternalShiftName'])
             
-            # Find or Create Header Document
             performance_doc = PerformanceModel.search([
                 ('machine_id', '=', machine.id),
                 ('date', '=', row['DocDate']),
@@ -238,14 +220,13 @@ class ExternalImportWizard(models.TransientModel):
                     'state': 'draft'
                 })
 
-            # Alarms
             existing_count = len(performance_doc.alarm_ids)
             incoming_count = len(row['Alarms'])
             
             should_update = True
             if existing_count > 0:
                 if self.clear_existing or (existing_count < incoming_count):
-                    performance_doc.alarm_ids.unlink() # Clean old lines
+                    performance_doc.alarm_ids.unlink()
                 else:
                     should_update = False
             
@@ -253,7 +234,6 @@ class ExternalImportWizard(models.TransientModel):
                 alarms_to_create = []
                 for alarm_data in row['Alarms']:
                     
-                    # Resolve Alarm Reason (Loss)
                     loss_reason = LossModel.search([('alarm_code', '=', alarm_data['AlarmCode'])], limit=1)
                     if not loss_reason:
                         loss_reason = LossModel.create({

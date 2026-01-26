@@ -16,7 +16,6 @@ class MesProductionReport(models.Model):
     end_time = fields.Datetime(string='Job End')
     job_number = fields.Char(string='Job Number')
 
-    # Tables
     packer_ids = fields.One2many('mes.production.packer', 'report_id', string='Packers')
     shipper_ids = fields.One2many('mes.production.shipper', 'report_id', string='Shippers')
     qc_ids = fields.One2many('mes.production.qc', 'report_id', string='QC Checks')
@@ -28,8 +27,6 @@ class MesProductionReport(models.Model):
             if vals.get('name', 'New') == 'New':
                 vals['name'] = self.env['ir.sequence'].next_by_code('mes.production.report') or 'New'
         return super().create(vals_list)
-
-# --- Sub-Tables ---
 
 class MesPacker(models.Model):
     _name = 'mes.production.packer'
@@ -49,7 +46,6 @@ class MesShipper(models.Model):
     product_id = fields.Many2one('product.product', string='Product')
     qty = fields.Float(string='Quantity')
     
-    # Table Outers
     outer_ids = fields.One2many('mes.production.outer', 'shipper_id', string='Outers')
 
 class MesOuter(models.Model):
@@ -69,7 +65,6 @@ class MesQC(models.Model):
     checked_by = fields.Many2one('res.users', string='Inspector', default=lambda self: self.env.user)
     result = fields.Selection([('pass', 'Pass'), ('fail', 'Fail')], string='Result')
     
-    # Table Defects
     defect_ids = fields.One2many('mes.production.qc.defect', 'qc_id', string='Defects Found')
 
 class MesQCDefect(models.Model):
