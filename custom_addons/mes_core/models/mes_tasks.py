@@ -1,5 +1,7 @@
 import requests
 import logging
+import time
+from datetime import datetime
 from datetime import datetime
 from odoo import models, fields, api
 from odoo.exceptions import UserError
@@ -118,6 +120,7 @@ class MesTask(models.Model):
             _logger.error(f"Sync Error: {e}")
 
         for wo in workorders:
+            time.sleep(0.5)
             try:
                 with self.env.cr.savepoint():
                     wo_id = wo.get('id', 'Unknown')
@@ -127,7 +130,6 @@ class MesTask(models.Model):
                 _logger.error(f"SKIP WorkOrder {wo_id} due to error: {e}")
 
     def _process_single_wo(self, wo):
-        _logger.info("wo: %s", wo)
         wo_id_raw = wo.get('id')
         wo_id = str(wo_id_raw).strip() if wo_id_raw is not None else ''
         if not wo_id:
@@ -155,7 +157,7 @@ class MesTask(models.Model):
 
         updated_at_str = wo.get('updatedAt')
 
-        machine_id = self._get_machine_from_asset(wo.get('asset') or {})
+        machine_id = self._get_machine_from_asset(self._get_by_id('assets', wo.get('assetId')))
 
         assignee_ids = wo.get('assigneeIds', [])
         current_assignees_list = []
@@ -222,7 +224,7 @@ class MesTask(models.Model):
                     'change_date': datetime.now()
                 })
 
-            if task.assigned_id != employee_id:
+            if task.assigned_id.id != employee_id:
                 history_line = f"{fields.Datetime.now()}: {current_assignees_str}\n"
                 vals['maintainx_assignees_history'] = (task.maintainx_assignees_history or "") + history_line
 
@@ -287,6 +289,8 @@ class MesTask(models.Model):
             return False
 
     def _get_by_id(self, area, id):
+        if id is None:
+            return None
         try:
             base_url, headers = self._get_maintainx_config()
         except UserError:
@@ -296,8 +300,15 @@ class MesTask(models.Model):
         params = {}
 
         try:
-            response = requests.get(endpoint, headers=headers, params=params, timeout=10)
+            response = requests.get(endpoint, headers=headers, timeout=10)
+            
+            if response.status_code == 429:
+                _logger.warning("Rate Limit hit. Sleeping 10s...")
+                time.sleep(10)
+                response = requests.get(endpoint, headers=headers, timeout=10)
+
             response.raise_for_status()
+            data = response.json()
             
             data = response.json()
             if isinstance(data, list):
