@@ -4,7 +4,7 @@
     'summary': 'Machine Performance, Production Reports, Tasks',
     'author': 'Constantine',
     'category': 'Manufacturing/MES',
-    'depends': ['base', 'mrp', 'mail', 'hr'],
+    'depends': ['base', 'mrp', 'mail', 'hr', 'queue_job'],
     'data': [
         'security/mes_security.xml',
         'security/ir.model.access.csv',
