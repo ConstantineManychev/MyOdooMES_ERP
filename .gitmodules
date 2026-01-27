@@ -1,0 +1,4 @@
+[submodule "custom_addons/queue"]
+	path = custom_addons/queue
+	url = https://github.com/OCA/queue.git
+	branch = 17.0
