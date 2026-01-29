@@ -1,7 +1,7 @@
 <odoo>
     <data noupdate="1">
         <record id="ir_cron_sync_maintainx_tasks" model="ir.cron">
-            <field name="name">MES: Sync Tasks from MaintainX</field>
+            <field name="name">MES: Tasks Loading from MaintainX</field>
             <field name="model_id" ref="model_mes_task"/>
             <field name="state">code</field>
             <field name="code">model.load_tasks_from_maintainx()</field>

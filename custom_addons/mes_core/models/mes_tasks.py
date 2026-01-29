@@ -1,10 +1,12 @@
 import requests
 import logging
-import time
-from datetime import datetime
+import pytz
+from dateutil import parser
 from datetime import datetime
 from odoo import models, fields, api
 from odoo.exceptions import UserError
+
+from odoo.addons.queue_job.exception import RetryableJobError
 
 _logger = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ class MesTask(models.Model):
     maintainx_id = fields.Char(string="MaintainX ID", readonly=True, copy=False, index=True)
     maintainx_created_at = fields.Datetime(string="MX Created At", readonly=True)
     maintainx_assignees_history = fields.Text(string="Assignees History (MX)", readonly=True)
+    maintainx_updated_at = fields.Datetime(string="MX Updated At", readonly=True)
 
     status_history_ids = fields.One2many('mes.task.status.history', 'task_id', string="Status History")
     author_id = fields.Many2one('res.users', string='Author', default=lambda self: self.env.user, readonly=True)
@@ -113,22 +116,90 @@ class MesTask(models.Model):
             response.raise_for_status()
             
             data = response.json()
-            workorders = data.get('workOrders') or data.get('items') or []
+            workorders_list = data.get('workOrders') or data.get('items') or []
             
-            _logger.info(f"Processing {len(workorders)} work orders...")
         except Exception as e:
             _logger.error(f"Sync Error: {e}")
 
-        for wo in workorders:
-            time.sleep(0.5)
-            try:
-                with self.env.cr.savepoint():
-                    wo_id = wo.get('id', 'Unknown')
-                    self._process_single_wo(self._get_by_id('workOrders', wo_id))
-            except Exception as e:
-                wo_id = wo.get('id', 'Unknown')
-                _logger.error(f"SKIP WorkOrder {wo_id} due to error: {e}")
+        workorders_ids = [str(workorder.get('id')) for workorder in workorders_list if workorder.get('id')]
+        existing_tasks = self.search_read(
+            [('maintainx_id', 'in', workorders_ids)],
+            ['maintainx_id', 'maintainx_updated_at']
+        )
+        existing_map = {t['maintainx_id']: t['maintainx_updated_at'] for t in existing_tasks}
 
+        jobs_created = 0
+
+        for workorder_data in workorders_list:
+            workorder_id = str(workorder_data.get('id'))
+            updated_at = self._parse_date(workorder_data.get('updatedAt'))
+            _logger.info(f"MaintainX updated at: {updated_at}")
+
+            if not workorder_id:
+                continue
+
+            should_sync = False
+            
+            if workorder_id not in existing_map:
+                should_sync = True
+            else:
+                stored_dt = existing_map[workorder_id]
+                _logger.info(f"Stored data: {stored_dt}")
+
+                if not stored_dt or not updated_at:
+                    should_sync = True
+                else:
+                    try:
+                        if updated_at != stored_dt:
+                            should_sync = True
+                    except Exception:
+                        should_sync = True
+
+            if should_sync:
+                self.with_delay(
+                    channel='root.maintainx', 
+                    description=f"Loading workorder {workorder_id} from MaintainX",
+                    priority=10,
+                ).action_sync_single_wo_job(workorder_id)
+                jobs_created += 1
+
+    def action_sync_single_wo_job(self, workorder_id):
+        full_workorder_data = self._get_by_id_raising(workorder_id)
+        
+        if not full_workorder_data:
+            return
+
+        self._process_single_wo(full_workorder_data)
+
+    def _get_by_id_raising(self, entity_id):
+
+        try:
+            base_url, headers = self._get_maintainx_config()
+        except UserError:
+            return None
+
+        endpoint = f"{base_url}/workorders/{entity_id}"
+        
+        try:
+            response = requests.get(endpoint, headers=headers, timeout=10)
+            
+            if response.status_code == 429:
+                _logger.warning(f"Rate Limit hit for {entity_id}. Rescheduling job in 30s...")
+                raise RetryableJobError("Rate Limit Hit (429)", seconds=30, ignore_retry=True)
+
+            response.raise_for_status()
+            data = response.json()
+
+            if 'workOrder' in data:
+                return data['workOrder']
+            return data
+
+        except requests.exceptions.RequestException as e:
+            raise RetryableJobError(f"Network Error: {e}", seconds=60)
+        except Exception as e:
+            _logger.error(f"Error fetching WO {entity_id}: {e}")
+            return None
+        
     def _process_single_wo(self, wo):
         wo_id_raw = wo.get('id')
         wo_id = str(wo_id_raw).strip() if wo_id_raw is not None else ''
@@ -145,17 +216,8 @@ class MesTask(models.Model):
         mx_priority = str(wo.get('priority', 'LOW')).upper().strip()
         odoo_priority = self._map_priority(mx_priority)
         
-        created_at_str = wo.get('createdAt')
-        created_at = None
-        if created_at_str:
-            try:
-                dt_aware = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
-                created_at = dt_aware.replace(tzinfo=None)
-            except Exception as e:
-                _logger.warning(f"Date parsing error for {wo_id}: {e}")
-                pass
-
-        updated_at_str = wo.get('updatedAt')
+        created_at = self._parse_date(wo.get('createdAt'))
+        updated_at = self._parse_date(wo.get('updatedAt'))
 
         machine_id = self._get_machine_from_asset(self._get_by_id('assets', wo.get('assetId')))
 
@@ -186,7 +248,8 @@ class MesTask(models.Model):
             _logger.debug(f"No existing task for MaintainX id={wo_id}; will create new.")
 
         vals = {
-            'priority': odoo_priority
+            'priority': odoo_priority,
+            'maintainx_updated_at': updated_at,
         }
 
         if employee_id:
@@ -301,11 +364,6 @@ class MesTask(models.Model):
 
         try:
             response = requests.get(endpoint, headers=headers, timeout=10)
-            
-            if response.status_code == 429:
-                _logger.warning("Rate Limit hit. Sleeping 10s...")
-                time.sleep(10)
-                response = requests.get(endpoint, headers=headers, timeout=10)
 
             response.raise_for_status()
             data = response.json()
@@ -347,3 +405,14 @@ class MesTask(models.Model):
         self.ensure_one()
         # ... TODO: Sending logic here ...
         pass
+
+    def _parse_date(self, date_str):
+        if not date_str:
+            return None
+        try:
+            dt = parser.parse(date_str)
+            if dt.tzinfo:
+                dt = dt.astimezone(pytz.UTC).replace(tzinfo=None)
+            return dt
+        except Exception:
+            return None
