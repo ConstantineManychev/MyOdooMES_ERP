@@ -59,4 +59,4 @@ class MesPerformanceRejection(models.Model):
     performance_id = fields.Many2one('mes.machine.performance', string='Report', ondelete='cascade')
     product_id = fields.Many2one('product.product', string='Product')
     qty = fields.Float(string='Quantity')
-    reason_id = fields.Many2one('mes.rejection.reason', string='Reason') 
+    reason_id = fields.Many2one('mes.counts', string='Count') 

@@ -31,12 +31,16 @@ class MesDefects(models.Model):
     code = fields.Char(string='Defect Code')
     description = fields.Text(string='Description')
 
-class MesRejectionReason(models.Model):
-    _name = 'mes.rejection.reason'
-    _description = 'Rejection Reasons'
+class MesCounts(models.Model):
+    _name = 'mes.counts'
+    _description = 'Counts'
 
-    name = fields.Char(string='Reason', required=True)
+    name = fields.Char(string='Event', required=True)
     code = fields.Char(string='Code')
+    default_OPCTag = fields.Char(string='Default OPC Tag', help="Default tag for OPC integration")
+    is_module_count = fields.Boolean(string='Is Module Count', help="Indicates if this count is related to module production")
+    wheel = fields.Integer(string='Wheel', help="Number of the wheel associated with this count")
+    module = fields.Integer(string='Module', help="Number of the module associated with this count")
 
 class MesEvents(models.Model):
     _name = 'mes.event'
@@ -44,6 +48,8 @@ class MesEvents(models.Model):
 
     name = fields.Char(string='Event Name', required=True)
     code = fields.Char(string='Code')
+    default_OPCTag = fields.Char(string='Default OPC Tag', help="Default tag for OPC integration")
+    default_PLCValue = fields.Char(string='Default PLC Value', help="Default value for PLC integration")
 
 class MesWorkcenter(models.Model):
     _inherit = 'mrp.workcenter'
