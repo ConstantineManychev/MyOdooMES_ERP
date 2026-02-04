@@ -34,22 +34,73 @@ class MesDefects(models.Model):
 class MesCounts(models.Model):
     _name = 'mes.counts'
     _description = 'Counts'
+    _parent_name = "parent_id" 
+    _parent_store = True       
+    _rec_name = 'complete_name' 
+    _order = 'complete_name'
 
     name = fields.Char(string='Event', required=True)
     code = fields.Char(string='Code')
+
+    # --- ИСПРАВЛЕНО: Ссылки на mes.counts, а не mes.event ---
+    parent_id = fields.Many2one('mes.counts', string='Parent Group', index=True, ondelete='cascade')
+    child_ids = fields.One2many('mes.counts', 'parent_id', string='Children')
+    parent_path = fields.Char(index=True, unaccent=False)
+
+    complete_name = fields.Char(
+        'Complete Name', compute='_compute_complete_name', store=True)
+
     default_OPCTag = fields.Char(string='Default OPC Tag', help="Default tag for OPC integration")
     is_module_count = fields.Boolean(string='Is Module Count', help="Indicates if this count is related to module production")
     wheel = fields.Integer(string='Wheel', help="Number of the wheel associated with this count")
     module = fields.Integer(string='Module', help="Number of the module associated with this count")
 
+    @api.depends('name', 'parent_id.complete_name')
+    def _compute_complete_name(self):
+        for count in self:
+            if count.parent_id:
+                count.complete_name = '%s / %s' % (count.parent_id.complete_name, count.name)
+            else:
+                count.complete_name = count.name
+                
+    @api.constrains('parent_id')
+    def _check_hierarchy(self):
+        if not self._check_recursion():
+            raise ValidationError('Error! You cannot create recursive categories.')
+
 class MesEvents(models.Model):
     _name = 'mes.event'
     _description = 'Event'
+    _parent_name = "parent_id" 
+    _parent_store = True       
+    _rec_name = 'complete_name' 
+    _order = 'complete_name'
 
     name = fields.Char(string='Event Name', required=True)
     code = fields.Char(string='Code')
+    
+    parent_id = fields.Many2one('mes.event', string='Parent Group', index=True, ondelete='cascade')
+    child_ids = fields.One2many('mes.event', 'parent_id', string='Children')
+    parent_path = fields.Char(index=True, unaccent=False)
+    
+    complete_name = fields.Char(
+        'Complete Name', compute='_compute_complete_name', store=True)
+
     default_OPCTag = fields.Char(string='Default OPC Tag', help="Default tag for OPC integration")
-    default_PLCValue = fields.Char(string='Default PLC Value', help="Default value for PLC integration")
+    default_PLCValue = fields.Integer(string='Default PLC Value', help="Default value for PLC integration")
+
+    @api.depends('name', 'parent_id.complete_name')
+    def _compute_complete_name(self):
+        for event in self:
+            if event.parent_id:
+                event.complete_name = '%s / %s' % (event.parent_id.complete_name, event.name)
+            else:
+                event.complete_name = event.name
+
+    @api.constrains('parent_id')
+    def _check_hierarchy(self):
+        if not self._check_recursion():
+            raise ValidationError('Error! You cannot create recursive categories.')
 
 class MesWorkcenter(models.Model):
     _inherit = 'mrp.workcenter'

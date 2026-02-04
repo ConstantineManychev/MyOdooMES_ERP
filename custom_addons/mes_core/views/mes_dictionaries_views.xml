@@ -37,13 +37,65 @@
         <field name="view_mode">tree</field>
     </record>
 
+    <record id="view_mes_counts_search" model="ir.ui.view">
+        <field name="name">mes.counts.search</field>
+        <field name="model">mes.counts</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="code"/>
+                <searchpanel>
+                    <field name="parent_id" icon="fa-folder" enable_counters="1"/>
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_mes_counts_form" model="ir.ui.view">
+        <field name="name">mes.counts.form</field>
+        <field name="model">mes.counts</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="parent_id" placeholder="Select Parent Group..."/>
+                            <field name="code"/>
+                        </group>
+                        <group>
+                            <field name="default_OPCTag"/>
+                            <field name="is_module_count"/>
+                            <field name="wheel" invisible="not is_module_count"/>
+                            <field name="module" invisible="not is_module_count"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Child Items">
+                            <field name="child_ids">
+                                <tree readonly="1">
+                                    <field name="name"/>
+                                    <field name="code"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
     <record id="view_mes_counts_tree" model="ir.ui.view">
         <field name="name">mes.counts.tree</field>
         <field name="model">mes.counts</field>
         <field name="arch" type="xml">
-            <tree editable="bottom">
-                <field name="name"/>
+            <tree>
+                <field name="complete_name" string="Hierarchy"/>
                 <field name="code"/>
+                <field name="default_OPCTag"/>
+                <field name="is_module_count"/>
+                <field name="wheel" optional="hide"/>
+                <field name="module" optional="hide"/>
             </tree>
         </field>
     </record>
@@ -51,16 +103,65 @@
     <record id="action_mes_counts" model="ir.actions.act_window">
         <field name="name">Counts</field>
         <field name="res_model">mes.counts</field>
-        <field name="view_mode">tree</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_mes_counts_search"/>
+    </record>
+
+    <record id="view_mes_event_search" model="ir.ui.view">
+        <field name="name">mes.event.search</field>
+        <field name="model">mes.event</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="code"/>
+                <searchpanel>
+                    <field name="parent_id" icon="fa-folder" enable_counters="1"/>
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_mes_event_form" model="ir.ui.view">
+        <field name="name">mes.event.form</field>
+        <field name="model">mes.event</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="parent_id" placeholder="Select Parent Group..."/>
+                            <field name="code"/>
+                        </group>
+                        <group>
+                            <field name="default_OPCTag"/>
+                            <field name="default_PLCValue"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Child Items">
+                            <field name="child_ids">
+                                <tree readonly="1">
+                                    <field name="name"/>
+                                    <field name="code"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
     </record>
 
     <record id="view_mes_event_tree" model="ir.ui.view">
         <field name="name">mes.event.tree</field>
         <field name="model">mes.event</field>
         <field name="arch" type="xml">
-            <tree editable="bottom">
-                <field name="name"/>
+            <tree>
+                <field name="complete_name" string="Hierarchy"/>
                 <field name="code"/>
+                <field name="default_OPCTag"/>
+                <field name="default_PLCValue"/>
             </tree>
         </field>
     </record>
@@ -68,7 +169,8 @@
     <record id="action_mes_event" model="ir.actions.act_window">
         <field name="name">Events</field>
         <field name="res_model">mes.event</field>
-        <field name="view_mode">tree</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_mes_event_search"/>
     </record>
 
     <record id="view_mes_stream_tree" model="ir.ui.view">
