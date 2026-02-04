@@ -39,13 +39,6 @@ docker-compose exec odoo odoo -i mes_core -d Odoo --db_host=db --db_user=odoo --
 ```
 (Note: If you are reinstalling after a refactor, you may need to update the module list first: docker-compose exec odoo odoo -u base ...)
 
-##    Configuration Guide
-###  External Database Connection
-Go to MES System -> Configuration -> Settings:
-
-Gemba Integration: Enter SQL Host, Database, User, and Password.
-
-MaintainX Integration: Enter your private API Token.
 
 ##    Project Structure
 Plaintext
