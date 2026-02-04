@@ -1,42 +1,11 @@
-# MES Core System for Odoo 17
+# MES/ERP Core System for Odoo 17
 
-This project is a comprehensive **Manufacturing Execution System (MES)** module for Odoo 17. It bridges the gap between machine automation (Level 2) and ERP (Level 4), providing tools for OEE tracking, manual production reporting, shop-floor task management, and external integrations.
+A custom Odoo 17 build designed for Manufacturing Execution Systems (MES). The core feature is a robust integration with MaintainX and detailed Machine Performance (OEE) tracking.
 
-##      Key Features
-
-###   Machine Performance (Automated OEE)
-* **Data Source:** Imports production data from **Gemba / VerifySystems** (MS SQL) and **Beckhoff** PLCs.
-* **Shift Logic:** Automatically maps data to "Morning", "Afternoon", and "Night" shifts based on timestamps.
-* **Downtime & Scrap:** Tracks alarms and rejection reasons mapped to Odoo Availability/Quality Losses.
-* **Smart Merging:** Handles open-ended events and fixes timezone discrepancies between PLC and Odoo.
-
-###   Production Reports (Manual Packing)
-* **Digital Shift Report:** Replaces paper logs for packing lines.
-* **Team Tracking:** Log start/end times for **Packers** (linked to HR Employees).
-* **Output Tracking:**
-    * **Shippers:** Pallet/Box tracking with barcode integration.
-    * **Outers:** Detailed package contents.
-* **Quality Control (QC):** Record QC checks and specific **Defects** found during the shift.
-* **Ingredients:** Track raw material batch/lot usage per shift.
-
-###   Task Management & MaintainX Sync
-* **Shop-Floor Issues:** Create tasks for maintenance or process issues directly linked to a **Machine**.
-* **Two-Way Sync Logic (MaintainX):**
-    * **Import:** Automatically pulls "Open" Work Orders from MaintainX.
-    * **Updates:** Syncs status changes (Open -> In Progress -> Done) and Assignees history.
-    * **Mapping:** Intelligent mapping of Priorities (High/Medium/Low) and Assets (Machines).
-* **History Tracking:** detailed log of status changes and assignee updates.
-* **Workflow:** `Open` -> `On Hold` -> `In Progress` -> `Done` -> `Cancelled`.
-* **Visuals:** Kanban view with priority color coding and MaintainX indicators.
-
-###   Configuration & Master Data
-* **Work Shifts:** Custom shift schedules (Start time, Duration).
-* **Machine Hierarchy:**
-    * **Machines:** Extended Workcenters with 'Imatec Code' and 'MaintainX ID'.
-    * **Streams & Wheels:** Configure sub-components for specific production lines.
-* **Dictionaries:** Standardized lists for **Defect Types**, **Rejection Reasons**, and **Alarms**.
-
----
+##  mes_core Module:
+* **MaintainX Sync: Two-way synchronization of Work Orders. It uses the OCA Queue Job module to handle API requests in the background, ensuring the UI remains snappy.
+* **Machine Performance: Tracks production output, downtime (alarms), scrap (rejections), and running logs.
+* **Shifts & Staff: Links employees and shifts to specific work centers (machines).
 
 ##    Tech Stack
 
@@ -77,13 +46,6 @@ Go to MES System -> Configuration -> Settings:
 Gemba Integration: Enter SQL Host, Database, User, and Password.
 
 MaintainX Integration: Enter your private API Token.
-
-###  Master Data Setup
-Before importing data, ensure you have configured:
-
-Machines: Set the Imatec Code (e.g., IMA3) on relevant Workcenters.
-
-Shifts: Define your standard shifts (Morning/Night).
 
 ##    Project Structure
 Plaintext
