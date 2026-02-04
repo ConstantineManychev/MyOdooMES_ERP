@@ -9,7 +9,7 @@ A custom Odoo 17 build designed for Manufacturing Execution Systems (MES). The c
 
 ##    Tech Stack
 
-Odoo Version:** 17.0 (Community/Enterprise)
+* **Odoo Version:** 17.0 (Community/Enterprise)
 * **Language:** Python 3.10, XML
 * **Database:** PostgreSQL 15
 * **External Connections:**
