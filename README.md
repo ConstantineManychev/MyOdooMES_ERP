@@ -3,13 +3,13 @@
 A custom Odoo 17 build designed for Manufacturing Execution Systems (MES). The core feature is a robust integration with MaintainX and detailed Machine Performance (OEE) tracking.
 
 ##  mes_core Module:
-* **MaintainX Sync: Two-way synchronization of Work Orders. It uses the OCA Queue Job module to handle API requests in the background, ensuring the UI remains snappy.
-* **Machine Performance: Tracks production output, downtime (alarms), scrap (rejections), and running logs.
-* **Shifts & Staff: Links employees and shifts to specific work centers (machines).
+* **MaintainX Sync:** Two-way synchronization of Work Orders. It uses the OCA Queue Job module to handle API requests in the background, ensuring the UI remains snappy.
+* **Machine Performance:** Tracks production output, downtime (alarms), scrap (rejections), and running logs.
+* **Shifts & Staff:** Links employees and shifts to specific work centers (machines).
 
 ##    Tech Stack
 
-* **Odoo Version:** 17.0 (Community/Enterprise)
+Odoo Version:** 17.0 (Community/Enterprise)
 * **Language:** Python 3.10, XML
 * **Database:** PostgreSQL 15
 * **External Connections:**
