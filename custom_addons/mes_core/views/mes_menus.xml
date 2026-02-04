@@ -41,10 +41,10 @@
               action="action_mes_defect" 
               sequence="30"/>
     
-    <menuitem id="menu_mes_rejection_reason" 
-              name="Rejection Reasons" 
+    <menuitem id="menu_mes_counts" 
+              name="Counts" 
               parent="menu_mes_catalogues" 
-              action="action_mes_rejection_reason" 
+              action="action_mes_counts" 
               sequence="40"/>
 
     <menuitem id="menu_mes_events" 

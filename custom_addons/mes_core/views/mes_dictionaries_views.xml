@@ -37,9 +37,9 @@
         <field name="view_mode">tree</field>
     </record>
 
-    <record id="view_mes_rejection_reason_tree" model="ir.ui.view">
-        <field name="name">mes.rejection.reason.tree</field>
-        <field name="model">mes.rejection.reason</field>
+    <record id="view_mes_counts_tree" model="ir.ui.view">
+        <field name="name">mes.counts.tree</field>
+        <field name="model">mes.counts</field>
         <field name="arch" type="xml">
             <tree editable="bottom">
                 <field name="name"/>
@@ -48,9 +48,9 @@
         </field>
     </record>
 
-    <record id="action_mes_rejection_reason" model="ir.actions.act_window">
-        <field name="name">Rejection Reasons</field>
-        <field name="res_model">mes.rejection.reason</field>
+    <record id="action_mes_counts" model="ir.actions.act_window">
+        <field name="name">Counts</field>
+        <field name="res_model">mes.counts</field>
         <field name="view_mode">tree</field>
     </record>
 

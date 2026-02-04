@@ -36,6 +36,28 @@
                     </group>
                     
                     <notebook>
+                        <page string="Production Output">
+                            <field name="production_ids">
+                                <tree editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="qty" sum="Total Output"/>
+                                    <field name="reason_id" string="Count Type"/>
+                                </tree>
+                            </field>
+                        </page>
+
+                        <page string="Running Logs">
+                            <field name="running_ids">
+                                <tree editable="bottom" decoration-info="True">
+                                    <field name="start_time"/>
+                                    <field name="end_time"/>
+                                    <field name="loss_id" string="Activity Type"/>
+                                    <field name="duration" sum="Total Running"/>
+                                    <field name="comment"/>
+                                </tree>
+                            </field>
+                        </page>
+
                         <page string="Alarms (Downtime)">
                             <field name="alarm_ids">
                                 <tree editable="bottom" decoration-danger="duration &gt; 10">
@@ -47,12 +69,13 @@
                                 </tree>
                             </field>
                         </page>
+
                         <page string="Rejections (Scrap)">
                             <field name="rejection_ids">
                                 <tree editable="bottom">
                                     <field name="product_id"/>
-                                    <field name="reason_id"/>
                                     <field name="qty" sum="Total Scrap"/>
+                                    <field name="reason_id"/>
                                 </tree>
                             </field>
                         </page>
@@ -74,6 +97,7 @@
             <search>
                 <field name="machine_id"/>
                 <field name="date"/>
+                <field name="name"/>
                 <filter string="Today" name="today" domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
                 <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
                 <group expand="0" string="Group By">

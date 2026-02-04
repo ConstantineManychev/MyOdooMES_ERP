@@ -5,8 +5,8 @@ access_mes_shift_manager,mes.shift.manager,model_mes_shift,mes_core.group_mes_ma
 access_mes_defect_user,mes.defect.user,model_mes_defect,mes_core.group_mes_user,1,0,0,0
 access_mes_defect_manager,mes.defect.manager,model_mes_defect,mes_core.group_mes_manager,1,1,1,1
 
-access_mes_rejection_reason_user,mes.rejection.reason.user,model_mes_rejection_reason,mes_core.group_mes_user,1,0,0,0
-access_mes_rejection_reason_manager,mes.rejection.reason.manager,model_mes_rejection_reason,mes_core.group_mes_manager,1,1,1,1
+access_mes_counts_user,mes.countsn.user,model_mes_counts,mes_core.group_mes_user,1,0,0,0
+access_mes_counts_manager,mes.counts.manager,model_mes_counts,mes_core.group_mes_manager,1,1,1,1
 
 access_mes_machine_performance_user,mes.machine.performance.user,model_mes_machine_performance,mes_core.group_mes_user,1,1,1,0
 access_mes_machine_performance_manager,mes.machine.performance.manager,model_mes_machine_performance,mes_core.group_mes_manager,1,1,1,1
