@@ -1,29 +1,14 @@
-import requests
 import logging
 import pytz
+import json
+import hashlib
 from dateutil import parser
 from datetime import datetime
 from odoo import models, fields, api
 from odoo.exceptions import UserError
-
-from odoo.addons.queue_job.exception import RetryableJobError
+from odoo.addons.mes_core.tools.maintainx_api import MaintainXClient
 
 _logger = logging.getLogger(__name__)
-
-_STATUS_MAPPING = {
-    'OPEN': 'new',
-    'IN_PROGRESS': 'assigned',
-    'ON_HOLD': 'on_hold',
-    'DONE': 'done',
-    'CANCELLED': 'cancel',
-    'COMPLETED': 'done',
-}
-
-_PRIORITY_MAPPING = {
-    'HIGH': '2',
-    'MEDIUM': '1',
-    'LOW': '0',
-}
 
 class MesTaskStatusHistory(models.Model):
     _name = 'mes.task.status.history'
@@ -40,6 +25,21 @@ class MesTask(models.Model):
     _description = 'MES Task'
     _inherit = ['mail.thread', 'mail.activity.mixin']
 
+    _STATUS_MAPPING = {
+        'OPEN': 'new',
+        'IN_PROGRESS': 'assigned',
+        'ON_HOLD': 'on_hold',
+        'DONE': 'done',
+        'CANCELLED': 'cancel',
+        'COMPLETED': 'done',
+    }
+
+    _PRIORITY_MAPPING = {
+        'HIGH': '2',
+        'MEDIUM': '1',
+        'LOW': '0',
+    }
+
     name = fields.Char(string='Task Title', required=True)
     description = fields.Html(string='Description')
     
@@ -47,11 +47,11 @@ class MesTask(models.Model):
     maintainx_created_at = fields.Datetime(string="MX Created At", readonly=True)
     maintainx_assignees_history = fields.Text(string="Assignees History (MX)", readonly=True)
     maintainx_updated_at = fields.Datetime(string="MX Updated At", readonly=True)
+    maintainx_data_hash = fields.Char(string="Data Hash", index=True, copy=False)
 
     status_history_ids = fields.One2many('mes.task.status.history', 'task_id', string="Status History")
     author_id = fields.Many2one('res.users', string='Author', default=lambda self: self.env.user, readonly=True)
     assigned_id = fields.Many2one('hr.employee', string='Assigned To', tracking=True)
-    
     machine_id = fields.Many2one('mrp.workcenter', string='Machine', tracking=True)
     
     state = fields.Selection([
@@ -75,344 +75,202 @@ class MesTask(models.Model):
     def _expand_states(self, states, domain, order):
         return ['new', 'assigned', 'on_hold', 'done']
 
-    def action_open_task(self):
-        self.ensure_one()
-        return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'mes.task',
-            'view_mode': 'form',
-            'res_id': self.id,
-            'target': 'current',
-        }
-
-    def _get_maintainx_config(self):
-        params = self.env['ir.config_parameter'].sudo()
-        token = params.get_param('gemba.maintainx_token')
+    def _get_api_client(self):
+        token = self.env['ir.config_parameter'].sudo().get_param('gemba.maintainx_token')
         if not token:
-            raise UserError("MaintainX API Token is not configured!")
-        
-        base_url = "https://api.getmaintainx.com/v1"
-        headers = {
-            'Authorization': f'Bearer {token}',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
+            raise UserError("MaintainX Token not found in System Parameters.")
+        return MaintainXClient(token)
+
+    @api.model
+    def _parse_date(self, date_str):
+        if not date_str:
+            return False
+        try:
+            dt = parser.parse(date_str)
+            return dt.astimezone(pytz.UTC).replace(tzinfo=None)
+        except (ValueError, TypeError):
+            _logger.warning(f"Failed to parse date: {date_str}")
+            return False
+
+    def _calculate_hash(self, data):
+        significant_data = {
+            'title': data.get('title'),
+            'desc': data.get('description'),
+            'status': data.get('status'),
+            'priority': data.get('priority'),
+            #'assignees': sorted(data.get('assigneeIds', [])),
+            'assetId': data.get('assetId'),
+            'updatedAt': data.get('updatedAt'),
         }
-        return base_url, headers
+        return hashlib.sha256(json.dumps(significant_data, sort_keys=True).encode('utf-8')).hexdigest()
 
     @api.model
     def load_tasks_from_maintainx(self):
         _logger.info(">>> Starting load_tasks_from_maintainx...")
-        
         try:
-            base_url, headers = self._get_maintainx_config()
-        except UserError:
+            client = self._get_api_client()
+            response = client.get_workorders(limit=200)
+            workorders_list = response.get('workOrders') or response.get('items') or []
+        except Exception as e:
+            _logger.exception("Sync Failed during API call")
             return
 
-        endpoint = f"{base_url}/workorders"
-        params = {'limit': 200}
+        mx_ids = [str(wo.get('id')) for wo in workorders_list if wo.get('id')]
+        existing_tasks = self.search([('maintainx_id', 'in', mx_ids)])
+        existing_map = {task.maintainx_id: task for task in existing_tasks}
 
-        try:
-            response = requests.get(endpoint, headers=headers, params=params, timeout=10)
-            response.raise_for_status()
-            
-            data = response.json()
-            workorders_list = data.get('workOrders') or data.get('items') or []
-            
-        except Exception as e:
-            _logger.error(f"Sync Error: {e}")
-
-        workorders_ids = [str(workorder.get('id')) for workorder in workorders_list if workorder.get('id')]
-        existing_tasks = self.search_read(
-            [('maintainx_id', 'in', workorders_ids)],
-            ['maintainx_id', 'maintainx_updated_at']
-        )
-        existing_map = {t['maintainx_id']: t['maintainx_updated_at'] for t in existing_tasks}
-
-        jobs_created = 0
-
-        for workorder_data in workorders_list:
-            workorder_id = str(workorder_data.get('id'))
-            updated_at = self._parse_date(workorder_data.get('updatedAt'))
-            _logger.info(f"MaintainX updated at: {updated_at}")
-
-            if not workorder_id:
+        jobs_count = 0
+        for wo_data in workorders_list:
+            wo_id = str(wo_data.get('id'))
+            if not wo_id:
                 continue
 
-            should_sync = False
-            
-            if workorder_id not in existing_map:
-                should_sync = True
-            else:
-                stored_dt = existing_map[workorder_id]
-                _logger.info(f"Stored data: {stored_dt}")
+            new_hash = self._calculate_hash(wo_data)
+            existing_task = existing_map.get(wo_id)
 
-                if not stored_dt or not updated_at:
-                    should_sync = True
-                else:
-                    try:
-                        if updated_at != stored_dt:
-                            should_sync = True
-                    except Exception:
-                        should_sync = True
+            if existing_task and existing_task.maintainx_data_hash == new_hash:
+                continue
 
-            if should_sync:
-                self.with_delay(
-                    channel='root.maintainx', 
-                    description=f"Loading workorder {workorder_id} from MaintainX",
-                    priority=10,
-                ).action_sync_single_wo_job(workorder_id)
-                jobs_created += 1
+            self.with_delay(
+                channel='root.maintainx',
+                description=f"Sync MX Task {wo_id}",
+                priority=10,
+                identity_key=f"mx_sync_{wo_id}"
+            ).action_sync_single_wo_job(wo_id)
+            jobs_count += 1
+
+        _logger.info(f"Sync finished. Created {jobs_count} update jobs.")
 
     def action_sync_single_wo_job(self, workorder_id):
-        full_workorder_data = self._get_by_id_raising(workorder_id)
-        
-        if not full_workorder_data:
-            return
-
-        self._process_single_wo(full_workorder_data)
-
-    def _get_by_id_raising(self, entity_id):
-
-        try:
-            base_url, headers = self._get_maintainx_config()
-        except UserError:
-            return None
-
-        endpoint = f"{base_url}/workorders/{entity_id}"
-        
-        try:
-            response = requests.get(endpoint, headers=headers, timeout=10)
-            
-            if response.status_code == 429:
-                _logger.warning(f"Rate Limit hit for {entity_id}. Rescheduling job in 30s...")
-                raise RetryableJobError("Rate Limit Hit (429)", seconds=30, ignore_retry=True)
-
-            response.raise_for_status()
-            data = response.json()
-
-            if 'workOrder' in data:
-                return data['workOrder']
-            return data
-
-        except requests.exceptions.RequestException as e:
-            raise RetryableJobError(f"Network Error: {e}", seconds=60)
-        except Exception as e:
-            _logger.error(f"Error fetching WO {entity_id}: {e}")
-            return None
-        
-    def _process_single_wo(self, wo):
-        wo_id_raw = wo.get('id')
-        wo_id = str(wo_id_raw).strip() if wo_id_raw is not None else ''
-        if not wo_id:
-            _logger.warning("WorkOrder has no ID")
+        client = self._get_api_client()
+        full_wo_data = client.get_entity('workorders', workorder_id)
+        if not full_wo_data:
             return
         
-        title = wo.get('title', 'No Title')
-        desc = wo.get('description', '') or ''
+        cache = {'employees': {}, 'machines': {}} 
+        self._process_single_wo(full_wo_data, client, cache)
+
+    def _process_single_wo(self, wo, client, cache):
+        wo_id = str(wo.get('id'))
+        vals = self._prepare_task_values(wo, client, cache)
         
-        mx_status = str(wo.get('status', '')).upper().strip()
-        odoo_state = self._map_status(mx_status)
-
-        mx_priority = str(wo.get('priority', 'LOW')).upper().strip()
-        odoo_priority = self._map_priority(mx_priority)
-        
-        created_at = self._parse_date(wo.get('createdAt'))
-        updated_at = self._parse_date(wo.get('updatedAt'))
-
-        machine_id = self._get_machine_from_asset(self._get_by_id('assets', wo.get('assetId')))
-
-        assignee_ids = wo.get('assigneeIds', [])
-        current_assignees_list = []
-        employee_id = False 
-
-        _logger.info("assignee_ids: %s", assignee_ids)
-
-        for mx_user_id_raw in assignee_ids:
-            mx_user_id = str(mx_user_id_raw) 
-            current_assignees_list.append(mx_user_id)
-            _logger.info("mx_user_id_raw: %s", mx_user_id_raw)
-            if not employee_id:
-                found_employee = self._get_or_create_employee(mx_user_id)
-                if found_employee:
-                    employee_id = found_employee.id
-
-        current_assignees_str = ", ".join(current_assignees_list)
-
-        task = self.search([('maintainx_id', '=', wo_id)], limit=1) if wo_id else self.search([('maintainx_id', '=', False)], limit=1)
-        if not task and wo_id:
-            task = self.search([('maintainx_id', 'ilike', wo_id)], limit=1)
-
-        if task:
-            _logger.debug(f"Existing task for MaintainX id={wo_id}: {task.id}")
-        else:
-            _logger.debug(f"No existing task for MaintainX id={wo_id}; will create new.")
-
-        vals = {
-            'priority': odoo_priority,
-            'maintainx_updated_at': updated_at,
-        }
-
-        if employee_id:
-            vals['assigned_id'] = employee_id
-        
-        if machine_id:
-            vals['machine_id'] = machine_id
+        task = self.search([('maintainx_id', '=', wo_id)], limit=1)
 
         if not task:
             _logger.info(f"Creating Task {wo_id}")
-            vals.update({
-                'name': title,
-                'description': desc,
-                'maintainx_id': wo_id,
-                'maintainx_created_at': created_at,
-                'state': odoo_state,
-                'maintainx_assignees_history': f"{fields.Datetime.now()}: {current_assignees_str}\n"
-            })
-            new_task = self.create(vals)
-
-            self.env['mes.task.status.history'].create({
-                'task_id': new_task.id,
-                'status': mx_status,
-                'change_date': created_at or fields.Datetime.now()
-            })
-
+            task = self.create(vals)
+            self._create_status_history(task, wo.get('status'))
         else:
-            if task.state != odoo_state:
-                _logger.info(f"Updating status for {wo_id}: {task.state} -> {odoo_state}")
-                vals['state'] = odoo_state
-                
-                self.env['mes.task.status.history'].create({
-                    'task_id': task.id,
-                    'status': mx_status,
-                    'change_date': datetime.now()
-                })
-
-            if task.assigned_id.id != employee_id:
-                history_line = f"{fields.Datetime.now()}: {current_assignees_str}\n"
-                vals['maintainx_assignees_history'] = (task.maintainx_assignees_history or "") + history_line
+            old_state = task.state
+            
+            new_history = vals.pop('maintainx_assignees_history', '')
+            if new_history:
+                vals['maintainx_assignees_history'] = (task.maintainx_assignees_history or "") + new_history
 
             task.write(vals)
+            if old_state != vals.get('state'):
+                self._create_status_history(task, wo.get('status'))
 
-    def _get_or_create_employee(self, mx_user_id):
-        if not mx_user_id or str(mx_user_id) == 'Unknown':
-            return False
+    def _prepare_task_values(self, wo, client, cache):
+        mx_status = str(wo.get('status', '')).upper().strip()
+        mx_priority = str(wo.get('priority', 'LOW')).upper().strip()
         
-        mx_user_id = str(mx_user_id)
+        assignee_ids = wo.get('assigneeIds', [])
+        assignee_names = []
+        employee_id = False
+        
+        for mx_user_id in assignee_ids:
+            emp = self._get_or_create_employee(str(mx_user_id), client, cache)
+            if emp:
+                assignee_names.append(emp.name)
+                if not employee_id:
+                    employee_id = emp.id
+        
+        current_assignees_str = ", ".join(assignee_names)
+        assignee_history_line = f"{fields.Datetime.now()}: {current_assignees_str}\n"
 
-        employee = self._find_employee_by_mx_id(mx_user_id)
+        machine_id = False
+        if wo.get('assetId'):
+            machine_id = self._get_machine_recursive(wo.get('assetId'), client, cache)
+
+        return {
+            'name': wo.get('title', 'No Title'),
+            'description': wo.get('description', ''),
+            'maintainx_id': str(wo.get('id')),
+            'maintainx_created_at': self._parse_date(wo.get('createdAt')),
+            'maintainx_updated_at': self._parse_date(wo.get('updatedAt')),
+            'maintainx_data_hash': self._calculate_hash(wo),
+            'state': self._STATUS_MAPPING.get(mx_status, 'new'),
+            'priority': self._PRIORITY_MAPPING.get(mx_priority, '0'),
+            'assigned_id': employee_id,
+            'machine_id': machine_id,
+            'maintainx_assignees_history': assignee_history_line
+        }
+
+    def _create_status_history(self, task, raw_status):
+        self.env['mes.task.status.history'].create({
+            'task_id': task.id,
+            'status': str(raw_status).upper(),
+            'change_date': fields.Datetime.now()
+        })
+
+    def _get_or_create_employee(self, mx_user_id, client, cache):
+        if mx_user_id in cache['employees']:
+            return cache['employees'][mx_user_id]
+
+        _logger.info(f"Looking for employee with MaintainX ID {mx_user_id}")
+        employee = self.env['hr.employee'].search([('maintainx_id', '=', mx_user_id)], limit=1)
         if employee:
+            cache['employees'][mx_user_id] = employee
             return employee
 
-        _logger.info(f"Employee {mx_user_id} not found by ID. Fetching info from API...")
-        user_data = self._get_by_id('users', mx_user_id)
-        
+        user_data = client.get_entity('users', mx_user_id)
         if not user_data:
-            _logger.warning(f"Could not fetch data for User ID {mx_user_id}")
             return False
 
-        employee = self._find_employee_by_name(user_data)
+        first = user_data.get('firstName', '').strip()
+        last = user_data.get('lastName', '').strip()
+        full_name = f"{first} {last}".strip()
+        
+        employee = self.env['hr.employee'].search([('name', 'ilike', full_name)], limit=1)
         if employee:
             employee.write({'maintainx_id': mx_user_id})
-            _logger.info(f"Linked existing employee '{employee.name}' to MaintainX ID {mx_user_id}")
-            return employee
+        else:
+            try:
+                _logger.info(f"Creating employee for MX user {mx_user_id} with name '{full_name}'")
+                employee = self.env['hr.employee'].create({
+                    'name': full_name or f"MX User {mx_user_id}",
+                    'maintainx_id': mx_user_id,
+                    'work_email': user_data.get('email')
+                })
+            except Exception as e:
+                _logger.error(f"Cannot create employee: {e}")
+                return False
 
-        return self._create_mx_employee(user_data, mx_user_id)
+        cache['employees'][mx_user_id] = employee
+        return employee
 
-    def _find_employee_by_mx_id(self, mx_user_id):
-        return self.env['hr.employee'].search([('maintainx_id', '=', mx_user_id)], limit=1)
-
-    def _find_employee_by_name(self, assignee_data):
-        first_name = assignee_data.get('firstName', '').strip()
-        last_name = assignee_data.get('lastName', '').strip()
-        
-        full_name = f"{first_name} {last_name}".strip()
-        
-        if not full_name:
+    def _get_machine_recursive(self, asset_id, client, cache, depth=0):
+        if not asset_id or depth > 5:
             return False
 
-        return self.env['hr.employee'].search([('name', 'ilike', full_name)], limit=1)
+        if asset_id in cache['machines']:
+            return cache['machines'][asset_id]
 
-    def _create_mx_employee(self, assignee_data, mx_user_id):
-        first_name = assignee_data.get('firstName', '').strip()
-        last_name = assignee_data.get('lastName', '').strip()
-        full_name = f"{first_name} {last_name}".strip()
-        
-        name_to_create = full_name if full_name else f"MX User {mx_user_id}"
-        
-        try:
-            new_emp = self.env['hr.employee'].create({
-                'name': name_to_create,
-                'maintainx_id': mx_user_id,
-                'work_email': assignee_data.get('email')
-            })
-            _logger.info(f"Created new employee: {name_to_create} (MX ID: {mx_user_id})")
-            return new_emp
-        except Exception as e:
-            _logger.error(f"Failed to create employee {name_to_create}: {e}")
-            return False
+        machine = self.env['mrp.workcenter'].search([('maintainx_id', '=', asset_id)], limit=1)
+        if machine:
+            cache['machines'][asset_id] = machine.id
+            return machine.id
 
-    def _get_by_id(self, area, id):
-        if id is None:
-            return None
-        try:
-            base_url, headers = self._get_maintainx_config()
-        except UserError:
-            return None
-
-        endpoint = f"{base_url}/{area}/{id}"
-        params = {}
-
-        try:
-            response = requests.get(endpoint, headers=headers, timeout=10)
-
-            response.raise_for_status()
-            data = response.json()
-            
-            data = response.json()
-            if isinstance(data, list):
-                return data
-            
-            w = data.get(area[:-1]) or []
-            return w
-            
-        except Exception as e:
-            _logger.error(f"Sync Error: {e}")
-            return None
-
-        return None
-
-    def _get_machine_from_asset(self, asset_data):
+        asset_data = client.get_entity('assets', asset_id)
         if not asset_data:
             return False
-        if asset_data:
-            if not asset_data.get('parentId'):
-                asset_id = asset_data.get('id')
-                machine = self.env['mrp.workcenter'].search([('maintainx_id', '=', asset_id)], limit=1)
-                if machine:
-                    return machine.id
-            else:
-                parent_id = asset_data.get('parentId') or {}
-                return self._get_machine_from_asset(self._get_by_id('assets', parent_id))
+            
+        parent_id = asset_data.get('parentId')
+        if parent_id:
+            res = self._get_machine_recursive(parent_id, client, cache, depth + 1)
+            if res:
+                cache['machines'][asset_id] = res
+            return res
+            
         return False
-
-    def _map_status(self, status):
-        return _STATUS_MAPPING.get(status, 'new')
-
-    def _map_priority(self, priority):
-        return _PRIORITY_MAPPING.get(priority, '0')
-
-    def action_send_to_maintainx(self):
-        self.ensure_one()
-        # ... TODO: Sending logic here ...
-        pass
-
-    def _parse_date(self, date_str):
-        if not date_str:
-            return None
-        try:
-            dt = parser.parse(date_str)
-            if dt.tzinfo:
-                dt = dt.astimezone(pytz.UTC).replace(tzinfo=None)
-            return dt
-        except Exception:
-            return None

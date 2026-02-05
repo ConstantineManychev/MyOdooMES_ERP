@@ -33,6 +33,6 @@ class ResConfigSettings(models.TransientModel):
     )
 
     stock_sms_confirmation_template_id = fields.Many2one(
-            'mail.template',
+            'sms.template',
             string="SMS Confirmation Template"
         )
