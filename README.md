@@ -3,9 +3,9 @@
 A custom Odoo 17 build designed for Manufacturing Execution Systems (MES). The core feature is a robust integration with MaintainX and detailed Machine Performance (OEE) tracking.
 
 ##  mes_core Module:
-* **MaintainX Sync: Two-way synchronization of Work Orders. It uses the OCA Queue Job module to handle API requests in the background, ensuring the UI remains snappy.
-* **Machine Performance: Tracks production output, downtime (alarms), scrap (rejections), and running logs.
-* **Shifts & Staff: Links employees and shifts to specific work centers (machines).
+* **MaintainX Sync:** Two-way synchronization of Work Orders. It uses the OCA Queue Job module to handle API requests in the background, ensuring the UI remains snappy.
+* **Machine Performance:** Tracks production output, downtime (alarms), scrap (rejections), and running logs.
+* **Shifts & Staff:** Links employees and shifts to specific work centers (machines).
 
 ##    Tech Stack
 
@@ -39,13 +39,6 @@ docker-compose exec odoo odoo -i mes_core -d Odoo --db_host=db --db_user=odoo --
 ```
 (Note: If you are reinstalling after a refactor, you may need to update the module list first: docker-compose exec odoo odoo -u base ...)
 
-##    Configuration Guide
-###  External Database Connection
-Go to MES System -> Configuration -> Settings:
-
-Gemba Integration: Enter SQL Host, Database, User, and Password.
-
-MaintainX Integration: Enter your private API Token.
 
 ##    Project Structure
 Plaintext
