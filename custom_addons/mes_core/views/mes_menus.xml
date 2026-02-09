@@ -34,6 +34,18 @@
               parent="menu_mes_catalogues" 
               action="mrp.mrp_workcenter_action" 
               sequence="20"/>
+    
+    <menuitem id="menu_mes_stream" 
+              name="Streams" 
+              parent="menu_mes_catalogues" 
+              action="action_mes_stream" 
+              sequence="25"/>
+
+    <menuitem id="menu_mes_wheel" 
+              name="Wheels" 
+              parent="menu_mes_catalogues" 
+              action="action_mes_wheel" 
+              sequence="26"/>
 
     <menuitem id="menu_mes_defect" 
               name="Defect Types" 
@@ -51,29 +63,22 @@
               name="Events" 
               parent="menu_mes_catalogues" 
               action="action_mes_event" 
-              sequence="40"/>
-
-              <menuitem id="menu_mes_stream" 
-              name="Streams" 
-              parent="menu_mes_catalogues" 
-              action="action_mes_stream" 
-              sequence="25"/>
-
-    <menuitem id="menu_mes_wheel" 
-              name="Wheels" 
-              parent="menu_mes_catalogues" 
-              action="action_mes_wheel" 
-              sequence="26"/>
-              
-    <menuitem id="menu_mes_employees" 
+              sequence="45"/> <menuitem id="menu_mes_employees" 
               name="Employees" 
               parent="menu_mes_catalogues" 
               action="action_mes_config_employees" 
               sequence="100"/>
-              
+
+    <menuitem id="menu_mes_configuration" 
+              name="Configuration" 
+              parent="menu_mes_root" 
+              sequence="100" 
+              groups="mes_core.group_mes_manager"/>
+
     <menuitem id="menu_mes_settings" 
-              name="Settings" 
-              parent="menu_mes_catalogues" 
+              name="General Settings" 
+              parent="menu_mes_configuration" 
               action="action_mes_config_settings" 
-              sequence="100"/>
-</odoo>
+              sequence="10"/>
+    
+    </odoo>

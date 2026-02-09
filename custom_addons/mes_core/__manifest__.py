@@ -11,6 +11,8 @@
 
         'data/mes_cron.xml',
         
+        'views/mes_menus.xml', 
+        
         'views/mes_dictionaries_views.xml',
         'views/mes_machine_performance_view.xml',
         'views/mes_production_report_view.xml',
@@ -18,7 +20,7 @@
         'views/res_config_settings_view.xml',
         'views/hr_employee_view.xml',
         
-        'views/mes_menus.xml',
+        'views/mes_telemetry_views.xml',
     ],
     'installable': True,
     'application': True,

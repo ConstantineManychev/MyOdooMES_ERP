@@ -9,6 +9,18 @@ services:
       - ./pg_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      - POSTGRES_DB=telemetry_db
+      - POSTGRES_PASSWORD=default_password
+      - POSTGRES_USER=default_user
+    volumes:
+      - ./timescale_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5433"
+    restart: unless-stopped
+
   odoo:
     build: .
     depends_on:
@@ -23,4 +35,8 @@ services:
       - HOST=db
       - USER=odoo
       - PASSWORD=odoo
+      - TELEMETRY_HOST=timescaledb
+      - TELEMETRY_DB=telemetry_db
+      - TELEMETRY_USER=default_user
+      - TELEMETRY_PASS=default_password
     restart: unless-stopped
