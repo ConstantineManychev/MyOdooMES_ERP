@@ -1,22 +1,37 @@
 import os
 import logging
 import psycopg2
-from odoo import models, fields, api
+from odoo import models, fields, api, tools
 
 _logger = logging.getLogger(__name__)
 
 class MesTimescaleBase(models.AbstractModel):
+    """
+    Базовый класс для получения параметров подключения из Env
+    и выполнения прямых запросов в TimescaleDB.
+    """
     _name = 'mes.timescale.base'
     _description = 'Base class for TimescaleDB connection'
 
+    def _get_ts_params(self):
+        """Возвращает словарь с параметрами подключения из ENV"""
+        return {
+            'host': os.environ.get('TIMESCALE_HOST', 'timescaledb'),
+            'port': os.environ.get('TIMESCALE_PORT', '5432'),
+            'dbname': os.environ.get('TIMESCALE_DB', 'mes_telemetry'),
+            'user': os.environ.get('TIMESCALE_USER', 'timescale_user'),
+            'password': os.environ.get('TIMESCALE_PASS', 'timescale_pass')
+        }
+
     def _get_ts_connection(self):
+        params = self._get_ts_params()
         try:
             return psycopg2.connect(
-                host=os.environ.get('TIMESCALE_HOST', 'timescaledb'),
-                port='5432',
-                database=os.environ.get('TIMESCALE_DB', 'mes_telemetry'),
-                user=os.environ.get('TIMESCALE_USER', 'timescale_user'),
-                password=os.environ.get('TIMESCALE_PASS', 'timescale_pass')
+                host=params['host'],
+                port=params['port'],
+                database=params['dbname'],
+                user=params['user'],
+                password=params['password']
             )
         except Exception as e:
             _logger.error(f"TimescaleDB Connection Error: {e}")
@@ -36,6 +51,135 @@ class MesTimescaleBase(models.AbstractModel):
         finally:
             conn.close()
 
+class MesInfrastructureManager(models.AbstractModel):
+    """
+    Класс отвечает за инициализацию инфраструктуры:
+    1. Создание таблиц в удаленной TimescaleDB.
+    2. Настройка FDW (Foreign Data Wrapper) в локальной базе Odoo.
+    """
+    _name = 'mes.infrastructure.manager'
+    _description = 'Timescale Infrastructure Manager'
+    _inherit = ['mes.timescale.base']
+
+    @api.model
+    def _init_remote_timescale(self):
+        """Создает таблицы и гипертаблицы в самой TimescaleDB (Remote)"""
+        conn = self._get_ts_connection()
+        if not conn:
+            _logger.warning("Could not connect to TimescaleDB to init tables.")
+            return
+
+        queries = [
+            """
+            CREATE TABLE IF NOT EXISTS config_machine (
+                machine_name TEXT PRIMARY KEY,
+                ip_connection TEXT,
+                ip_data TEXT
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS config_signals (
+                machine_name TEXT NOT NULL,
+                tag_name TEXT NOT NULL,
+                poll_type TEXT,
+                poll_frequency INT,
+                param_type TEXT,
+                signal_category TEXT,
+                PRIMARY KEY (machine_name, tag_name)
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS telemetry_count (
+                time TIMESTAMPTZ NOT NULL,
+                machine_name TEXT NOT NULL,
+                tag_name TEXT NOT NULL,
+                value BIGINT
+            );
+            """,
+            "SELECT create_hypertable('telemetry_count', 'time', if_not_exists => TRUE);",
+            """
+            CREATE TABLE IF NOT EXISTS telemetry_event (
+                time TIMESTAMPTZ NOT NULL,
+                machine_name TEXT NOT NULL,
+                tag_name TEXT NOT NULL,
+                value INTEGER
+            );
+            """,
+            "SELECT create_hypertable('telemetry_event', 'time', if_not_exists => TRUE);",
+            """
+            CREATE TABLE IF NOT EXISTS telemetry_process (
+                time TIMESTAMPTZ NOT NULL,
+                machine_name TEXT NOT NULL,
+                tag_name TEXT NOT NULL,
+                val_num DOUBLE PRECISION,
+                val_int BIGINT,
+                val_bool BOOLEAN,
+                val_str TEXT
+            );
+            """,
+            "SELECT create_hypertable('telemetry_process', 'time', if_not_exists => TRUE);"
+        ]
+        
+        indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_telemetry_process_machine_tag ON telemetry_process (machine_name, tag_name, time DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_telemetry_event_machine_tag ON telemetry_event (machine_name, tag_name, time DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_telemetry_count_machine_tag ON telemetry_count (machine_name, tag_name, time DESC);"
+        ]
+
+        try:
+            with conn.cursor() as cur:
+                for q in queries:
+                    cur.execute(q)
+                for idx in indexes:
+                    cur.execute(idx)
+                conn.commit()
+            _logger.info("Remote TimescaleDB Schema Initialized.")
+        except Exception as e:
+            conn.rollback()
+            _logger.error(f"Remote Init Error: {e}")
+        finally:
+            conn.close()
+
+    @api.model
+    def _init_local_fdw(self):
+        params = self._get_ts_params()
+        
+        self.env.cr.execute("CREATE EXTENSION IF NOT EXISTS postgres_fdw;")
+
+        self.env.cr.execute("""
+            DROP USER MAPPING IF EXISTS FOR %s SERVER timescaledb_server;
+        """ % self.env.cr.dbname) 
+        
+        server_sql = """
+            CREATE SERVER IF NOT EXISTS timescaledb_server
+            FOREIGN DATA WRAPPER postgres_fdw
+            OPTIONS (host '%s', port '%s', dbname '%s');
+        """ % (params['host'], params['port'], params['dbname'])
+        self.env.cr.execute(server_sql)
+        self.env.cr.execute("""
+            ALTER SERVER timescaledb_server 
+            OPTIONS (SET host '%s', SET port '%s', SET dbname '%s');
+        """ % (params['host'], params['port'], params['dbname']))
+
+        current_db_user = self.env.cr.connection.info.user
+        
+        mapping_sql = """
+            CREATE USER MAPPING IF NOT EXISTS FOR "%s"
+            SERVER timescaledb_server
+            OPTIONS (user '%s', password '%s');
+        """ % (current_db_user, params['user'], params['password'])
+        
+        try:
+            self.env.cr.execute(mapping_sql)
+            self.env.cr.execute("""
+                ALTER USER MAPPING FOR "%s" SERVER timescaledb_server 
+                OPTIONS (SET user '%s', SET password '%s');
+            """ % (current_db_user, params['user'], params['password']))
+            _logger.info("Local FDW Server & Mapping Configured.")
+        except Exception as e:
+            _logger.error(f"FDW Setup Error: {e}")
+
+
 class MesMachineSettings(models.Model):
     _name = 'mes.machine.settings'
     _description = 'Machine Connection Settings'
@@ -48,6 +192,11 @@ class MesMachineSettings(models.Model):
     signal_ids = fields.One2many('mes.signal.tag', 'machine_settings_id', string='Monitored Signals')
 
     _sql_constraints = [('name_uniq', 'unique (name)', 'Machine Name must be unique!')]
+
+    def init(self):
+        super().init()
+        self.env['mes.infrastructure.manager']._init_remote_timescale()
+        self.env['mes.infrastructure.manager']._init_local_fdw()
 
     @api.model
     def create(self, vals):
@@ -131,84 +280,50 @@ class MesSignalTag(models.Model):
             rec.poll_type, rec.poll_frequency, rec.param_type, rec.signal_type
         ))
 
-class MesTimescaleManager(models.AbstractModel):
-    _name = 'mes.timescale.manager'
-    _description = 'TimescaleDB Initialization'
-    _inherit = ['mes.timescale.base']
 
-    @api.model
-    def init_timescale_tables(self):
-        conn = self._get_ts_connection()
-        if not conn:
-            return
+class MesTelemetryEventFDW(models.Model):
+    _name = 'mes.telemetry.event.fdw'
+    _description = 'Telemetry Events (Foreign Table)'
+    _auto = False 
 
-        queries = [
-            """
-            CREATE TABLE IF NOT EXISTS config_machine (
-                machine_name TEXT PRIMARY KEY,
-                ip_connection TEXT,
-                ip_data TEXT
-            );
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS config_signals (
-                machine_name TEXT NOT NULL,
-                tag_name TEXT NOT NULL,
-                poll_type TEXT,
-                poll_frequency INT,
-                param_type TEXT,
-                signal_category TEXT,
-                PRIMARY KEY (machine_name, tag_name)
-            );
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS telemetry_count (
-                time TIMESTAMPTZ NOT NULL,
-                machine_name TEXT NOT NULL,
-                tag_name TEXT NOT NULL,
-                value BIGINT
-            );
-            """,
-            "SELECT create_hypertable('telemetry_count', 'time', if_not_exists => TRUE);",
-            """
-            CREATE TABLE IF NOT EXISTS telemetry_event (
-                time TIMESTAMPTZ NOT NULL,
-                machine_name TEXT NOT NULL,
-                tag_name TEXT NOT NULL,
+    time = fields.Datetime(string='Time', readonly=True)
+    machine_name = fields.Char(string='Machine', readonly=True)
+    tag_name = fields.Char(string='Tag', readonly=True)
+    value = fields.Integer(string='Value', readonly=True)
+
+    def init(self):
+        """Создает связь FOREIGN TABLE"""
+        tools.drop_view_if_exists(self.env.cr, self._table)
+        self.env.cr.execute("""
+            CREATE FOREIGN TABLE IF NOT EXISTS %s (
+                time TIMESTAMPTZ,
+                machine_name TEXT,
+                tag_name TEXT,
                 value INTEGER
-            );
-            """,
-            "SELECT create_hypertable('telemetry_event', 'time', if_not_exists => TRUE);",
-            """
-            CREATE TABLE IF NOT EXISTS telemetry_process (
-                time TIMESTAMPTZ NOT NULL,
-                machine_name TEXT NOT NULL,
-                tag_name TEXT NOT NULL,
-                val_num DOUBLE PRECISION,
-                val_int BIGINT,
-                val_bool BOOLEAN,
-                val_str TEXT
-            );
-            """,
-            "SELECT create_hypertable('telemetry_process', 'time', if_not_exists => TRUE);"
-        ]
-        
-        indexes = [
-            "CREATE INDEX IF NOT EXISTS idx_telemetry_process_machine_tag ON telemetry_process (machine_name, tag_name, time DESC);",
-            "CREATE INDEX IF NOT EXISTS idx_telemetry_event_machine_tag ON telemetry_event (machine_name, tag_name, time DESC);",
-            "CREATE INDEX IF NOT EXISTS idx_telemetry_count_machine_tag ON telemetry_count (machine_name, tag_name, time DESC);"
-        ]
+            )
+            SERVER timescaledb_server
+            OPTIONS (schema_name 'public', table_name 'telemetry_event');
+        """ % self._table)
 
-        try:
-            with conn.cursor() as cur:
-                for q in queries:
-                    cur.execute(q)
-                for idx in indexes:
-                    cur.execute(idx)
-                conn.commit()
-            _logger.info("TimescaleDB Schema Initialized (Process table now has val_int).")
-        except Exception as e:
-            conn.rollback()
-            _logger.error(f"Init Error: {e}")
-        finally:
-            conn.close()
+class MesTelemetryCountFDW(models.Model):
+    _name = 'mes.telemetry.count.fdw'
+    _description = 'Telemetry Counts (Foreign Table)'
+    _auto = False
+
+    time = fields.Datetime(string='Time', readonly=True)
+    machine_name = fields.Char(string='Machine', readonly=True)
+    tag_name = fields.Char(string='Tag', readonly=True)
+    value = fields.Integer(string='Value', readonly=True)
+
+    def init(self):
+        tools.drop_view_if_exists(self.env.cr, self._table)
+        self.env.cr.execute("""
+            CREATE FOREIGN TABLE IF NOT EXISTS %s (
+                time TIMESTAMPTZ,
+                machine_name TEXT,
+                tag_name TEXT,
+                value BIGINT
+            )
+            SERVER timescaledb_server
+            OPTIONS (schema_name 'public', table_name 'telemetry_count');
+        """ % self._table)

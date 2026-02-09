@@ -1,5 +1,4 @@
 from odoo import models, fields, api
-from typing import Dict, Any
 
 class MesMachinePerformance(models.Model):
     _name = 'mes.machine.performance'

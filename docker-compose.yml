@@ -7,6 +7,7 @@ services:
       - POSTGRES_USER=odoo
     volumes:
       - ./pg_data:/var/lib/postgresql/data
+      - ./init_db:/docker-entrypoint-initdb.d
     restart: unless-stopped
 
   timescaledb:
@@ -25,6 +26,7 @@ services:
     build: .
     depends_on:
       - db
+      - timescaledb
     ports:
       - "8069:8069"
     volumes:
@@ -32,11 +34,13 @@ services:
       - ./custom_addons:/mnt/extra-addons 
       - ./filestore:/var/lib/odoo
     environment:
-      - HOST=db
-      - USER=odoo
-      - PASSWORD=odoo
-      - TELEMETRY_HOST=timescaledb
-      - TELEMETRY_DB=telemetry_db
-      - TELEMETRY_USER=default_user
-      - TELEMETRY_PASS=default_password
+      - HOST=${DB_HOST}
+      - PORT=${DB_PORT}
+      - USER=${DB_USER}
+      - PASSWORD=${DB_PASS}
+      - TELEMETRY_HOST=${TELEMETRY_HOST}
+      - TELEMETRY_PORT=${TELEMETRY_PORT}
+      - TELEMETRY_DB=${TELEMETRY_DB}
+      - TELEMETRY_USER=${TELEMETRY_USER}
+      - TELEMETRY_PASS=${TELEMETRY_PASS}
     restart: unless-stopped

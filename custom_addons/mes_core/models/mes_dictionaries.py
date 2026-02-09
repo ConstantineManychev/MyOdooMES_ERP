@@ -42,7 +42,6 @@ class MesCounts(models.Model):
     name = fields.Char(string='Event', required=True)
     code = fields.Char(string='Code')
 
-    # --- ИСПРАВЛЕНО: Ссылки на mes.counts, а не mes.event ---
     parent_id = fields.Many2one('mes.counts', string='Parent Group', index=True, ondelete='cascade')
     child_ids = fields.One2many('mes.counts', 'parent_id', string='Children')
     parent_path = fields.Char(index=True, unaccent=False)
