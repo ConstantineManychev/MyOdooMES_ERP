@@ -1,21 +1,28 @@
-# MES/ERP Core System for Odoo 17
+# MyOdoo MES / ERP Core
 
-A custom Odoo 17 build designed for Manufacturing Execution Systems (MES). The core feature is a robust integration with MaintainX and detailed Machine Performance (OEE) tracking.
+A Manufacturing Execution System (MES) built on Odoo 17, designed to aggregate machine telemetry, generate PQO (Product Quality Output) reports, and automate maintenance workflows via MaintainX.
 
-##  mes_core Module:
-* **MaintainX Sync:** Two-way synchronization of Work Orders. It uses the OCA Queue Job module to handle API requests in the background, ensuring the UI remains snappy.
-* **Machine Performance:** Tracks production output, downtime (alarms), scrap (rejections), and running logs.
-* **Shifts & Staff:** Links employees and shifts to specific work centers (machines).
+##  Core Objectives:
+* **Data Consolidation:** Merging high-frequency machine telemetry with manual operator packing reports into a single Odoo environment.
+* **Operator Workspace:** Optimized interface for production task management and real-time equipment monitoring.
+* **Hybrid Storage Architecture:** Separation of ERP transactional data (PostgreSQL) and telemetry time-series data (TimescaleDB) to ensure system stability under high load.
 
-##    Tech Stack
+##  Technical Stack & Architecture
 
-* **Odoo Version:** 17.0 (Community/Enterprise)
+### 1. Telemetry & TimescaleDB
+Machine data collection is handled via IPC + pyads, writing directly to TimescaleDB.
+* **PostgreSQL FDW:** Odoo accesses telemetry data using Foreign Data Wrappers, allowing it to treat telemetry as standard Odoo tables without taxing the primary ERP database.
 * **Language:** Python 3.10, XML
-* **Database:** PostgreSQL 15
-* **External Connections:**
-    * **SQL:** `pyodbc` + Microsoft ODBC Driver 17 (for Gemba/Legacy DB).
-    * **API:** REST API integration with MaintainX.
-* **Containerization:** Docker & Docker Compose
+* **CSV Import:** Integrated wizards support manual raw data uploads to TimescaleDB to maintain historical integrity when automated streams are interrupted.
+
+### 2. Legacy Systems Integration (Gemba OEE)
+During the migration phase, the system maintains a direct connection to external MS SQL (Impact Connect) databases using pyodbc. This ensures seamless synchronization of shifts and alarm events from the legacy environment.
+
+### 3. MaintainX Automation
+Bi-directional Work Order synchronization via REST API.
+
+* **OCA Queue Job:** All API interactions are handled asynchronously to prevent UI lag and ensure reliable data delivery regardless of order volume.
+* **Traffic Prioritization:** Dedicated job channels manage MaintainX traffic to prevent bottlenecks.
 
 ---
 
@@ -27,10 +34,13 @@ A custom Odoo 17 build designed for Manufacturing Execution Systems (MES). The c
 
 ###  Clone & Build
 ```bash
-git clone [https://github.com/your-repo/MyOdooMES_ERP.git](https://github.com/your-repo/MyOdooMES_ERP.git)
+git clone --recursive https://github.com/your-repo/MyOdooMES_ERP.git
 cd MyOdooMES_ERP
 docker-compose up -d --build
 ```
+
+* **Environment Setup:** Create a .env file from the .env temp template and configure your database credentials and API tokens.
+
 ###  Install the Module
 Since the module structure has been updated to mes_core, use the following command to install it into a running container:
 

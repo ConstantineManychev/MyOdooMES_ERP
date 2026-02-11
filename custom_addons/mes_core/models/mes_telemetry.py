@@ -6,15 +6,10 @@ from odoo import models, fields, api, tools
 _logger = logging.getLogger(__name__)
 
 class MesTimescaleBase(models.AbstractModel):
-    """
-    Базовый класс для получения параметров подключения из Env
-    и выполнения прямых запросов в TimescaleDB.
-    """
     _name = 'mes.timescale.base'
     _description = 'Base class for TimescaleDB connection'
 
     def _get_ts_params(self):
-        """Возвращает словарь с параметрами подключения из ENV"""
         return {
             'host': os.environ.get('TIMESCALE_HOST', 'timescaledb'),
             'port': os.environ.get('TIMESCALE_PORT', '5432'),
@@ -52,18 +47,12 @@ class MesTimescaleBase(models.AbstractModel):
             conn.close()
 
 class MesInfrastructureManager(models.AbstractModel):
-    """
-    Класс отвечает за инициализацию инфраструктуры:
-    1. Создание таблиц в удаленной TimescaleDB.
-    2. Настройка FDW (Foreign Data Wrapper) в локальной базе Odoo.
-    """
     _name = 'mes.infrastructure.manager'
     _description = 'Timescale Infrastructure Manager'
     _inherit = ['mes.timescale.base']
 
     @api.model
     def _init_remote_timescale(self):
-        """Создает таблицы и гипертаблицы в самой TimescaleDB (Remote)"""
         conn = self._get_ts_connection()
         if not conn:
             _logger.warning("Could not connect to TimescaleDB to init tables.")
@@ -292,7 +281,6 @@ class MesTelemetryEventFDW(models.Model):
     value = fields.Integer(string='Value', readonly=True)
 
     def init(self):
-        """Создает связь FOREIGN TABLE"""
         tools.drop_view_if_exists(self.env.cr, self._table)
         self.env.cr.execute("""
             CREATE FOREIGN TABLE IF NOT EXISTS %s (
