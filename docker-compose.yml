@@ -2,20 +2,27 @@ services:
   db:
     image: postgres:15
     environment:
-      - POSTGRES_DB=postgres
-      - POSTGRES_PASSWORD=odoo
-      - POSTGRES_USER=odoo
+      - POSTGRES_DB=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_USER=${DB_USER}
+      - TELEMETRY_HOST=${TELEMETRY_HOST}
+      - TELEMETRY_PORT=${TELEMETRY_PORT}
+      - TELEMETRY_DB=${TELEMETRY_DB}
+      - TELEMETRY_USER=${TELEMETRY_USER}
+      - TELEMETRY_PASS=${TELEMETRY_PASS}
     volumes:
       - ./pg_data:/var/lib/postgresql/data
       - ./init_db:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
     restart: unless-stopped
 
   timescaledb:
     image: timescale/timescaledb:latest-pg15
     environment:
-      - POSTGRES_DB=telemetry_db
-      - POSTGRES_PASSWORD=default_password
-      - POSTGRES_USER=default_user
+      - POSTGRES_DB=${TELEMETRY_DB}
+      - POSTGRES_PASSWORD=${TELEMETRY_PASS}
+      - POSTGRES_USER=${TELEMETRY_USER}
     volumes:
       - ./timescale_data:/var/lib/postgresql/data
     ports:

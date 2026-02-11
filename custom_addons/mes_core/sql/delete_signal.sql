@@ -1,0 +1,1 @@
+DELETE FROM config_signals WHERE machine_name = %s AND tag_name = %s;

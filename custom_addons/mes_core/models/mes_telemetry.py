@@ -1,50 +1,82 @@
 import os
 import logging
 import psycopg2
+from psycopg2 import pool
+from contextlib import contextmanager
 from odoo import models, fields, api, tools
+from odoo.modules import get_module_resource
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
+
+_TS_CONNECTION_POOL = None
 
 class MesTimescaleBase(models.AbstractModel):
     _name = 'mes.timescale.base'
     _description = 'Base class for TimescaleDB connection'
 
-    def _get_ts_params(self):
-        return {
-            'host': os.environ.get('TIMESCALE_HOST', 'timescaledb'),
-            'port': os.environ.get('TIMESCALE_PORT', '5432'),
-            'dbname': os.environ.get('TIMESCALE_DB', 'mes_telemetry'),
-            'user': os.environ.get('TIMESCALE_USER', 'timescale_user'),
-            'password': os.environ.get('TIMESCALE_PASS', 'timescale_pass')
-        }
+    def _init_pool(self):
+        global _TS_CONNECTION_POOL
+        if _TS_CONNECTION_POOL:
+            return
 
-    def _get_ts_connection(self):
-        params = self._get_ts_params()
+        params = self._get_connection_params()
         try:
-            return psycopg2.connect(
+            _TS_CONNECTION_POOL = psycopg2.pool.ThreadedConnectionPool(
+                minconn=1,
+                maxconn=10,
                 host=params['host'],
                 port=params['port'],
-                database=params['dbname'],
+                dbname=params['dbname'],
                 user=params['user'],
                 password=params['password']
             )
-        except Exception as e:
-            _logger.error(f"TimescaleDB Connection Error: {e}")
-            return None
+        except psycopg2.Error as e:
+            _logger.critical(f"Failed to create TimescaleDB pool: {e}")
+            raise UserError("External Database Connection Failed")
 
-    def _execute_ts_query(self, query, params=None):
-        conn = self._get_ts_connection()
-        if not conn:
-            return
+    def _get_connection_params(self):
+        env = os.environ.get
+        param = self.env['ir.config_parameter'].sudo().get_param
+        
+        return {
+            'host': env('TELEMETRY_HOST') or param('timescale.host') or 'timescaledb',
+            'port': env('TELEMETRY_PORT') or param('timescale.port') or '5432',
+            'dbname': env('TELEMETRY_DB') or param('timescale.db') or 'mes_telemetry',
+            'user': env('TELEMETRY_USER') or param('timescale.user') or 'timescale_user',
+            'password': env('TELEMETRY_PASS') or param('timescale.password') or 'timescale_pass'
+        }
+
+    @contextmanager
+    def _cursor(self):
+        if not _TS_CONNECTION_POOL:
+            self._init_pool()
+
+        conn = _TS_CONNECTION_POOL.getconn()
         try:
             with conn.cursor() as cur:
-                cur.execute(query, params)
+                yield cur
             conn.commit()
-        except Exception as e:
+        except Exception:
             conn.rollback()
-            _logger.error(f"TS Query Error: {e}")
+            raise
         finally:
-            conn.close()
+            _TS_CONNECTION_POOL.putconn(conn)
+
+    def _get_sql_query(self, filename):
+        path = get_module_resource('mes_core', 'sql', filename)
+        if not path or not os.path.isfile(path):
+            _logger.error(f"SQL file {filename} not found in mes_core/sql/")
+            return ""
+        with open(path, 'r') as f:
+            return f.read()
+
+    def _execute_from_file(self, filename, params=None):
+        query = self._get_sql_query(filename)
+        if not query:
+            return
+        with self._cursor() as cur:
+            cur.execute(query, params)
 
 class MesInfrastructureManager(models.AbstractModel):
     _name = 'mes.infrastructure.manager'
@@ -52,122 +84,29 @@ class MesInfrastructureManager(models.AbstractModel):
     _inherit = ['mes.timescale.base']
 
     @api.model
-    def _init_remote_timescale(self):
-        conn = self._get_ts_connection()
-        if not conn:
-            _logger.warning("Could not connect to TimescaleDB to init tables.")
-            return
-
-        queries = [
-            """
-            CREATE TABLE IF NOT EXISTS config_machine (
-                machine_name TEXT PRIMARY KEY,
-                ip_connection TEXT,
-                ip_data TEXT
-            );
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS config_signals (
-                machine_name TEXT NOT NULL,
-                tag_name TEXT NOT NULL,
-                poll_type TEXT,
-                poll_frequency INT,
-                param_type TEXT,
-                signal_category TEXT,
-                PRIMARY KEY (machine_name, tag_name)
-            );
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS telemetry_count (
-                time TIMESTAMPTZ NOT NULL,
-                machine_name TEXT NOT NULL,
-                tag_name TEXT NOT NULL,
-                value BIGINT
-            );
-            """,
-            "SELECT create_hypertable('telemetry_count', 'time', if_not_exists => TRUE);",
-            """
-            CREATE TABLE IF NOT EXISTS telemetry_event (
-                time TIMESTAMPTZ NOT NULL,
-                machine_name TEXT NOT NULL,
-                tag_name TEXT NOT NULL,
-                value INTEGER
-            );
-            """,
-            "SELECT create_hypertable('telemetry_event', 'time', if_not_exists => TRUE);",
-            """
-            CREATE TABLE IF NOT EXISTS telemetry_process (
-                time TIMESTAMPTZ NOT NULL,
-                machine_name TEXT NOT NULL,
-                tag_name TEXT NOT NULL,
-                val_num DOUBLE PRECISION,
-                val_int BIGINT,
-                val_bool BOOLEAN,
-                val_str TEXT
-            );
-            """,
-            "SELECT create_hypertable('telemetry_process', 'time', if_not_exists => TRUE);"
-        ]
-        
-        indexes = [
-            "CREATE INDEX IF NOT EXISTS idx_telemetry_process_machine_tag ON telemetry_process (machine_name, tag_name, time DESC);",
-            "CREATE INDEX IF NOT EXISTS idx_telemetry_event_machine_tag ON telemetry_event (machine_name, tag_name, time DESC);",
-            "CREATE INDEX IF NOT EXISTS idx_telemetry_count_machine_tag ON telemetry_count (machine_name, tag_name, time DESC);"
-        ]
-
-        try:
-            with conn.cursor() as cur:
-                for q in queries:
-                    cur.execute(q)
-                for idx in indexes:
-                    cur.execute(idx)
-                conn.commit()
-            _logger.info("Remote TimescaleDB Schema Initialized.")
-        except Exception as e:
-            conn.rollback()
-            _logger.error(f"Remote Init Error: {e}")
-        finally:
-            conn.close()
+    def _init_DB(self):
+        self._execute_from_file('init_schema.sql')
 
     @api.model
     def _init_local_fdw(self):
-        params = self._get_ts_params()
-        
+        params = self._get_connection_params()
         self.env.cr.execute("CREATE EXTENSION IF NOT EXISTS postgres_fdw;")
-
-        self.env.cr.execute("""
-            DROP USER MAPPING IF EXISTS FOR %s SERVER timescaledb_server;
-        """ % self.env.cr.dbname) 
         
-        server_sql = """
-            CREATE SERVER IF NOT EXISTS timescaledb_server
+        server_name = 'timescaledb_server'
+        self.env.cr.execute(f"DROP SERVER IF EXISTS {server_name} CASCADE;")
+        
+        self.env.cr.execute(f"""
+            CREATE SERVER {server_name}
             FOREIGN DATA WRAPPER postgres_fdw
-            OPTIONS (host '%s', port '%s', dbname '%s');
-        """ % (params['host'], params['port'], params['dbname'])
-        self.env.cr.execute(server_sql)
-        self.env.cr.execute("""
-            ALTER SERVER timescaledb_server 
-            OPTIONS (SET host '%s', SET port '%s', SET dbname '%s');
-        """ % (params['host'], params['port'], params['dbname']))
+            OPTIONS (host %s, port %s, dbname %s);
+        """, (params['host'], params['port'], params['dbname']))
 
         current_db_user = self.env.cr.connection.info.user
-        
-        mapping_sql = """
-            CREATE USER MAPPING IF NOT EXISTS FOR "%s"
-            SERVER timescaledb_server
-            OPTIONS (user '%s', password '%s');
-        """ % (current_db_user, params['user'], params['password'])
-        
-        try:
-            self.env.cr.execute(mapping_sql)
-            self.env.cr.execute("""
-                ALTER USER MAPPING FOR "%s" SERVER timescaledb_server 
-                OPTIONS (SET user '%s', SET password '%s');
-            """ % (current_db_user, params['user'], params['password']))
-            _logger.info("Local FDW Server & Mapping Configured.")
-        except Exception as e:
-            _logger.error(f"FDW Setup Error: {e}")
-
+        self.env.cr.execute(f"""
+            CREATE USER MAPPING FOR "{current_db_user}"
+            SERVER {server_name}
+            OPTIONS (user %s, password %s);
+        """, (params['user'], params['password']))
 
 class MesMachineSettings(models.Model):
     _name = 'mes.machine.settings'
@@ -184,32 +123,24 @@ class MesMachineSettings(models.Model):
 
     def init(self):
         super().init()
-        self.env['mes.infrastructure.manager']._init_remote_timescale()
+        self.env['mes.infrastructure.manager']._init_DB()
         self.env['mes.infrastructure.manager']._init_local_fdw()
 
     @api.model
     def create(self, vals):
         rec = super().create(vals)
-        query = """
-            INSERT INTO config_machine (machine_name, ip_connection, ip_data) VALUES (%s, %s, %s)
-            ON CONFLICT (machine_name) DO UPDATE SET ip_connection=EXCLUDED.ip_connection, ip_data=EXCLUDED.ip_data;
-        """
-        rec._execute_ts_query(query, (rec.name, rec.ip_connection, rec.ip_data))
+        self._execute_from_file('upsert_machine.sql', (rec.name, rec.ip_connection, rec.ip_data))
         return rec
 
     def write(self, vals):
         res = super().write(vals)
         for rec in self:
-            query = """
-                INSERT INTO config_machine (machine_name, ip_connection, ip_data) VALUES (%s, %s, %s)
-                ON CONFLICT (machine_name) DO UPDATE SET ip_connection=EXCLUDED.ip_connection, ip_data=EXCLUDED.ip_data;
-            """
-            rec._execute_ts_query(query, (rec.name, rec.ip_connection, rec.ip_data))
+            self._execute_from_file('upsert_machine.sql', (rec.name, rec.ip_connection, rec.ip_data))
         return res
 
     def unlink(self):
         for rec in self:
-            rec._execute_ts_query("DELETE FROM config_machine WHERE machine_name = %s;", (rec.name,))
+            self._execute_from_file('delete_machine.sql', (rec.name,))
         return super().unlink()
 
 class MesSignalTag(models.Model):
@@ -241,34 +172,25 @@ class MesSignalTag(models.Model):
     @api.model
     def create(self, vals):
         rec = super().create(vals)
-        self._sync_to_timescale(rec)
+        self._sync(rec)
         return rec
 
     def write(self, vals):
         res = super().write(vals)
         for rec in self:
-            self._sync_to_timescale(rec)
+            self._sync(rec)
         return res
 
     def unlink(self):
         for rec in self:
-            query = "DELETE FROM config_signals WHERE machine_name = %s AND tag_name = %s;"
-            rec._execute_ts_query(query, (rec.machine_settings_id.name, rec.tag_name))
+            self._execute_from_file('delete_signal.sql', (rec.machine_settings_id.name, rec.tag_name))
         return super().unlink()
 
-    def _sync_to_timescale(self, rec):
-        query = """
-            INSERT INTO config_signals (machine_name, tag_name, poll_type, poll_frequency, param_type, signal_category)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (machine_name, tag_name) DO UPDATE 
-            SET poll_type=EXCLUDED.poll_type, poll_frequency=EXCLUDED.poll_frequency, 
-                param_type=EXCLUDED.param_type, signal_category=EXCLUDED.signal_category;
-        """
-        rec._execute_ts_query(query, (
+    def _sync(self, rec):
+        self._execute_from_file('upsert_signal.sql', (
             rec.machine_settings_id.name, rec.tag_name, 
             rec.poll_type, rec.poll_frequency, rec.param_type, rec.signal_type
         ))
-
 
 class MesTelemetryEventFDW(models.Model):
     _name = 'mes.telemetry.event.fdw'
@@ -307,6 +229,7 @@ class MesTelemetryCountFDW(models.Model):
         tools.drop_view_if_exists(self.env.cr, self._table)
         self.env.cr.execute("""
             CREATE FOREIGN TABLE IF NOT EXISTS %s (
+                id bigint,
                 time TIMESTAMPTZ,
                 machine_name TEXT,
                 tag_name TEXT,
