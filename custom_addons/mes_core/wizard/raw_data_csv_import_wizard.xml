@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_mes_raw_data_csv_import_wizard_form" model="ir.ui.view">
+            <field name="name">mes.raw.data.csv.import.wizard.form</field>
+            <field name="model">mes.raw.data.csv.import.wizard</field> <field name="arch" type="xml">
+                <form string="Import Telemetry CSV">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="file_data" filename="filename" widget="binary" string="CSV File"/>
+                                <field name="filename" invisible="1"/>
+                            </group>
+                        </group>
+                        <div class="alert alert-info" role="alert">
+                            <p><strong>Supported Format:</strong> CSV file with columns: <code>timestamp</code>, <code>tag_name</code>, <code>value</code>.</p>
+                            <p>The system will automatically split data into Count, Event, and Process tables based on tag configuration.</p>
+                        </div>
+                    </sheet>
+                    <footer>
+                        <button name="do_import" 
+                                string="Import Data" 
+                                type="object" 
+                                class="btn-primary" 
+                                data-hotkey="q"/>
+                        
+                        <button string="Cancel" 
+                                class="btn-secondary" 
+                                special="cancel" 
+                                data-hotkey="z"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_mes_raw_data_csv_import_wizard" model="ir.actions.act_window">
+            <field name="name">Import Raw Telemetry</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">mes.raw.data.csv.import.wizard</field> <field name="view_mode">form</field>
+            <field name="view_id" ref="view_mes_raw_data_csv_import_wizard_form"/>
+            <field name="target">new</field> </record>
+
+        <menuitem id="menu_mes_import_wizard"
+                  name="Import CSV"
+                  parent="mes_core.menu_mes_configuration" 
+                  action="action_mes_raw_data_csv_import_wizard"
+                  sequence="100"/>
+
+    </data>
+</odoo>

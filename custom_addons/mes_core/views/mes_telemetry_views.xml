@@ -1,10 +1,10 @@
 <odoo>
     <record id="action_init_timescale" model="ir.actions.server">
         <field name="name">Initialize Timescale Tables</field>
-        <field name="model_id" ref="model_mes_timescale_manager"/>
+        <field name="model_id" ref="model_mes_timescale_db_manager"/>
         <field name="state">code</field>
         <field name="code">
-            model.init_timescale_tables()
+            model._init_DB()
         </field>
     </record>
 

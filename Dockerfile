@@ -6,8 +6,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg2 \
     git \
-    && curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
-    && curl https://packages.microsoft.com/config/debian/12/prod.list > /etc/apt/sources.list.d/mssql-release.list \
+    ca-certificates \
+    lsb-release \
+    && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
+    && curl https://packages.microsoft.com/config/debian/12/prod.list | tee /etc/apt/sources.list.d/mssql-release.list \
     && apt-get update \
     && ACCEPT_EULA=Y apt-get install -y --no-install-recommends \
     msodbcsql17 \
@@ -15,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install pyodbc debugpy
+RUN pip3 install --no-cache-dir pyodbc debugpy pandas
 
 RUN mkdir -p /mnt/oca-addons \
     && git clone -b 17.0 --single-branch --depth 1 https://github.com/OCA/queue.git /mnt/oca-addons/queue \

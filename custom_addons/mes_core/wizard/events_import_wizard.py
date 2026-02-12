@@ -11,7 +11,7 @@ class MesImportEventsWizard(models.TransientModel):
     file = fields.Binary(string='CSV File', required=True)
     filename = fields.Char(string='Filename')
 
-    def action_import(self):
+    def do_import(self):
         if not self.file:
             raise UserError(_("Please upload a file."))
         try:

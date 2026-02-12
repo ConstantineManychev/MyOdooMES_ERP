@@ -78,9 +78,9 @@ class MesTimescaleBase(models.AbstractModel):
         with self._cursor() as cur:
             cur.execute(query, params)
 
-class MesInfrastructureManager(models.AbstractModel):
-    _name = 'mes.infrastructure.manager'
-    _description = 'Timescale Infrastructure Manager'
+class MesTimescaleDBManager(models.AbstractModel):
+    _name = 'mes.timescale.db.manager'
+    _description = 'Timescale Timescale DB Manager'
     _inherit = ['mes.timescale.base']
 
     @api.model
@@ -123,8 +123,8 @@ class MesMachineSettings(models.Model):
 
     def init(self):
         super().init()
-        self.env['mes.infrastructure.manager']._init_DB()
-        self.env['mes.infrastructure.manager']._init_local_fdw()
+        self.env['mes.timescale.db.manager']._init_DB()
+        self.env['mes.timescale.db.manager']._init_local_fdw()
 
     @api.model
     def create(self, vals):

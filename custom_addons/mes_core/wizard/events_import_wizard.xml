@@ -13,7 +13,7 @@
                     <p>AlarmCode;Description;DefaultOPCTag;DefaultPLCValue;ParentName</p>
                 </div>
                 <footer>
-                    <button name="action_import" string="Import" type="object" class="btn-primary"/>
+                    <button name="do_import" string="Import" type="object" class="btn-primary"/>
                     <button string="Cancel" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>

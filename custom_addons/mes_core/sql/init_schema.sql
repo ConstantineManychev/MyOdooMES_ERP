@@ -41,10 +41,8 @@ CREATE TABLE IF NOT EXISTS telemetry_process (
     time TIMESTAMPTZ NOT NULL,
     machine_name TEXT NOT NULL,
     tag_name TEXT NOT NULL,
-    val_num DOUBLE PRECISION,
-    val_int BIGINT,
-    val_bool BOOLEAN,
-    val_str TEXT
+    value DOUBLE PRECISION,
+    value_str TEXT
 );
 
 SELECT create_hypertable('telemetry_process', 'time', if_not_exists => TRUE);
@@ -52,3 +50,24 @@ SELECT create_hypertable('telemetry_process', 'time', if_not_exists => TRUE);
 CREATE INDEX IF NOT EXISTS idx_telemetry_process_machine_tag ON telemetry_process (machine_name, tag_name, time DESC);
 CREATE INDEX IF NOT EXISTS idx_telemetry_event_machine_tag ON telemetry_event (machine_name, tag_name, time DESC);
 CREATE INDEX IF NOT EXISTS idx_telemetry_count_machine_tag ON telemetry_count (machine_name, tag_name, time DESC);
+
+CREATE OR REPLACE VIEW view_machine_events AS
+SELECT
+    id,
+    time as start_time,
+    LEAD(time, 1, NOW()) OVER (PARTITION BY machine_name ORDER BY time) as end_time,
+    EXTRACT(EPOCH FROM (LEAD(time, 1, NOW()) OVER (PARTITION BY machine_name ORDER BY time) - time)) as duration,
+    machine_name,
+    tag_name,
+    value as state_code
+FROM telemetry_event
+WHERE tag_name IN ('OEE.nMachineState', 'OEE.nStopRootReason');
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS view_hourly_stats AS
+SELECT
+    time_bucket('1 hour', time) as bucket,
+    machine_name,
+    tag_name,
+    MAX(value) - MIN(value) as count_delta
+FROM telemetry_count
+GROUP BY bucket, machine_name, tag_name;
