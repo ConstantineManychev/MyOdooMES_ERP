@@ -29,7 +29,7 @@
 
     <menuitem id="menu_mes_import_events"
               name="Import Events CSV"
-              parent="mes_core.menu_mes_configuration" 
+              parent="menu_mes_configuration" 
               action="action_mes_import_events"
               sequence="100"/>
 </odoo>

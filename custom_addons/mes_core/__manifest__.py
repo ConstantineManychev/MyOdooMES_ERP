@@ -21,6 +21,8 @@
         'views/hr_employee_view.xml',
         
         'views/mes_telemetry_views.xml',
+        'wizard/events_import_wizard.xml',
+        'wizard/raw_data_csv_import_wizard.xml',
     ],
     'installable': True,
     'application': True,

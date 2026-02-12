@@ -98,7 +98,11 @@ class MesTask(models.Model):
             'desc': data.get('description'),
             'status': data.get('status'),
             'priority': data.get('priority'),
+
+            # We need to check hash without assignees because 
+            # MaintainX doesn't provide that info in the main list endpoint 
             #'assignees': sorted(data.get('assigneeIds', [])),
+
             'assetId': data.get('assetId'),
             'updatedAt': data.get('updatedAt'),
         }
@@ -131,6 +135,8 @@ class MesTask(models.Model):
             if existing_task and existing_task.maintainx_data_hash == new_hash:
                 continue
 
+            # MaintainX doesn't provide assignees in the main list endpoint, 
+            # so we need to sync all tasks with different hash to get that info and update assignee history
             self.with_delay(
                 channel='root.maintainx',
                 description=f"Sync MX Task {wo_id}",

@@ -26,7 +26,7 @@ services:
     volumes:
       - ./timescale_data:/var/lib/postgresql/data
     ports:
-      - "5433:5433"
+      - "5433:5432"
     restart: unless-stopped
 
   odoo:

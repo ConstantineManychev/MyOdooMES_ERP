@@ -1,60 +1,18 @@
 <odoo>
-    <record id="action_init_timescale" model="ir.actions.server">
+    <record id="action_init_timescale_server" model="ir.actions.server">
         <field name="name">Initialize Timescale Tables</field>
         <field name="model_id" ref="model_mes_timescale_db_manager"/>
         <field name="state">code</field>
         <field name="code">
             model._init_DB()
         </field>
-    </record>
+        </record>
 
     <record id="view_mes_machine_settings_form" model="ir.ui.view">
-        <field name="name">mes.machine.settings.form</field>
-        <field name="model">mes.machine.settings</field>
-        <field name="arch" type="xml">
-            <form>
-                <header>
-                    <button name="%(action_init_timescale)d" string="Init TimescaleDB" type="action" class="btn-secondary" groups="base.group_no_one"/>
-                </header>
-                <sheet>
-                    <div class="oe_title">
-                        <h1><field name="name" placeholder="Machine Name (e.g. MA-01)"/></h1>
-                    </div>
-                    <group>
-                        <group>
-                            <field name="ip_connection"/>
-                            <field name="ip_data"/>
-                        </group>
-                    </group>
-                    <notebook>
-                        <page string="Signals Configuration">
-                            <field name="signal_ids">
-                                <tree editable="bottom">
-                                    <field name="tag_name"/>
-                                    <field name="poll_type"/>
-                                    <field name="poll_frequency" attrs="{'invisible': [('poll_type', '!=', 'cyclic')]}"/>
-                                    <field name="param_type"/>
-                                    <field name="signal_type"/>
-                                </tree>
-                            </field>
-                        </page>
-                    </notebook>
-                </sheet>
-            </form>
-        </field>
-    </record>
-
+         </record>
+    
     <record id="view_mes_machine_settings_tree" model="ir.ui.view">
-        <field name="name">mes.machine.settings.tree</field>
-        <field name="model">mes.machine.settings</field>
-        <field name="arch" type="xml">
-            <tree>
-                <field name="name"/>
-                <field name="ip_connection"/>
-                <field name="ip_data"/>
-            </tree>
-        </field>
-    </record>
+         </record>
 
     <record id="action_mes_machine_settings" model="ir.actions.act_window">
         <field name="name">Machine Connections</field>
@@ -65,6 +23,17 @@
     <menuitem id="menu_mes_telemetry_config"
               name="Telemetry Config"
               parent="menu_mes_configuration"
-              action="action_mes_machine_settings"
               sequence="50"/>
-</odoo>
+
+    <menuitem id="menu_mes_machine_settings_item"
+              name="Machine Connections"
+              parent="menu_mes_telemetry_config"
+              action="action_mes_machine_settings"
+              sequence="10"/>
+
+    <menuitem id="menu_mes_init_db"
+              name="Initialize Database"
+              parent="menu_mes_telemetry_config"
+              action="action_init_timescale_server"
+              sequence="20"
+              groups="base.group_no_one"/> </odoo>
