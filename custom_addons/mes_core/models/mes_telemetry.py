@@ -1,6 +1,8 @@
 import os
 import logging
+import time
 import psycopg2
+from psycopg2 import pool, errorcodes
 from psycopg2 import pool
 from contextlib import contextmanager
 from odoo import models, fields, api, tools
@@ -10,6 +12,7 @@ from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
 _TS_CONNECTION_POOL = None
+SLOW_QUERY_THRESHOLD_MS = 500
 
 class MesTimescaleBase(models.AbstractModel):
     _name = 'mes.timescale.base'
@@ -59,6 +62,15 @@ class MesTimescaleBase(models.AbstractModel):
             conn.commit()
         except Exception:
             conn.rollback()
+            pg_error_code = e.pgcode or 'Unknown'
+            error_msg = e.pgerror or str(e)
+            
+            _logger.error(f"TimescaleDB SQL Error [{pg_error_code}]: {error_msg}")
+            
+            raise UserError(f"External DB Error ({pg_error_code}): {error_msg}")
+        except Exception as e:
+            conn.rollback()
+            _logger.exception("Unexpected error in TimescaleDB connection")
             raise
         finally:
             _TS_CONNECTION_POOL.putconn(conn)
@@ -74,9 +86,39 @@ class MesTimescaleBase(models.AbstractModel):
     def _execute_from_file(self, filename, params=None):
         query = self._get_sql_query(filename)
         if not query:
+            _logger.warning(f"Empty or missing SQL file: {filename}")
             return
-        with self._cursor() as cur:
-            cur.execute(query, params)
+        start_time = time.time()
+        query_preview = filename
+        try:
+            with self._cursor() as cur:
+                cur.execute(query, params)
+                
+            duration_ms = (time.time() - start_time) * 1000
+            
+            if _logger.isEnabledFor(logging.DEBUG):
+                _logger.debug(f"SQL Executed: {filename} | Params: {params} | Time: {duration_ms:.2f}ms")
+            elif duration_ms > SLOW_QUERY_THRESHOLD_MS:
+                _logger.warning(f"SLOW SQL Detected: {filename} took {duration_ms:.2f}ms")
+            else:
+                _logger.info(f"SQL Executed: {filename} ({duration_ms:.2f}ms)")
+                
+        except Exception as e:
+            _logger.error(f"Failed to execute SQL file: {filename}. Params: {params}")
+            raise e
+        
+    def bulk_copy_from_buffer(self, table_name, buffer, columns):
+        start_time = time.time()
+        try:
+            with self._cursor() as cur:
+                cur.copy_from(buffer, table_name, columns=columns, null='')
+            
+            duration_ms = (time.time() - start_time) * 1000
+            _logger.info(f"BULK INSERT into {table_name}: {duration_ms:.2f}ms")
+            
+        except Exception as e:
+            _logger.error(f"Bulk insert failed for {table_name}")
+            raise
 
 class MesTimescaleDBManager(models.AbstractModel):
     _name = 'mes.timescale.db.manager'

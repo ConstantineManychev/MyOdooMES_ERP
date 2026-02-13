@@ -93,18 +93,13 @@ class MesTask(models.Model):
             return False
 
     def _calculate_hash(self, data):
+        # We only use fields that are guaranteed to be identical in both 
+        # list view (get_workorders) and detail view (get_workorder).
+        # Description is often truncated or missing in list views.
         significant_data = {
-            'title': data.get('title'),
-            'desc': data.get('description'),
-            'status': data.get('status'),
-            'priority': data.get('priority'),
-
-            # We need to check hash without assignees because 
-            # MaintainX doesn't provide that info in the main list endpoint 
-            #'assignees': sorted(data.get('assigneeIds', [])),
-
-            'assetId': data.get('assetId'),
+            'id': data.get('id'),
             'updatedAt': data.get('updatedAt'),
+            'status': data.get('status'),
         }
         return hashlib.sha256(json.dumps(significant_data, sort_keys=True).encode('utf-8')).hexdigest()
 
@@ -113,8 +108,7 @@ class MesTask(models.Model):
         _logger.info(">>> Starting load_tasks_from_maintainx...")
         try:
             client = self._get_api_client()
-            response = client.get_workorders(limit=200)
-            workorders_list = response.get('workOrders') or response.get('items') or []
+            workorders_list = client.get_workorders(limit=200)
         except Exception as e:
             _logger.exception("Sync Failed during API call")
             return
@@ -149,7 +143,7 @@ class MesTask(models.Model):
 
     def action_sync_single_wo_job(self, workorder_id):
         client = self._get_api_client()
-        full_wo_data = client.get_entity('workorders', workorder_id)
+        full_wo_data = client.get_workorder(workorder_id)
         if not full_wo_data:
             return
         
@@ -157,25 +151,55 @@ class MesTask(models.Model):
         self._process_single_wo(full_wo_data, client, cache)
 
     def _process_single_wo(self, wo, client, cache):
+        if not wo.get('id'):
+            _logger.error(f"Received WorkOrder data without ID. Data keys: {list(wo.keys())}")
+            return
+
         wo_id = str(wo.get('id'))
         vals = self._prepare_task_values(wo, client, cache)
         
         task = self.search([('maintainx_id', '=', wo_id)], limit=1)
+        
+        sync_result = {
+            'action': 'none',
+            'task_id': False,
+            'changes': {}
+        }
 
         if not task:
             _logger.info(f"Creating Task {wo_id}")
             task = self.create(vals)
             self._create_status_history(task, wo.get('status'))
-        else:
-            old_state = task.state
             
-            new_history = vals.pop('maintainx_assignees_history', '')
-            if new_history:
-                vals['maintainx_assignees_history'] = (task.maintainx_assignees_history or "") + new_history
+            task.message_post(body="Task created from MaintainX sync.")
+            
+            sync_result.update({'action': 'created', 'task_id': task.id, 'changes': vals})
+            return sync_result
 
-            task.write(vals)
-            if old_state != vals.get('state'):
-                self._create_status_history(task, wo.get('status'))
+        if 'maintainx_assignees_history' in vals:
+            new_history_entry = vals.pop('maintainx_assignees_history', '')
+            if new_history_entry:
+                current_hist = task.maintainx_assignees_history or ""
+                vals['maintainx_assignees_history'] = current_hist + new_history_entry
+
+        changes = self._compute_task_delta(task, vals)
+
+        old_state = task.state
+        task.write(vals)
+
+        if changes:
+            html_message = self._format_load_message(changes) 
+            if html_message:
+                task.message_post(body=html_message)
+            
+            sync_result.update({'action': 'updated', 'task_id': task.id, 'changes': changes})
+        else:
+            sync_result.update({'action': 'silent_update', 'task_id': task.id})
+
+        if old_state != vals.get('state'):
+            self._create_status_history(task, wo.get('status'))
+        
+        return sync_result
 
     def _prepare_task_values(self, wo, client, cache):
         mx_status = str(wo.get('status', '')).upper().strip()
@@ -230,7 +254,7 @@ class MesTask(models.Model):
             cache['employees'][mx_user_id] = employee
             return employee
 
-        user_data = client.get_entity('users', mx_user_id)
+        user_data = client.get_user(mx_user_id) 
         if not user_data:
             return False
 
@@ -268,7 +292,7 @@ class MesTask(models.Model):
             cache['machines'][asset_id] = machine.id
             return machine.id
 
-        asset_data = client.get_entity('assets', asset_id)
+        asset_data = client.get_asset(asset_id)
         if not asset_data:
             return False
             
@@ -280,3 +304,69 @@ class MesTask(models.Model):
             return res
             
         return False
+    
+    def _compute_task_delta(self, task, vals):
+        changes = {}
+        IGNORED_FIELDS = {
+            'maintainx_data_hash', 
+            'maintainx_updated_at', 
+            'maintainx_assignees_history',
+            'maintainx_created_at',
+            'maintainx_id'
+        }
+
+        for field, new_value in vals.items():
+            if field in IGNORED_FIELDS:
+                continue
+            
+            try:
+                current_value = task[field]
+                
+                if hasattr(current_value, 'id'): 
+                    current_id = current_value.id or False
+                    new_id = new_value or False
+                    
+                    if current_id != new_id:
+                        changes[field] = {
+                            'old': current_value.display_name if current_value else 'Empty', 
+                            'new': self._get_name_from_id(field, new_value) # См. ниже про этот метод
+                        }
+                
+                else:
+                    c_val = current_value or False
+                    n_val = new_value or False
+                    
+                    if c_val != n_val:
+                        changes[field] = {'old': c_val, 'new': n_val}
+                        
+            except KeyError:
+                continue
+                
+        return changes
+
+    def _get_name_from_id(self, field_name, res_id):
+        if not res_id:
+            return 'Empty'
+            
+        model_map = {
+            'machine_id': 'mrp.workcenter',
+            'assigned_id': 'hr.employee',
+            'author_id': 'res.users'
+        }
+        
+        model = model_map.get(field_name)
+        if model:
+            rec = self.env[model].browse(res_id)
+            return rec.name if rec.exists() else f"ID {res_id}"
+        return str(res_id)
+
+    def _format_load_message(self, changes):
+        if not changes:
+            return None
+            
+        msg_body = "<b>Updated from MaintainX:</b><ul>"
+        for f, diff in changes.items():
+            field_label = f.replace('_', ' ').capitalize()
+            msg_body += f"<li>{field_label}: {diff['old']} &rarr; {diff['new']}</li>"
+        msg_body += "</ul>"
+        return msg_body
