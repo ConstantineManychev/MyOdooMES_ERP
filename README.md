@@ -34,7 +34,7 @@ Bi-directional Work Order synchronization via REST API.
 
 ###  Clone & Build
 ```bash
-git clone --recursive https://github.com/your-repo/MyOdooMES_ERP.git
+git clone --recursive https://github.com/ConstantineManychev/MyOdooMES_ERP.git
 cd MyOdooMES_ERP
 docker-compose up -d --build
 ```
