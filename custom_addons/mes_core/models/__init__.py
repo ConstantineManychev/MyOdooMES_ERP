@@ -4,3 +4,6 @@ from . import mes_production_report
 from . import mes_tasks
 from . import res_config_settings
 from . import mes_telemetry
+from . import mes_telemetry_stats
+from . import mes_planned_downtime
+from . import mes_machine_settings

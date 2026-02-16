@@ -1,47 +1,64 @@
 <odoo>
-    <record id="res_config_settings_view_form" model="ir.ui.view">
+    <record id="res_config_settings_view_form_gemba" model="ir.ui.view">
         <field name="name">res.config.settings.view.form.inherit.gemba</field>
         <field name="model">res.config.settings</field>
-        <field name="priority" eval="10"/>
+        <field name="priority" eval="20"/>
         <field name="inherit_id" ref="base.res_config_settings_view_form"/>
         <field name="arch" type="xml">
             <xpath expr="//form" position="inside">
                 
-                <app data-string="Gemba Integration" string="Gemba Integration" name="mes_core">
-                    <block title="VerifySystems (SQL Connection)">
-                        <setting help="Connection details for external MS SQL Server">
-                            <group>
-                                <field name="gemba_sql_server"/>
-                                <field name="gemba_sql_database"/>
-                                <field name="gemba_sql_user"/>
-                                <field name="gemba_sql_password" password="True"/>
-                            </group>
-                        </setting>
-                    </block>
-
-                    <block title="MaintainX Integration">
-                        <setting help="API Token for MaintainX functionality">
-                            <group>
-                                <field name="maintainx_api_token" password="True"/>
-                            </group>
-                            <div class="mt16">
-                                <a href="https://www.getmaintainx.com/" target="_blank">
-                                    Open MaintainX Console
-                                </a>
+                <app data-string="MES Core" string="MES Core" name="mes_core">
+                    
+                    <block title="Legacy Systems (MS SQL)" id="gemba_sql_settings">
+                        <setting string="Gemba Connect DB" help="Sync shifts and alarms from legacy MS SQL Server.">
+                            <field name="use_gemba_sql"/>
+                            
+                            <div class="content-group" invisible="not use_gemba_sql">
+                                <div class="row mt16">
+                                    <label for="gemba_sql_server" class="col-lg-3 o_light_label"/>
+                                    <field name="gemba_sql_server" required="use_gemba_sql"/>
+                                </div>
+                                <div class="row">
+                                    <label for="gemba_sql_database" class="col-lg-3 o_light_label"/>
+                                    <field name="gemba_sql_database" required="use_gemba_sql"/>
+                                </div>
+                                <div class="row">
+                                    <label for="gemba_sql_user" class="col-lg-3 o_light_label"/>
+                                    <field name="gemba_sql_user" required="use_gemba_sql"/>
+                                </div>
+                                <div class="row">
+                                    <label for="gemba_sql_password" class="col-lg-3 o_light_label"/>
+                                    <field name="gemba_sql_password" password="True" required="use_gemba_sql"/>
+                                </div>
+                                
+                                <div class="mt16">
+                                    <button name="action_test_sql_connection" type="object" string="Test Connection" icon="fa-plug" class="btn-link"/>
+                                </div>
                             </div>
                         </setting>
                     </block>
-                </app>
 
+                    <block title="External Services" id="maintainx_settings">
+                        <setting string="MaintainX Integration" help="Bi-directional sync of tasks and work orders.">
+                            <field name="use_maintainx"/>
+                            
+                            <div class="content-group" invisible="not use_maintainx">
+                                <div class="row mt16">
+                                    <label for="maintainx_api_token" class="col-lg-3 o_light_label"/>
+                                    <field name="maintainx_api_token" password="True" required="use_maintainx"/>
+                                </div>
+                                <div class="mt8">
+                                    <button name="action_test_maintainx_connection" type="object" string="Check API Token" icon="fa-check-circle" class="btn-link"/>
+                                    <a href="https://www.getmaintainx.com/" target="_blank" class="ml-2 btn-link">
+                                        <i class="fa fa-external-link"/> Open Console
+                                    </a>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+
+                </app>
             </xpath>
         </field>
-    </record>
-
-    <record id="action_mes_config_settings" model="ir.actions.act_window">
-        <field name="name">Settings</field>
-        <field name="res_model">res.config.settings</field>
-        <field name="view_mode">form</field>
-        <field name="target">inline</field>
-        <field name="context">{'module': 'mes_core'}</field>
     </record>
 </odoo>

@@ -1,0 +1,85 @@
+<odoo>
+    <record id="view_mes_telemetry_hourly_tree" model="ir.ui.view">
+        <field name="name">mes.telemetry.hourly.fdw.tree</field>
+        <field name="model">mes.telemetry.hourly.fdw</field>
+        <field name="arch" type="xml">
+            <tree create="0" edit="0" delete="0">
+                <field name="bucket"/>
+                <field name="machine_name"/>
+                <field name="tag_name"/>
+                <field name="total_events"/>
+                <field name="avg_val"/>
+                <field name="max_val" optional="hide"/>
+                <field name="min_val" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_telemetry_hourly_pivot" model="ir.ui.view">
+        <field name="name">mes.telemetry.hourly.fdw.pivot</field>
+        <field name="model">mes.telemetry.hourly.fdw</field>
+        <field name="arch" type="xml">
+            <pivot string="Telemetry Analysis" sample="1">
+                <field name="bucket" type="row" interval="day"/>
+                <field name="machine_name" type="row"/>
+                <field name="tag_name" type="col"/>
+                <field name="avg_val" type="measure"/>
+                <field name="total_events" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_mes_telemetry_hourly_graph" model="ir.ui.view">
+        <field name="name">mes.telemetry.hourly.fdw.graph</field>
+        <field name="model">mes.telemetry.hourly.fdw</field>
+        <field name="arch" type="xml">
+            <graph string="Telemetry Trends" sample="1">
+                <field name="bucket" interval="hour"/>
+                <field name="machine_name"/>
+                <field name="avg_val" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="action_mes_telemetry_hourly" model="ir.actions.act_window">
+        <field name="name">Telemetry Analytics</field>
+        <field name="res_model">mes.telemetry.hourly.fdw</field>
+        <field name="view_mode">pivot,graph,tree</field>
+    </record>
+
+    <record id="view_mes_anomaly_tree" model="ir.ui.view">
+        <field name="name">mes.anomaly.fdw.tree</field>
+        <field name="model">mes.anomaly.fdw</field>
+        <field name="arch" type="xml">
+            <tree create="0" edit="0" delete="0" decoration-danger="status == 'critical'" decoration-success="status == 'normal'">
+                <field name="machine_name"/>
+                <field name="current_stops"/>
+                <field name="historical_avg"/>
+                <field name="status" widget="badge"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_mes_anomaly_dashboard" model="ir.actions.act_window">
+        <field name="name">Anomaly Dashboard</field>
+        <field name="res_model">mes.anomaly.fdw</field>
+        <field name="view_mode">tree</field>
+    </record>
+
+    <menuitem id="menu_mes_analytics"
+              name="Analytics"
+              parent="menu_mes_root"
+              sequence="20"/>
+
+    <menuitem id="menu_mes_telemetry_hourly"
+              name="Telemetry Trends"
+              parent="menu_mes_analytics"
+              action="action_mes_telemetry_hourly"
+              sequence="10"/>
+
+    <menuitem id="menu_mes_anomaly"
+              name="Real-time Anomalies"
+              parent="menu_mes_analytics"
+              action="action_mes_anomaly_dashboard"
+              sequence="20"/>
+</odoo>

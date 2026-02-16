@@ -19,6 +19,8 @@
         'views/mes_task_view.xml',
         'views/res_config_settings_view.xml',
         'views/hr_employee_view.xml',
+        'views/mes_telemetry_stats_views.xml',
+        'views/mes_planned_downtime_views.xml',
         
         'views/mes_telemetry_views.xml',
         'wizard/events_import_wizard.xml',
