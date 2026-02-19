@@ -37,9 +37,6 @@ class MesHierarchyMixin(models.AbstractModel):
 
     @api.model
     def sync_batch(self, data_list):
-        """
-        data_list format: [{'code': '123', 'name': 'Error', 'parent_name': 'Group', 'vals': {...}}]
-        """
         existing = self.search([])
         code_map = {r.code: r for r in existing if r.code}
         name_map = {r.name: r for r in existing}

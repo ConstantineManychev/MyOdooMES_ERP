@@ -29,7 +29,6 @@ class MesDictionaryImportWizard(models.TransientModel):
         is_event = self.import_type == 'event'
         model_name = 'mes.event' if is_event else 'mes.counts'
         
-        # Динамический маппинг колонок под модель
         mapping = {
             'DefaultOPCTag': 'default_OPCTag',
             'DefaultPLCValue': 'default_PLCValue' if is_event else None,

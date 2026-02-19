@@ -206,12 +206,11 @@ class ExternalImportWizard(models.TransientModel):
         loss_map = self._sync_alarm_reasons(data_dict)
         count_map = self._sync_count_reasons(data_dict)
 
-        # Выбираем дефолтный продукт, т.к. 1С не присылает product_id для брака, а поле обязательное
+#TODO: Change default product after VerifySystem sync
         default_product = self.env['product.product'].search([('detailed_type', '=', 'product')], limit=1)
 
         PerfObj = self.env['mes.machine.performance']
         
-        # Получаем все существующие отчеты одним запросом
         existing_reports = PerfObj.search([
             ('date', '>=', self.start_date),
             ('date', '<=', self.end_date)
@@ -248,7 +247,6 @@ class ExternalImportWizard(models.TransientModel):
             for rep in created_reports:
                 rep_lookup[(rep.machine_id.id, rep.date, rep.shift_id.id)] = rep
 
-        # Батч-сохранение табличных частей через write
         for lookup_key, row in reports_to_process:
             report = rep_lookup.get(lookup_key)
             if not report:
@@ -346,7 +344,7 @@ class ExternalImportWizard(models.TransientModel):
                 data_list.append({
                     'code': a['code'],
                     'name': a['name'][:100] if a['name'] else 'Unknown Alarm',
-                    'parent_name': a['type'], # Категория из SQL становится папкой
+                    'parent_name': a['type'], 
                     'vals': {}
                 })
                 
@@ -360,7 +358,7 @@ class ExternalImportWizard(models.TransientModel):
                 data_list.append({
                     'code': r['code'],
                     'name': r['name'][:100] if r['name'] else 'Unknown Defect',
-                    'parent_name': r['category'], # Категория из SQL становится папкой
+                    'parent_name': r['category'],
                     'vals': {}
                 })
                 

@@ -331,7 +331,7 @@ class MesTask(models.Model):
                     if current_id != new_id:
                         changes[field] = {
                             'old': current_value.display_name if current_value else 'Empty', 
-                            'new': self._get_name_from_id(field, new_value) # См. ниже про этот метод
+                            'new': self._get_name_from_id(field, new_value)
                         }
                 
                 else:
