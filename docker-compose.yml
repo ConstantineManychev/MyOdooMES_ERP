@@ -42,6 +42,8 @@ services:
       - TELEMETRY_USER=${TELEMETRY_USER}
       - TELEMETRY_PASS=${TELEMETRY_PASS}
     restart: unless-stopped
+    networks:
+      - internal_net
 
   odoo_db:
     image: postgres:15
@@ -58,6 +60,8 @@ services:
       - ./pg_data:/var/lib/postgresql/data
       - ./init_db:/docker-entrypoint-initdb.d
     restart: unless-stopped
+    networks:
+      - internal_net
 
   timescale_db:
     image: timescale/timescaledb:latest-pg15
@@ -68,6 +72,8 @@ services:
     volumes:
       - ./timescale_data:/var/lib/postgresql/data
     restart: unless-stopped
+    networks:
+      - internal_net
 
   flyway:
     image: flyway/flyway:latest-alpine
@@ -76,12 +82,16 @@ services:
       - -url=jdbc:postgresql://${TELEMETRY_HOST}:${TELEMETRY_PORT:-5432}/${TELEMETRY_DB}
       - -user=${TELEMETRY_USER}
       - -password=${TELEMETRY_PASS}
+      - -baselineOnMigrate=true
+      - -baselineVersion=0
       - migrate
     volumes:
       - ./db_migrations:/flyway/sql
     depends_on:
       timescale_db:
         condition: service_started
+    networks:
+      - internal_net
         
   telemetry_worker:
     build: 

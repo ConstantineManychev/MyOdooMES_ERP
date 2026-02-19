@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS config_machine (
     id SERIAL PRIMARY KEY,
     machine_name TEXT NOT NULL UNIQUE,
     ip_connection TEXT,
+    ams_net_id TEXT,
     ip_data TEXT
 );
 
@@ -48,7 +49,6 @@ CREATE INDEX IF NOT EXISTS idx_telemetry_process_machine_tag ON telemetry_proces
 CREATE INDEX IF NOT EXISTS idx_telemetry_event_machine_tag ON telemetry_event (machine_name, tag_name, time DESC);
 CREATE INDEX IF NOT EXISTS idx_telemetry_count_machine_tag ON telemetry_count (machine_name, tag_name, time DESC);
 
--- Continuous Aggregate: Hourly Stats
 CREATE MATERIALIZED VIEW IF NOT EXISTS telemetry_hourly_stats
 WITH (timescaledb.continuous) AS
 SELECT
@@ -70,7 +70,8 @@ WITH NO DATA;
 --     end_offset => INTERVAL '1 h',
 --     schedule_interval => INTERVAL '1 h');
 
-REFRESH MATERIALIZED VIEW telemetry_hourly_stats;
+-- Refresh line removed as it is not supported on continuous aggregates
+-- REFRESH MATERIALIZED VIEW telemetry_hourly_stats;
 
 -- Real-time Anomaly View
 CREATE OR REPLACE VIEW view_mes_anomalies AS

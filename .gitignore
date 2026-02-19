@@ -165,3 +165,9 @@ docker-compose.override.yml
 Thumbs.db
 
 .env
+
+# Certbot
+certbot/live/
+certbot/conf/live/
+certbot/conf/archive/
+certbot/conf/keys/
