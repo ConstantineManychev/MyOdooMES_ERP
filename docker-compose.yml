@@ -103,8 +103,6 @@ services:
       - DB_USER=${TELEMETRY_USER}
       - DB_PASS=${TELEMETRY_PASS}
       - DB_NAME=${TELEMETRY_DB}
-      - PLC_IP=10.8.0.50 
-      - PLC_AMS_NET_ID=10.8.0.50.1.1
     networks:
       - internal_net
 
