@@ -21,6 +21,7 @@
         'views/mes_planned_downtime_views.xml',
         
         'views/mes_telemetry_views.xml',
+        'views/mes_machine_settings_views.xml',
         'wizard/dictionary_import_wizard.xml',
         'wizard/raw_data_csv_import_wizard.xml',
 

@@ -65,6 +65,8 @@ services:
 
   timescale_db:
     image: timescale/timescaledb:latest-pg15
+    ports:
+      - "${TELEMETRY_PORT:-5432}:5432"
     environment:
       - POSTGRES_DB=${TELEMETRY_DB}
       - POSTGRES_PASSWORD=${TELEMETRY_PASS}

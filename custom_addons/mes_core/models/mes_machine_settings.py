@@ -1,4 +1,6 @@
+import re
 from odoo import models, fields, api
+
 
 class MesMachineSettings(models.Model):
     _name = 'mes.machine.settings'
@@ -9,7 +11,7 @@ class MesMachineSettings(models.Model):
     ip_connection = fields.Char(string='Connection IP', tracking=True)
     ip_data = fields.Char(string='TwinCAT/Data IP', tracking=True)
     
-    signal_ids = fields.One2many('mes.signal.tag', 'machine_settings_id', string='Monitored Signals')
+    signal_ids = fields.One2many('mes.signal.tag', 'machine_settings_id', string='Monitored Signals', copy=True)
 
     _sql_constraints = [('name_uniq', 'unique (name)', 'Machine Name must be unique!')]
 
@@ -83,3 +85,22 @@ class MesSignalTag(models.Model):
             rec.machine_settings_id.name, rec.tag_name, 
             rec.poll_type, rec.poll_frequency, rec.param_type, rec.signal_type
         ))
+
+    def copy(self, default=None):
+        self.ensure_one()
+        default = dict(default or {})
+        if 'tag_name' not in default:
+            base, sep, _ = re.match(r'^(.*?)([\s_]*)(\d*)$', self.tag_name).groups()
+            sep = sep or '' 
+            
+            tags = self.env['mes.signal.tag'].search([
+                ('machine_settings_id', '=', self.machine_settings_id.id),
+                ('tag_name', '=like', f"{base}%")
+            ]).mapped('tag_name')
+
+            pattern = re.compile(rf'^{re.escape(base)}[\s_]*(\d+)$')
+            max_num = max((int(m.group(1)) for t in tags if (m := pattern.match(t))), default=0)
+            
+            default['tag_name'] = f"{base}{sep}{max_num + 1}"
+
+        return super().copy(default)
