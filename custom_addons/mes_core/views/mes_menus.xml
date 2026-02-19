@@ -1,8 +1,19 @@
 <odoo>
+
+    <!-- Root Menus -->
     <menuitem id="menu_mes_root" name="MES System" web_icon="mrp,static/description/icon.png"/>
 
     <menuitem id="menu_mes_documents" name="Documents" parent="menu_mes_root" sequence="10"/>
 
+    <menuitem id="menu_mes_catalogues" name="Catalogues" parent="menu_mes_root" sequence="90" groups="mes_core.group_mes_manager"/>
+
+    <menuitem id="menu_mes_configuration" 
+              name="Configuration" 
+              parent="menu_mes_root" 
+              sequence="100" 
+              groups="mes_core.group_mes_manager"/>
+
+    <!-- Documents -->
     <menuitem id="menu_mes_machine_performance" 
               name="Machine Performance" 
               parent="menu_mes_documents" 
@@ -21,8 +32,31 @@
               action="action_mes_task" 
               sequence="30"/>
 
-    <menuitem id="menu_mes_catalogues" name="Catalogues" parent="menu_mes_root" sequence="90" groups="mes_core.group_mes_manager"/>
+    <menuitem id="menu_mes_planned_downtime"
+              name="Planned Downtime"
+              parent="menu_mes_documents"
+              action="action_mes_planned_downtime"
+              sequence="40"/>
 
+    <!-- Analytics (New) -->
+    <menuitem id="menu_mes_analytics"
+              name="Analytics"
+              parent="menu_mes_root"
+              sequence="20"/>
+
+    <menuitem id="menu_mes_telemetry_hourly"
+              name="Telemetry Trends"
+              parent="menu_mes_analytics"
+              action="action_mes_telemetry_hourly"
+              sequence="10"/>
+
+    <menuitem id="menu_mes_anomaly"
+              name="Real-time Anomalies"
+              parent="menu_mes_analytics"
+              action="action_mes_anomaly_dashboard"
+              sequence="20"/>
+
+    <!-- Catalogues -->
     <menuitem id="menu_mes_shift" 
               name="Shifts" 
               parent="menu_mes_catalogues" 
@@ -63,22 +97,39 @@
               name="Events" 
               parent="menu_mes_catalogues" 
               action="action_mes_event" 
-              sequence="45"/> <menuitem id="menu_mes_employees" 
+              sequence="45"/> 
+              
+    <menuitem id="menu_mes_employees" 
               name="Employees" 
               parent="menu_mes_catalogues" 
               action="action_mes_config_employees" 
               sequence="100"/>
 
-    <menuitem id="menu_mes_configuration" 
-              name="Configuration" 
-              parent="menu_mes_root" 
-              sequence="100" 
-              groups="mes_core.group_mes_manager"/>
-
+    <!-- Configuration -->
     <menuitem id="menu_mes_settings" 
               name="General Settings" 
               parent="menu_mes_configuration" 
               action="action_mes_config_settings" 
               sequence="10"/>
-    
-    </odoo>
+
+    <menuitem id="menu_mes_telemetry_config"
+              name="Telemetry Config"
+              parent="menu_mes_configuration"
+              sequence="50"/>
+
+    <menuitem id="menu_mes_machine_settings_item"
+              name="Machine Connections"
+              parent="menu_mes_telemetry_config"
+              action="action_mes_machine_settings"
+              sequence="10"/>
+
+<!--
+    <menuitem id="menu_mes_init_db"
+              name="Initialize Database"
+              parent="menu_mes_telemetry_config"
+              action="action_init_timescale_server"
+              sequence="20"
+              groups="base.group_no_one"/> 
+-->
+
+</odoo>

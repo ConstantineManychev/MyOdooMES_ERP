@@ -65,15 +65,12 @@ WITH NO DATA;
 
 -- Refresh the materialized view to populate data (if needed)
 -- Note: It is recommended to add a continuous aggregate policy for automatic updates
-DO $$
-BEGIN
-    PERFORM add_continuous_aggregate_policy('telemetry_hourly_stats',
-        start_offset => NULL,
-        end_offset => INTERVAL '1 h',
-        schedule_interval => INTERVAL '1 h');
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Continuous aggregate policy for telemetry_hourly_stats already exists or could not be created';
-END $$;
+-- SELECT add_continuous_aggregate_policy('telemetry_hourly_stats',
+--     start_offset => NULL,
+--     end_offset => INTERVAL '1 h',
+--     schedule_interval => INTERVAL '1 h');
+
+REFRESH MATERIALIZED VIEW telemetry_hourly_stats;
 
 -- Real-time Anomaly View
 CREATE OR REPLACE VIEW view_mes_anomalies AS

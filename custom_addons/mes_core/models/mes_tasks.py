@@ -54,6 +54,8 @@ class MesTask(models.Model):
     assigned_id = fields.Many2one('hr.employee', string='Assigned To', tracking=True)
     machine_id = fields.Many2one('mrp.workcenter', string='Machine', tracking=True)
     
+    company_id = fields.Many2one('res.company', string='Company', required=True, default=lambda self: self.env.company)
+
     state = fields.Selection([
         ('new', 'Open'),
         ('assigned', 'In Progress'),

@@ -54,9 +54,11 @@
         <field name="view_mode">tree,form</field>
     </record>
 
+<!--
     <menuitem id="menu_mes_planned_downtime"
               name="Planned Downtime"
               parent="menu_mes_documents"
               action="action_mes_planned_downtime"
               sequence="40"/>
+-->
 </odoo>

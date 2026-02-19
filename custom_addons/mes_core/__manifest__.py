@@ -11,8 +11,6 @@
 
         'data/mes_cron.xml',
         
-        'views/mes_menus.xml', 
-        
         'views/mes_dictionaries_views.xml',
         'views/mes_machine_performance_view.xml',
         'views/mes_production_report_view.xml',
@@ -23,8 +21,10 @@
         'views/mes_planned_downtime_views.xml',
         
         'views/mes_telemetry_views.xml',
-        'wizard/events_import_wizard.xml',
+        'wizard/dictionary_import_wizard.xml',
         'wizard/raw_data_csv_import_wizard.xml',
+
+        'views/mes_menus.xml',
     ],
     'installable': True,
     'application': True,

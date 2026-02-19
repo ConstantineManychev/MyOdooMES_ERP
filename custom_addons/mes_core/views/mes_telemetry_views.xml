@@ -17,12 +17,8 @@
                     <group>
                         <group>
                             <field name="name"/>
-                            <field name="workcenter_id"/>
-                            <field name="ip_address"/>
-                        </group>
-                        <group>
-                            <field name="port"/>
-                            <field name="protocol"/>
+                            <field name="ip_connection" string="Connection IP"/>
+                            <field name="ip_data" string="TwinCAT/Data IP"/>
                         </group>
                     </group>
                 </sheet>
@@ -36,8 +32,8 @@
         <field name="arch" type="xml">
             <tree string="Machine Settings">
                 <field name="name"/>
-                <field name="workcenter_id"/>
-                <field name="ip_address"/>
+                <field name="ip_connection"/>
+                <field name="ip_data"/>
             </tree>
         </field>
     </record>
@@ -48,6 +44,7 @@
         <field name="view_mode">tree,form</field>
     </record>
 
+<!--
     <menuitem id="menu_mes_telemetry_config"
               name="Telemetry Config"
               parent="menu_mes_configuration"
@@ -64,4 +61,6 @@
               parent="menu_mes_telemetry_config"
               action="action_init_timescale_server"
               sequence="20"
-              groups="base.group_no_one"/> </odoo>
+              groups="base.group_no_one"/> 
+-->
+</odoo>

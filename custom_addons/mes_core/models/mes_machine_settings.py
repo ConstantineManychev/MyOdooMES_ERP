@@ -14,8 +14,6 @@ class MesMachineSettings(models.Model):
     _sql_constraints = [('name_uniq', 'unique (name)', 'Machine Name must be unique!')]
 
     def init(self):
-        # Инициализируем БД при установке модуля
-        # Сначала проверяем, есть ли метод в базе (во избежание ошибок при первой установке)
         if hasattr(self.env['mes.timescale.db.manager'], '_init_DB'):
             self.env['mes.timescale.db.manager']._init_DB()
             self.env['mes.timescale.db.manager']._init_local_fdw()
@@ -23,14 +21,12 @@ class MesMachineSettings(models.Model):
     @api.model
     def create(self, vals):
         rec = super().create(vals)
-        # Синхронизация с TimescaleDB
         self._execute_from_file('upsert_machine.sql', (rec.name, rec.ip_connection, rec.ip_data))
         return rec
 
     def write(self, vals):
         res = super().write(vals)
         for rec in self:
-            # Синхронизация при любом изменении
             self._execute_from_file('upsert_machine.sql', (rec.name, rec.ip_connection, rec.ip_data))
         return res
 

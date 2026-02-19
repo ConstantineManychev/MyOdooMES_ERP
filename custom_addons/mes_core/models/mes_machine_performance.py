@@ -17,6 +17,8 @@ class MesMachinePerformance(models.Model):
     rejection_ids = fields.One2many('mes.performance.rejection', 'performance_id', string='Rejections')
     production_ids = fields.One2many('mes.performance.production', 'performance_id', string='Production Output')
 
+    company_id = fields.Many2one('res.company', string='Company', required=True, default=lambda self: self.env.company)
+
     state = fields.Selection([
         ('draft', 'Draft'),
         ('done', 'Locked')
@@ -46,7 +48,7 @@ class MesPerformanceAlarm(models.Model):
     _description = 'Machine Alarms'
 
     performance_id = fields.Many2one('mes.machine.performance', string='Report', ondelete='cascade', required=True)
-    loss_id = fields.Many2one('mrp.workcenter.productivity.loss', string='Alarm Reason', required=True)
+    loss_id = fields.Many2one('mes.event', string='Alarm Reason', required=True)
     
     start_time = fields.Datetime(string='Start Time')
     end_time = fields.Datetime(string='End Time')

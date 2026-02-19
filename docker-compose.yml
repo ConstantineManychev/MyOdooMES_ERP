@@ -1,41 +1,32 @@
 services:
-  db:
-    image: postgres:15
-    environment:
-      - POSTGRES_DB=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASS}
-      - POSTGRES_USER=${DB_USER}
-      - TELEMETRY_HOST=${TELEMETRY_HOST}
-      - TELEMETRY_PORT=${TELEMETRY_PORT}
-      - TELEMETRY_DB=${TELEMETRY_DB}
-      - TELEMETRY_USER=${TELEMETRY_USER}
-      - TELEMETRY_PASS=${TELEMETRY_PASS}
-    volumes:
-      - ./pg_data:/var/lib/postgresql/data
-      - ./init_db:/docker-entrypoint-initdb.d
+  nginx:
+    image: nginx:alpine
     ports:
-      - "5432:5432"
-    restart: unless-stopped
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    depends_on:
+      - odoo
+    networks:
+      - internal_net
 
-  timescaledb:
-    image: timescale/timescaledb:latest-pg15
-    environment:
-      - POSTGRES_DB=${TELEMETRY_DB}
-      - POSTGRES_PASSWORD=${TELEMETRY_PASS}
-      - POSTGRES_USER=${TELEMETRY_USER}
+  certbot:
+    image: certbot/certbot
     volumes:
-      - ./timescale_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
-    restart: unless-stopped
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - internal_net
 
   odoo:
     build: .
     depends_on:
-      - db
-      - timescaledb
-    ports:
-      - "8069:8069"
+      - odoo_db
+      - timescale_db
     volumes:
       - ./config:/etc/odoo
       - ./custom_addons:/mnt/extra-addons 
@@ -51,3 +42,67 @@ services:
       - TELEMETRY_USER=${TELEMETRY_USER}
       - TELEMETRY_PASS=${TELEMETRY_PASS}
     restart: unless-stopped
+
+  odoo_db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_USER=${DB_USER}
+      - TELEMETRY_HOST=${TELEMETRY_HOST}
+      - TELEMETRY_PORT=${TELEMETRY_PORT}
+      - TELEMETRY_DB=${TELEMETRY_DB}
+      - TELEMETRY_USER=${TELEMETRY_USER}
+      - TELEMETRY_PASS=${TELEMETRY_PASS}
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data
+      - ./init_db:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+  timescale_db:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      - POSTGRES_DB=${TELEMETRY_DB}
+      - POSTGRES_PASSWORD=${TELEMETRY_PASS}
+      - POSTGRES_USER=${TELEMETRY_USER}
+    volumes:
+      - ./timescale_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  flyway:
+    image: flyway/flyway:latest-alpine
+    container_name: mes_flyway
+    command: 
+      - -url=jdbc:postgresql://${TELEMETRY_HOST}:${TELEMETRY_PORT:-5432}/${TELEMETRY_DB}
+      - -user=${TELEMETRY_USER}
+      - -password=${TELEMETRY_PASS}
+      - migrate
+    volumes:
+      - ./db_migrations:/flyway/sql
+    depends_on:
+      timescale_db:
+        condition: service_started
+        
+  telemetry_worker:
+    build: 
+      context: ./twincat_poller
+    depends_on:
+      - timescale_db
+    environment:
+      - DB_HOST=${TELEMETRY_HOST}
+      - DB_USER=${TELEMETRY_USER}
+      - DB_PASS=${TELEMETRY_PASS}
+      - DB_NAME=${TELEMETRY_DB}
+      - PLC_IP=10.8.0.50 
+      - PLC_AMS_NET_ID=10.8.0.50.1.1
+    networks:
+      - internal_net
+
+volumes:
+  odoo_web_data:
+  odoo_db_data:
+  timescale_data:
+
+networks:
+  internal_net:
+    driver: bridge

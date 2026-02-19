@@ -61,8 +61,43 @@ class MesTimescaleDBManager(models.AbstractModel):
     _inherit = ['mes.timescale.base']
 
     @api.model
-    def _init_DB(self):
-        self._execute_from_file('init_schema.sql')
+    def action_init_timescale_connection(self):
+        self.ensure_one()
+        params = self._get_connection_params()
+
+        query = f"""
+            CREATE EXTENSION IF NOT EXISTS postgres_fdw;
+
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_foreign_server WHERE srvname = 'timescale_server') THEN
+                    CREATE SERVER timescale_server
+                    FOREIGN DATA WRAPPER postgres_fdw
+                    OPTIONS (host '{params['host']}', port '{params['port']}', dbname '{params['dbname']}');
+                END IF;
+            END$$;
+
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_user_mappings WHERE srvname = 'timescale_server' AND usename = current_user) THEN
+                    CREATE USER MAPPING FOR current_user
+                    SERVER timescale_server
+                    OPTIONS (user '{params['user']}', password '{params['password']}');
+                END IF;
+            END$$;
+
+            DROP FOREIGN TABLE IF EXISTS ext_telemetry_event CASCADE;
+            
+            CREATE FOREIGN TABLE ext_telemetry_event (
+                time TIMESTAMPTZ,
+                machine_code VARCHAR,
+                signal_type VARCHAR,
+                value NUMERIC
+            )
+            SERVER timescale_server
+            OPTIONS (schema_name 'public', table_name 'telemetry_event');
+        """
+        self.env.cr.execute(query)
 
     @api.model
     def _init_local_fdw(self):

@@ -21,6 +21,8 @@ class MesProductionReport(models.Model):
     qc_ids = fields.One2many('mes.production.qc', 'report_id', string='QC Checks')
     ingredient_ids = fields.One2many('mes.production.ingredient', 'report_id', string='Ingredients')
 
+    company_id = fields.Many2one('res.company', string='Company', required=True, default=lambda self: self.env.company)
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:

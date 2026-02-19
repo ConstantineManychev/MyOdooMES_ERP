@@ -1,9 +1,9 @@
 <odoo>
-    <record id="view_mes_import_events_wizard_form" model="ir.ui.view">
-        <field name="name">mes.events.import.wizard.form</field>
-        <field name="model">mes.events.import.wizard</field>
+    <record id="view_mes_import_dictionaries_wizard_form" model="ir.ui.view">
+        <field name="name">mes.dictionary.import.wizard.form</field>
+        <field name="model">mes.dictionary.import.wizard</field>
         <field name="arch" type="xml">
-            <form string="Import Events">
+            <form string="Import Dictionaries">
                 <group>
                     <field name="file" filename="filename"/>
                     <field name="filename" invisible="1"/>
@@ -20,16 +20,16 @@
         </field>
     </record>
 
-    <record id="action_mes_import_events" model="ir.actions.act_window">
-        <field name="name">Import Events</field>
-        <field name="res_model">mes.events.import.wizard</field>
+    <record id="action_mes_import_dictionaries" model="ir.actions.act_window">
+        <field name="name">Import Dictionaries</field>
+        <field name="res_model">mes.dictionary.import.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
     </record>
 
-    <menuitem id="menu_mes_import_events"
-              name="Import Events CSV"
+    <menuitem id="menu_mes_import_dictionaries"
+              name="Import Dictionaries CSV"
               parent="menu_mes_configuration" 
-              action="action_mes_import_events"
+              action="action_mes_import_dictionaries"
               sequence="100"/>
 </odoo>

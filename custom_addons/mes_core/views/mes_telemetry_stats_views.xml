@@ -66,6 +66,7 @@
         <field name="view_mode">tree</field>
     </record>
 
+<!--
     <menuitem id="menu_mes_analytics"
               name="Analytics"
               parent="menu_mes_root"
@@ -82,4 +83,5 @@
               parent="menu_mes_analytics"
               action="action_mes_anomaly_dashboard"
               sequence="20"/>
+-->
 </odoo>

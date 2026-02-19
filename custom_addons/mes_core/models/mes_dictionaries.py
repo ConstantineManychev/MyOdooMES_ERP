@@ -31,8 +31,59 @@ class MesDefects(models.Model):
     code = fields.Char(string='Defect Code')
     description = fields.Text(string='Description')
 
+class MesHierarchyMixin(models.AbstractModel):
+    _name = 'mes.hierarchy.mixin'
+    _description = 'Hierarchy Sync Mixin'
+
+    @api.model
+    def sync_batch(self, data_list):
+        """
+        data_list format: [{'code': '123', 'name': 'Error', 'parent_name': 'Group', 'vals': {...}}]
+        """
+        existing = self.search([])
+        code_map = {r.code: r for r in existing if r.code}
+        name_map = {r.name: r for r in existing}
+        parent_cache = {r.name: r.id for r in existing}
+
+        for item in data_list:
+            name = item.get('name', '').strip()
+            code = item.get('code', '').strip()
+            parent_name = item.get('parent_name', '').strip()
+            vals = item.get('vals', {})
+
+            if not name:
+                continue
+
+            parent_id = False
+            if parent_name:
+                if parent_name not in parent_cache:
+                    new_parent = self.create({'name': parent_name})
+                    parent_cache[parent_name] = new_parent.id
+                    name_map[parent_name] = new_parent
+                parent_id = parent_cache[parent_name]
+
+            vals.update({
+                'name': name,
+                'parent_id': parent_id
+            })
+            if code:
+                vals['code'] = code
+
+            rec = code_map.get(code) if code else name_map.get(name)
+            if rec:
+                rec.write(vals)
+            else:
+                new_rec = self.create(vals)
+                if code:
+                    code_map[code] = new_rec
+                name_map[name] = new_rec
+                parent_cache[name] = new_rec.id
+
+        return True
+
 class MesCounts(models.Model):
     _name = 'mes.counts'
+    _inherit = ['mes.hierarchy.mixin']
     _description = 'Counts'
     _parent_name = "parent_id" 
     _parent_store = True       
@@ -69,6 +120,7 @@ class MesCounts(models.Model):
 
 class MesEvents(models.Model):
     _name = 'mes.event'
+    _inherit = ['mes.hierarchy.mixin']
     _description = 'Event'
     _parent_name = "parent_id" 
     _parent_store = True       
