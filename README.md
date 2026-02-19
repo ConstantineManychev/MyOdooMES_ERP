@@ -27,22 +27,51 @@ Bi-directional Work Order synchronization via REST API.
 ---
 
 ##    Installation & Setup
+This project utilizes a microservices architecture with full network isolation for internal components. Only ports 80 and 443 (Nginx) are exposed to the outside. Access to the databases and Odoo is strictly internal via the Docker network.
 
-### Prerequisites
-* Docker Desktop & Git
-* Working knowledge of Docker Compose
+### Host Server Preparation
+* Ensure Docker and Docker Compose are installed on the host.
+* VPN (Crucial): Configure the VPN client directly on the host machine (server) so it has routing and access to the IP addresses of the PLC equipment (TwinCAT). The telemetry_worker container will use the host's network interface to poll the machines.
 
-###  Clone & Build
+###  Cloning & Environment Setup
+Clone the repository and navigate to its directory. 
 ```bash
 git clone --recursive https://github.com/ConstantineManychev/MyOdooMES_ERP.git
 cd MyOdooMES_ERP
+```
+Create the working configuration file based on the provided template:
+```bash
+cp ".env temp" .env
+```
+Open the .env file and set secure passwords for the databases (Odoo PostgreSQL and TimescaleDB), as well as system variables.
+
+If deploying in production with a bound domain:
+Open the init-letsencrypt.sh file and set the domain and email variables to your actual data.
+In the nginx/nginx.conf file, uncomment the server block for port 443.
+Run the automated SSL certificate retrieval script:
+```bash
+chmod +x init-letsencrypt.sh
+sudo ./init-letsencrypt.sh
+```
+
+Launch the architecture. The --build flag is required on the first run or after any code changes in twincat_poller to ensure Docker builds the image with dependencies for the telemetry_worker:
+```bash
 docker-compose up -d --build
 ```
 
-* **Environment Setup:** Create a .env file from the .env temp template and configure your database credentials and API tokens.
+For the telemetry_worker to write telemetry and Odoo to read it, you must initialize the hypertables and configuration dictionaries.
+Apply the database schema from the migration (replace timescaledb_container_name with your actual container name from docker-compose ps):
+* Using the script from the repository:
+```bash
+bash init_db/timescale_db_setup.sh
+```
+* OR applying the SQL file directly:
+```bash
+cat db_migrations/V1__init_schema.sql | docker exec -i timescaledb_container_name psql -U <DB_USER from .env> -d <DB_NAME from .env>
+```
 
 ###  Install the Module
-Since the module structure has been updated to mes_core, use the following command to install it into a running container:
+
 
 ```bash
 docker-compose exec odoo odoo -i mes_core -d Odoo --db_host=db --db_user=odoo --db_password=odoo --stop-after-init
