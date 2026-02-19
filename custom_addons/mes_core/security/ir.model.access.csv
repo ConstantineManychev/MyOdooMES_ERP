@@ -46,3 +46,7 @@ access_mes_signal_tag,mes.signal.tag,model_mes_signal_tag,mes_core.group_mes_man
 access_mes_events_import_wizard,mes.events.import.wizard,model_mes_events_import_wizard,mes_core.group_mes_manager,1,1,1,1
 access_mes_raw_data_csv_import_wizard,mes.raw.data.csv.import.wizard,model_mes_raw_data_csv_import_wizard,mes_core.group_mes_manager,1,1,1,1
 access_mes_timescale_db_manager,mes.timescale.db.manager,model_mes_timescale_db_manager,mes_core.group_mes_manager,1,1,1,1
+
+access_mes_planned_downtime,mes.planned.downtime,model_mes_planned_downtime,mes_core.group_mes_user,1,1,1,1
+access_mes_telemetry_hourly_fdw,mes.telemetry.hourly.fdw,model_mes_telemetry_hourly_fdw,mes_core.group_mes_user,1,0,0,0
+access_mes_anomaly_fdw,mes.anomaly.fdw,model_mes_anomaly_fdw,mes_core.group_mes_user,1,0,0,0
