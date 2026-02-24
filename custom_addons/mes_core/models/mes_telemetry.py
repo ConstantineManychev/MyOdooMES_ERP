@@ -85,17 +85,6 @@ class MesTimescaleDBManager(models.AbstractModel):
                     OPTIONS (user '{params['user']}', password '{params['password']}');
                 END IF;
             END$$;
-
-            DROP FOREIGN TABLE IF EXISTS ext_telemetry_event CASCADE;
-            
-            CREATE FOREIGN TABLE ext_telemetry_event (
-                time TIMESTAMPTZ,
-                machine_code VARCHAR,
-                signal_type VARCHAR,
-                value NUMERIC
-            )
-            SERVER timescale_server
-            OPTIONS (schema_name 'public', table_name 'telemetry_event');
         """
         self.env.cr.execute(query)
 

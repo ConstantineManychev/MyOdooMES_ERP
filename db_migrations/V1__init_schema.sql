@@ -20,24 +20,29 @@ CREATE TABLE IF NOT EXISTS config_signals (
 CREATE TABLE IF NOT EXISTS telemetry_count (
     id BIGSERIAL, 
     time TIMESTAMPTZ NOT NULL,
+    arrived_time TIMESTAMPTZ NOT NULL,
     machine_name TEXT NOT NULL,
     tag_name TEXT NOT NULL,
-    value BIGINT
+    value BIGINT,
+    CONSTRAINT uniq_count_time_machine_tag UNIQUE (time, machine_name, tag_name)
 );
 SELECT create_hypertable('telemetry_count', 'time', if_not_exists => TRUE);
 
 CREATE TABLE IF NOT EXISTS telemetry_event (
     id BIGSERIAL,
     time TIMESTAMPTZ NOT NULL,
+    arrived_time TIMESTAMPTZ NOT NULL,
     machine_name TEXT NOT NULL,
     tag_name TEXT NOT NULL,
-    value INTEGER
+    value INTEGER,
+    CONSTRAINT uniq_event_time_machine_tag UNIQUE (time, machine_name, tag_name)
 );
 SELECT create_hypertable('telemetry_event', 'time', if_not_exists => TRUE);
 
 CREATE TABLE IF NOT EXISTS telemetry_process (
     id BIGSERIAL,
     time TIMESTAMPTZ NOT NULL,
+    arrived_time TIMESTAMPTZ NOT NULL,
     machine_name TEXT NOT NULL,
     tag_name TEXT NOT NULL,
     value DOUBLE PRECISION,
@@ -63,17 +68,6 @@ FROM telemetry_count
 GROUP BY bucket, machine_name, tag_name
 WITH NO DATA;
 
--- Refresh the materialized view to populate data (if needed)
--- Note: It is recommended to add a continuous aggregate policy for automatic updates
--- SELECT add_continuous_aggregate_policy('telemetry_hourly_stats',
---     start_offset => NULL,
---     end_offset => INTERVAL '1 h',
---     schedule_interval => INTERVAL '1 h');
-
--- Refresh line removed as it is not supported on continuous aggregates
--- REFRESH MATERIALIZED VIEW telemetry_hourly_stats;
-
--- Real-time Anomaly View
 CREATE OR REPLACE VIEW view_mes_anomalies AS
 WITH last_hour AS (
     SELECT machine_name, COUNT(*) as stops_count 
