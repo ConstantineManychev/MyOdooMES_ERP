@@ -48,6 +48,9 @@ class MesSignalTag(models.Model):
     
     poll_type = fields.Selection([('cyclic', 'Cyclic'), ('on_change', 'On Change')], default='cyclic', required=True)
     poll_frequency = fields.Integer(string='Freq (ms)', default=1000)
+
+    event_id = fields.Many2one('mes.event', string='Mapped Event')
+    count_id = fields.Many2one('mes.counts', string='Mapped Count')
     
     param_type = fields.Selection([
         ('auto', 'Auto'),
@@ -68,6 +71,14 @@ class MesSignalTag(models.Model):
         rec = super().create(vals)
         self._sync(rec)
         return rec
+
+    @api.onchange('signal_type')
+    def _onchange_signal_type(self):
+        for rec in self:
+            if rec.signal_type != 'event':
+                rec.event_id = False
+            if rec.signal_type != 'count':
+                rec.count_id = False
 
     def write(self, vals):
         res = super().write(vals)
@@ -104,3 +115,17 @@ class MesSignalTag(models.Model):
             default['tag_name'] = f"{base}{sep}{max_num + 1}"
 
         return super().copy(default)
+    
+    def get_tag_for_machine(self, machine_id):
+        self.ensure_one()
+        
+        custom_mapping = self.env['mes.signal.tag'].search([
+            ('machine_settings_id', '=', machine_id),
+            ('event_id', '=', self.id),
+            ('signal_type', '=', 'event')
+        ], limit=1)
+        
+        if custom_mapping:
+            return custom_mapping.tag_name
+            
+        return self.default_OPCTag
