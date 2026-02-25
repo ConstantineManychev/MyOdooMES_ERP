@@ -39,6 +39,13 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='gemba.maintainx_token'
     )
 
+    mes_dashboard_refresh_interval = fields.Integer(
+        string="Dashboard Refresh Interval (sec)",
+        config_parameter='mes_core.dashboard_refresh_interval',
+        default=60,
+        help="How often the dashboard list of machines will be refreshed (in seconds)"
+    )
+
     stock_move_sms_validation = fields.Boolean(
         string="SMS Validation for Stock Moves",
         config_parameter='stock.sms_validation'

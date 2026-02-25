@@ -236,15 +236,21 @@ class MesWorkcenter(models.Model):
     runtime_event_id = fields.Many2one('mes.event', string='Runtime Event', help="Runtime event used for OEE calculation")
     production_count_id = fields.Many2one('mes.counts', string='Production Count', help="Good parts count used for OEE calculation")
     refresh_frequency = fields.Integer(string='Refresh Frequency (sec)', default=60, help="Frequency of OEE dashboard refresh in seconds")
-    ideal_capacity_per_min = fields.Float(string='Ideal Capacity (Parts/Min)', default=60.0)
+    ideal_capacity_per_min = fields.Float(string='Ideal Capacity (Parts/Min)', default=200.0)
 
     current_oee = fields.Float(string='OEE (%)', compute='_compute_realtime_oee')
     current_availability = fields.Float(string='Availability (%)', compute='_compute_realtime_oee')
     current_performance = fields.Float(string='Performance (%)', compute='_compute_realtime_oee')
     current_quality = fields.Float(string='Quality (%)', compute='_compute_realtime_oee')
     current_produced = fields.Integer(string='Produced Today', compute='_compute_realtime_oee')
+
     current_waste_losses = fields.Float(string='Waste Losses (%)', compute='_compute_realtime_oee')
     current_downtime_losses = fields.Float(string='Downtime Losses (%)', compute='_compute_realtime_oee')
+
+    current_first_running_time = fields.Datetime(string='Start Time', compute='_compute_realtime_oee')
+    current_runtime_formatted = fields.Char(string='Runtime', compute='_compute_realtime_oee')
+    current_top_rejection = fields.Char(string='Top Rejection', compute='_compute_realtime_oee')
+    current_top_alarm = fields.Char(string='Top Alarm', compute='_compute_realtime_oee')
     
     _sql_constraints = [
         ('code_imatec_uniq', 'unique(code_imatec)', 'Imatec Code must be unique!')
@@ -276,8 +282,14 @@ class MesWorkcenter(models.Model):
                 wc.current_performance = oee_data.get('performance', 0.0)
                 wc.current_quality = oee_data.get('quality', 0.0)
                 wc.current_produced = oee_data.get('total_produced', 0)
+
                 wc.current_waste_losses = oee_data.get('waste_losses', 0.0)
                 wc.current_downtime_losses = oee_data.get('downtime_losses', 0.0)
+
+                wc.current_first_running_time = oee_data.get('first_running_time', False)
+                wc.current_runtime_formatted = oee_data.get('runtime_formatted', '00:00:00')
+                wc.current_top_rejection = oee_data.get('top_rejection', 'None')
+                wc.current_top_alarm = oee_data.get('top_alarm', 'None')
 
     def _reset_oee(self):
         self.current_oee = 0.0
@@ -285,8 +297,14 @@ class MesWorkcenter(models.Model):
         self.current_performance = 0.0
         self.current_quality = 0.0
         self.current_produced = 0
+
         self.current_waste_losses = 0.0
         self.current_downtime_losses = 0.0
+
+        self.current_first_running_time = False
+        self.current_runtime_formatted = '00:00:00'
+        self.current_top_rejection = 'None'
+        self.current_top_alarm = 'None'
 
 class MesStreams(models.Model):
     _name = 'mes.stream'

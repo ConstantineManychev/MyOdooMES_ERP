@@ -338,4 +338,28 @@
             
         </field>
     </record>
+
+    <record id="mrp_workcenter_tree_view_mes_override" model="ir.ui.view">
+        <field name="name">mrp.workcenter.tree.mes.override</field>
+        <field name="model">mrp.workcenter</field>
+        <field name="inherit_id" ref="mrp.mrp_workcenter_tree_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree" position="replace">
+                <tree string="Work Centers Live" 
+                      decoration-success="current_oee &gt;= 85" 
+                      decoration-warning="current_oee &gt;= 50 and current_oee &lt; 85" 
+                      decoration-danger="current_oee &lt; 50">
+                    <field name="name" string="Machine name"/>
+                    <field name="current_first_running_time" string="Start Time" widget="datetime"/>
+                    <field name="current_produced" string="Produced"/>
+                    <field name="current_runtime_formatted" string="Runtime"/>
+                    <field name="current_waste_losses" string="Waste Loss (%)"/>
+                    <field name="current_downtime_losses" string="DT Loss (%)"/>
+                    <field name="current_oee" string="OEE (%)"/>
+                    <field name="current_top_rejection" string="Top Rejection"/>
+                    <field name="current_top_alarm" string="Top Alarm"/>
+                </tree>
+            </xpath>
+        </field>
+    </record>
 </odoo>

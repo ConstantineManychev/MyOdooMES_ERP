@@ -31,6 +31,7 @@
     'assets': {
         'web.assets_backend': [
             'mes_core/static/src/js/auto_refresh.js',
+            'mes_core/static/src/js/list_auto_refresh.js',
         ],
     },
     

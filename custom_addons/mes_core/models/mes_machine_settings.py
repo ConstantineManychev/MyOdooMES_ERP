@@ -146,6 +146,90 @@ class MesMachineSettings(models.Model):
                 cur.execute(query, params)
                 res = cur.fetchone() or (0, 0)
                 
+        first_running_time = False
+        top_alarm_str = "None"
+        top_rejection_str = "None"
+        
+        with ts_manager._connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, params)
+                res = cur.fetchone() or (0, 0)
+                total_running_sec, total_produced = (res[0] or 0), (res[1] or 0)
+                
+                first_time_query = f"""
+                    WITH boundary AS (
+                        SELECT %s::timestamptz as time, value FROM telemetry_event
+                        WHERE machine_name = %s AND tag_name = %s AND time < %s ORDER BY time DESC LIMIT 1
+                    ),
+                    all_events AS (
+                        SELECT time, value FROM boundary UNION ALL
+                        SELECT time, value FROM telemetry_event
+                        WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
+                    )
+                    SELECT MIN(GREATEST(time, %s)) FROM all_events WHERE value = %s
+                """
+                cur.execute(first_time_query, (
+                    start_time, self.name, state_tag, start_time,
+                    self.name, state_tag, start_time, calc_end_time,
+                    start_time, running_plc_value
+                ))
+                res_ft = cur.fetchone()
+                if res_ft and res_ft[0]:
+                    first_running_time = res_ft[0].replace(tzinfo=None)
+
+                alarm_tag = "%OEE.nStopRootReason%"
+                alarm_query = f"""
+                    WITH alarm_boundary AS (
+                        SELECT %s::timestamptz as time, value::text FROM telemetry_event
+                        WHERE machine_name = %s AND tag_name LIKE %s AND time < %s ORDER BY time DESC LIMIT 1
+                    ),
+                    alarm_events AS (
+                        SELECT time, value::text FROM alarm_boundary UNION ALL
+                        SELECT time, value::text FROM telemetry_event
+                        WHERE machine_name = %s AND tag_name LIKE %s AND time >= %s AND time <= %s
+                    ),
+                    alarm_durations AS (
+                        SELECT value as alarm_code, EXTRACT(EPOCH FROM (COALESCE(LEAD(time) OVER (ORDER BY time), %s) - time)) as duration_sec
+                        FROM alarm_events
+                    )
+                    SELECT alarm_code, SUM(duration_sec) as total_dur FROM alarm_durations
+                    WHERE alarm_code != '0' AND alarm_code != '' AND alarm_code IS NOT NULL
+                    GROUP BY alarm_code ORDER BY total_dur DESC LIMIT 1;
+                """
+                cur.execute(alarm_query, (
+                    start_time, self.name, alarm_tag, start_time,
+                    self.name, alarm_tag, start_time, calc_end_time, calc_end_time
+                ))
+                res_al = cur.fetchone()
+                if res_al and res_al[0]:
+                    alarm_code_val = res_al[0]
+                    duration_min = int((res_al[1] or 0) // 60)
+                    
+                    event_rec = self.env['mes.events'].search([('default_PLCValue', '=', int(alarm_code_val))], limit=1) if alarm_code_val.isdigit() else False
+                    alarm_name = event_rec.name if event_rec else alarm_code_val
+                    top_alarm_str = f"{alarm_name} ({duration_min} min)"
+
+                top_rej_count = 0
+                top_rej_name = ""
+                for c_sig in self.count_tag_ids:
+                    if c_sig.tag_name != good_count_tag:
+                        if c_sig.is_cumulative:
+                            q_rej = "SELECT COALESCE(MAX(value) - MIN(value), 0) FROM telemetry_count WHERE machine_name=%s AND tag_name=%s AND time >= %s AND time <= %s"
+                        else:
+                            q_rej = "SELECT COALESCE(SUM(value), 0) FROM telemetry_count WHERE machine_name=%s AND tag_name=%s AND time >= %s AND time <= %s"
+                        
+                        cur.execute(q_rej, (self.name, c_sig.tag_name, start_time, calc_end_time))
+                        val = cur.fetchone()[0] or 0
+                        if val > top_rej_count:
+                            top_rej_count = val
+                            top_rej_name = c_sig.count_id.name if c_sig.count_id else c_sig.tag_name
+                
+                if top_rej_count > 0:
+                    top_rejection_str = f"{top_rej_name} ({int(top_rej_count)})"
+        
+        h, m, s = int(total_running_sec // 3600), int((total_running_sec % 3600) // 60), int(total_running_sec % 60)
+        runtime_formatted = f"{h:02d}:{m:02d}:{s:02d}"
+
         total_running_sec, total_produced = (res[0] or 0), (res[1] or 0)
         planned_production_time_sec = (calc_end_time - start_time).total_seconds()
         
@@ -178,30 +262,7 @@ class MesMachineSettings(models.Model):
         else:
             waste_losses = 0.0
 
-        _logger.info(
-            "\n"
-            "=== OEE MATH DEBUG (%s) ===\n"
-            "1. ВРЕМЯ:\n"
-            "   - Смена (Planned Sec): %s\n"
-            "   - В работе (Running Sec): %s\n"
-            "2. СКОРОСТЬ:\n"
-            "   - Норма (Шт/Сек): %s\n"
-            "3. ПРОИЗВОДСТВО:\n"
-            "   - Идеал за время работы (Perfect Amount): %s\n"
-            "   - Факт (Total Produced): %s\n"
-            "4. ИТОГИ:\n"
-            "   - Performance: %s %%\n"
-            "   - Waste Losses: %s %%\n"
-            "===============================",
-            self.name,
-            planned_production_time_sec,
-            total_running_sec,
-            ideal_rate_per_sec,
-            perfect_amount_for_runtime,
-            total_produced,
-            performance * 100,
-            waste_losses * 100
-        )
+        
 
         return {
             'availability': round(availability * 100, 2),
@@ -210,7 +271,11 @@ class MesMachineSettings(models.Model):
             'oee': round(oee * 100, 2),
             'total_produced': total_produced,
             'waste_losses': round(waste_losses * 100, 2),
-            'downtime_losses': round(downtime_losses * 100, 2)
+            'downtime_losses': round(downtime_losses * 100, 2),
+            'first_running_time': first_running_time,
+            'runtime_formatted': runtime_formatted,
+            'top_rejection': top_rejection_str,
+            'top_alarm': top_alarm_str
         }
 
 

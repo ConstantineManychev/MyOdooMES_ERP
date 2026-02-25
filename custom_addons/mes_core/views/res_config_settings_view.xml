@@ -67,6 +67,12 @@
                         </setting>
                     </block>
 
+                    <block title="Global settings" id="global_settings">
+                        <setting string="Global Settings" help="Global configuration settings for the MES system.">
+                            <field name="mes_dashboard_refresh_interval"/>
+                        </setting>
+                    </block>
+
                 </app>
             </xpath>
         </field>
