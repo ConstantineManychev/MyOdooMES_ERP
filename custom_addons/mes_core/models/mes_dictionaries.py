@@ -1,3 +1,4 @@
+import operator
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
 
@@ -238,14 +239,14 @@ class MesWorkcenter(models.Model):
     refresh_frequency = fields.Integer(string='Refresh Frequency (sec)', default=60, help="Frequency of OEE dashboard refresh in seconds")
     ideal_capacity_per_min = fields.Float(string='Ideal Capacity (Parts/Min)', default=200.0)
 
-    current_oee = fields.Float(string='OEE (%)', compute='_compute_realtime_oee')
     current_availability = fields.Float(string='Availability (%)', compute='_compute_realtime_oee')
     current_performance = fields.Float(string='Performance (%)', compute='_compute_realtime_oee')
     current_quality = fields.Float(string='Quality (%)', compute='_compute_realtime_oee')
     current_produced = fields.Integer(string='Produced Today', compute='_compute_realtime_oee')
 
-    current_waste_losses = fields.Float(string='Waste Losses (%)', compute='_compute_realtime_oee')
-    current_downtime_losses = fields.Float(string='Downtime Losses (%)', compute='_compute_realtime_oee')
+    current_oee = fields.Float(string='OEE (%)', compute='_compute_realtime_oee', search='_search_current_oee')
+    current_waste_losses = fields.Float(string='Waste Losses (%)', compute='_compute_realtime_oee', search='_search_waste_losses')
+    current_downtime_losses = fields.Float(string='Downtime Losses (%)', compute='_compute_realtime_oee', search='_search_downtime_losses')
 
     current_first_running_time = fields.Datetime(string='Start Time', compute='_compute_realtime_oee')
     current_runtime_formatted = fields.Char(string='Runtime', compute='_compute_realtime_oee')
@@ -305,6 +306,32 @@ class MesWorkcenter(models.Model):
         self.current_runtime_formatted = '00:00:00'
         self.current_top_rejection = 'None'
         self.current_top_alarm = 'None'
+
+    def _get_op_func(self, operator_str):
+        ops = {
+            '=': operator.eq, '!=': operator.ne,
+            '<': operator.lt, '<=': operator.le,
+            '>': operator.gt, '>=': operator.ge
+        }
+        return ops.get(operator_str, operator.eq)
+
+    def _search_current_oee(self, operator_str, value):
+        op_func = self._get_op_func(operator_str)
+        wcs = self.search([('machine_settings_id', '!=', False)])
+        match_ids = wcs.filtered(lambda wc: op_func(wc.current_oee, value)).ids
+        return [('id', 'in', match_ids)] if match_ids else [('id', '=', 0)]
+
+    def _search_waste_losses(self, operator_str, value):
+        op_func = self._get_op_func(operator_str)
+        wcs = self.search([('machine_settings_id', '!=', False)])
+        match_ids = wcs.filtered(lambda wc: op_func(wc.current_waste_losses, value)).ids
+        return [('id', 'in', match_ids)] if match_ids else [('id', '=', 0)]
+
+    def _search_downtime_losses(self, operator_str, value):
+        op_func = self._get_op_func(operator_str)
+        wcs = self.search([('machine_settings_id', '!=', False)])
+        match_ids = wcs.filtered(lambda wc: op_func(wc.current_downtime_losses, value)).ids
+        return [('id', 'in', match_ids)] if match_ids else [('id', '=', 0)]
 
 class MesStreams(models.Model):
     _name = 'mes.stream'

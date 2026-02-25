@@ -347,18 +347,39 @@
             <xpath expr="//tree" position="replace">
                 <tree string="Work Centers Live" 
                       decoration-success="current_oee &gt;= 85" 
-                      decoration-warning="current_oee &gt;= 50 and current_oee &lt; 85" 
-                      decoration-danger="current_oee &lt; 50">
+                      decoration-warning="current_oee &gt;= 67 and current_oee &lt; 85" 
+                      decoration-danger="current_oee &lt; 67">
+                    
                     <field name="name" string="Machine name"/>
                     <field name="current_first_running_time" string="Start Time" widget="datetime"/>
-                    <field name="current_produced" string="Produced"/>
+                    
+                    <field name="current_produced" string="Produced" sum="Total Produced"/>
+                    
                     <field name="current_runtime_formatted" string="Runtime"/>
-                    <field name="current_waste_losses" string="Waste Loss (%)"/>
-                    <field name="current_downtime_losses" string="DT Loss (%)"/>
-                    <field name="current_oee" string="OEE (%)"/>
+                    
+                    <field name="current_waste_losses" string="Waste Loss (%)" avg="Avg. Waste"/>
+                    <field name="current_downtime_losses" string="DT Loss (%)" avg="Avg. DT"/>
+                    <field name="current_oee" string="OEE (%)" avg="Avg. OEE"/>
+                    
                     <field name="current_top_rejection" string="Top Rejection"/>
                     <field name="current_top_alarm" string="Top Alarm"/>
                 </tree>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mrp_workcenter_search_mes" model="ir.ui.view">
+        <field name="name">mrp.workcenter.search.mes</field>
+        <field name="model">mrp.workcenter</field>
+        <field name="inherit_id" ref="mrp.view_mrp_workcenter_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <separator/>
+                <filter string="Critical OEE (&lt; 50%)" name="bad_oee" domain="[('current_oee', '&lt;', 67)]"/>
+                <filter string="Excellent OEE (&gt;= 85%)" name="good_oee" domain="[('current_oee', '&gt;=', 85)]"/>
+                <separator/>
+                <filter string="Waste losses" name="has_waste" domain="[('current_waste_losses', '&gt;', 7.5)]"/>
+                <filter string="Downtime losses" name="has_dt" domain="[('current_downtime_losses', '&gt;', 7.5)]"/>
             </xpath>
         </field>
     </record>

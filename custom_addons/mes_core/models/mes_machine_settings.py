@@ -73,7 +73,106 @@ class MesMachineSettings(models.Model):
         end_time = start_time + timedelta(hours=current_shift.duration)
         
         return start_time, end_time
+
+    def get_alarm_tag_name(self, default_type='OEE.nStopRootReason'):
+        self.ensure_one()
+        override = self.env['mes.signal.event'].search([
+            ('machine_id', '=', self.id),
+            ('event_id.default_event_tag_type', '=', default_type)
+        ], limit=1)
+        
+        if override and override.tag_name:
+            return override.tag_name
+        
+        return f"%{default_type}%"
+
+    def resolve_plc_value_to_name(self, plc_value):
+        self.ensure_one()
+        plc_str = str(plc_value)
+        
+        if not plc_str.isdigit():
+            return plc_str
+            
+        plc_int = int(plc_str)
+        
+        override = self.env['mes.signal.event'].search([
+            ('machine_id', '=', self.id),
+            ('plc_value', '=', plc_int)
+        ], limit=1)
+        
+        if override and override.event_id:
+            return override.event_id.name
+            
+        dict_event = self.env['mes.event'].search([
+            ('default_plc_value', '=', plc_int)
+        ], limit=1)
+        
+        if dict_event:
+            return dict_event.name
+            
+        return plc_str
     
+    def get_top_alarm_str(self, cursor, start_time, end_time):
+        alarm_tag = self.get_alarm_tag_name('OEE.nStopRootReason')
+
+        alarm_query = f"""
+            WITH alarm_boundary AS (
+                SELECT %s::timestamptz as time, value::text FROM telemetry_event
+                WHERE machine_name = %s AND tag_name LIKE %s AND time < %s ORDER BY time DESC LIMIT 1
+            ),
+            alarm_events AS (
+                SELECT time, value::text FROM alarm_boundary UNION ALL
+                SELECT time, value::text FROM telemetry_event
+                WHERE machine_name = %s AND tag_name LIKE %s AND time >= %s AND time <= %s
+            ),
+            alarm_durations AS (
+                SELECT value as alarm_code, EXTRACT(EPOCH FROM (COALESCE(LEAD(time) OVER (ORDER BY time), %s) - time)) as duration_sec
+                FROM alarm_events
+            )
+            SELECT alarm_code, SUM(duration_sec) as total_dur FROM alarm_durations
+            WHERE alarm_code != '0' AND alarm_code != '' AND alarm_code IS NOT NULL
+            GROUP BY alarm_code ORDER BY total_dur DESC LIMIT 1;
+        """
+        cursor.execute(alarm_query, (
+            start_time, self.name, alarm_tag, start_time,
+            self.name, alarm_tag, start_time, end_time, end_time
+        ))
+        res_al = cursor.fetchone()
+        
+        if res_al and res_al[0]:
+            duration_min = int((res_al[1] or 0) // 60)
+            alarm_name = self.resolve_plc_value_to_name(res_al[0])
+            return f"{alarm_name} ({duration_min} min)"
+            
+        return "None"
+
+    def get_top_rejection_str(self, cursor, start_time, end_time, good_production_count_id):
+        top_rej_count = 0
+        top_rej_name = "None"
+        
+        all_reject_counts = self.env['mes.counts'].search([('id', '!=', good_production_count_id)])
+        
+        for count_def in all_reject_counts:
+            tag, is_cum = count_def.get_count_config_for_machine(self)
+            if not tag:
+                continue
+                
+            if is_cum:
+                q_rej = "SELECT COALESCE(MAX(value) - MIN(value), 0) FROM telemetry_count WHERE machine_name=%s AND tag_name=%s AND time >= %s AND time <= %s"
+            else:
+                q_rej = "SELECT COALESCE(SUM(value), 0) FROM telemetry_count WHERE machine_name=%s AND tag_name=%s AND time >= %s AND time <= %s"
+            
+            cursor.execute(q_rej, (self.name, tag, start_time, end_time))
+            val = cursor.fetchone()[0] or 0
+            
+            if val > top_rej_count:
+                top_rej_count = val
+                top_rej_name = count_def.name
+                
+        if top_rej_count > 0:
+            return f"{top_rej_name} ({int(top_rej_count)})"
+        return "None"
+
     def get_realtime_oee(self, runtime_event, production_count, workcenter=None):
         import logging
         _logger = logging.getLogger(__name__)
@@ -173,59 +272,23 @@ class MesMachineSettings(models.Model):
                     self.name, state_tag, start_time, calc_end_time,
                     start_time, running_plc_value
                 ))
+                
                 res_ft = cur.fetchone()
                 if res_ft and res_ft[0]:
                     first_running_time = res_ft[0].replace(tzinfo=None)
 
-                alarm_tag = "%OEE.nStopRootReason%"
-                alarm_query = f"""
-                    WITH alarm_boundary AS (
-                        SELECT %s::timestamptz as time, value::text FROM telemetry_event
-                        WHERE machine_name = %s AND tag_name LIKE %s AND time < %s ORDER BY time DESC LIMIT 1
-                    ),
-                    alarm_events AS (
-                        SELECT time, value::text FROM alarm_boundary UNION ALL
-                        SELECT time, value::text FROM telemetry_event
-                        WHERE machine_name = %s AND tag_name LIKE %s AND time >= %s AND time <= %s
-                    ),
-                    alarm_durations AS (
-                        SELECT value as alarm_code, EXTRACT(EPOCH FROM (COALESCE(LEAD(time) OVER (ORDER BY time), %s) - time)) as duration_sec
-                        FROM alarm_events
-                    )
-                    SELECT alarm_code, SUM(duration_sec) as total_dur FROM alarm_durations
-                    WHERE alarm_code != '0' AND alarm_code != '' AND alarm_code IS NOT NULL
-                    GROUP BY alarm_code ORDER BY total_dur DESC LIMIT 1;
-                """
-                cur.execute(alarm_query, (
-                    start_time, self.name, alarm_tag, start_time,
-                    self.name, alarm_tag, start_time, calc_end_time, calc_end_time
-                ))
-                res_al = cur.fetchone()
-                if res_al and res_al[0]:
-                    alarm_code_val = res_al[0]
-                    duration_min = int((res_al[1] or 0) // 60)
-                    
-                    event_rec = self.env['mes.events'].search([('default_PLCValue', '=', int(alarm_code_val))], limit=1) if alarm_code_val.isdigit() else False
-                    alarm_name = event_rec.name if event_rec else alarm_code_val
-                    top_alarm_str = f"{alarm_name} ({duration_min} min)"
+                top_alarm_str = self.get_top_alarm_str(
+                    cursor=cur, 
+                    start_time=start_time, 
+                    end_time=calc_end_time
+                )
 
-                top_rej_count = 0
-                top_rej_name = ""
-                for c_sig in self.count_tag_ids:
-                    if c_sig.tag_name != good_count_tag:
-                        if c_sig.is_cumulative:
-                            q_rej = "SELECT COALESCE(MAX(value) - MIN(value), 0) FROM telemetry_count WHERE machine_name=%s AND tag_name=%s AND time >= %s AND time <= %s"
-                        else:
-                            q_rej = "SELECT COALESCE(SUM(value), 0) FROM telemetry_count WHERE machine_name=%s AND tag_name=%s AND time >= %s AND time <= %s"
-                        
-                        cur.execute(q_rej, (self.name, c_sig.tag_name, start_time, calc_end_time))
-                        val = cur.fetchone()[0] or 0
-                        if val > top_rej_count:
-                            top_rej_count = val
-                            top_rej_name = c_sig.count_id.name if c_sig.count_id else c_sig.tag_name
-                
-                if top_rej_count > 0:
-                    top_rejection_str = f"{top_rej_name} ({int(top_rej_count)})"
+                top_rejection_str = self.get_top_rejection_str(
+                    cursor=cur, 
+                    start_time=start_time, 
+                    end_time=calc_end_time, 
+                    good_production_count_id=production_count.id
+                )
         
         h, m, s = int(total_running_sec // 3600), int((total_running_sec % 3600) // 60), int(total_running_sec % 60)
         runtime_formatted = f"{h:02d}:{m:02d}:{s:02d}"
