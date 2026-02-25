@@ -93,6 +93,7 @@
                 <field name="complete_name" string="Hierarchy"/>
                 <field name="code"/>
                 <field name="default_OPCTag"/>
+                <field name="is_cumulative"/>
                 <field name="is_module_count"/>
                 <field name="wheel" optional="hide"/>
                 <field name="module" optional="hide"/>
@@ -134,8 +135,8 @@
                             <field name="code"/>
                         </group>
                         <group>
-                            <field name="default_OPCTag"/>
-                            <field name="default_PLCValue"/>
+                            <field name="default_event_tag_type"/>
+                            <field name="default_plc_value"/>
                         </group>
                     </group>
                     <notebook>
@@ -160,8 +161,8 @@
             <tree>
                 <field name="complete_name" string="Hierarchy"/>
                 <field name="code"/>
-                <field name="default_OPCTag"/>
-                <field name="default_PLCValue"/>
+                <field name="default_event_tag_type"/>
+                <field name="default_plc_value"/>
             </tree>
         </field>
     </record>
@@ -171,6 +172,47 @@
         <field name="res_model">mes.event</field>
         <field name="view_mode">tree,form</field>
         <field name="search_view_id" ref="view_mes_event_search"/>
+    </record>
+
+    <record id="view_mes_process_tree" model="ir.ui.view">
+        <field name="name">mes.process.tree</field>
+        <field name="model">mes.process</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="complete_name"/>
+                <field name="code"/>
+                <field name="default_OPCTag"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_process_form" model="ir.ui.view">
+        <field name="name">mes.process.form</field>
+        <field name="model">mes.process</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Process Name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="parent_id"/>
+                            <field name="code"/>
+                        </group>
+                        <group>
+                            <field name="default_OPCTag"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mes_process" model="ir.actions.act_window">
+        <field name="name">Processes Dictionary</field>
+        <field name="res_model">mes.process</field>
+        <field name="view_mode">tree,form</field>
     </record>
 
     <record id="view_mes_stream_tree" model="ir.ui.view">
@@ -219,6 +261,81 @@
                 <field name="code_imatec"/>
                 <field name="maintainx_id"/>
             </xpath>
+        </field>
+    </record>
+
+    <record id="mes_workcenter_oee_form" model="ir.ui.view">
+        <field name="name">mes.workcenter.oee.form</field>
+        <field name="model">mrp.workcenter</field>
+        <field name="inherit_id" ref="mrp.mrp_workcenter_view"/>
+        <field name="arch" type="xml">
+            
+            <xpath expr="//button[@name='%(mrp.mrp_workcenter_productivity_report_oee)d']" position="attributes">
+                <attribute name="invisible">True</attribute>
+            </xpath>
+            <xpath expr="//button[@name='%(mrp.mrp_workcenter_productivity_report_blocked)d']" position="attributes">
+                <attribute name="invisible">True</attribute>
+            </xpath>
+            <xpath expr="//button[@name='%(mrp.action_mrp_workcenter_load_report_graph)d']" position="attributes">
+                <attribute name="invisible">True</attribute>
+            </xpath>
+            
+            <xpath expr="//button[.//field[@name='performance']]" position="attributes">
+                <attribute name="invisible">True</attribute>
+            </xpath>
+
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button class="oe_stat_button" icon="fa-pie-chart" style="pointer-events: none;">
+                    <div class="o_stat_info">
+                        <span class="o_stat_value"><field name="current_oee" nolabel="1"/> %</span>
+                        <span class="o_stat_text">MES OEE</span>
+                    </div>
+                </button>
+                <button class="oe_stat_button" icon="fa-arrow-down" style="pointer-events: none;">
+                    <div class="o_stat_info text-danger">
+                        <span class="o_stat_value"><field name="current_downtime_losses" nolabel="1"/> %</span>
+                        <span class="o_stat_text">Downtime Loss</span>
+                    </div>
+                </button>
+                <button class="oe_stat_button" icon="fa-trash" style="pointer-events: none;">
+                    <div class="o_stat_info text-danger">
+                        <span class="o_stat_value"><field name="current_waste_losses" nolabel="1"/> %</span>
+                        <span class="o_stat_text">Waste Loss</span>
+                    </div>
+                </button>
+                <button class="oe_stat_button" icon="fa-cubes" style="pointer-events: none;">
+                    <div class="o_stat_info">
+                        <span class="o_stat_value"><field name="current_produced" nolabel="1"/></span>
+                        <span class="o_stat_text">Produced</span>
+                    </div>
+                </button>
+            </xpath>
+            
+            <xpath expr="//notebook" position="before">
+                <group string="MES Telemetry Settings" name="mes_telemetry_settings">
+                    <group>
+                        <field name="machine_settings_id"/>
+                        <field name="refresh_frequency" widget="auto_refresh"/>
+                        <field name="ideal_capacity_per_min"/>
+                    </group>
+                    <group>
+                        <field name="runtime_event_id" options="{'no_create': True}"/>
+                        <field name="production_count_id" options="{'no_create': True}"/>
+                    </group>
+                </group>
+            </xpath>
+            
+            <xpath expr="//notebook" position="inside">
+                <page string="Real-Time OEE" name="realtime_oee_page">
+                    <group col="4">
+                        <field name="current_oee" widget="progressbar" string="Overall OEE"/>
+                        <field name="current_availability" widget="progressbar" string="Availability"/>
+                        <field name="current_performance" widget="progressbar" string="Performance"/>
+                        <field name="current_quality" widget="progressbar" string="Quality"/>
+                    </group>
+                </page>
+            </xpath>
+            
         </field>
     </record>
 </odoo>

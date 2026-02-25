@@ -27,6 +27,13 @@
 
         'views/mes_menus.xml',
     ],
+
+    'assets': {
+        'web.assets_backend': [
+            'mes_core/static/src/js/auto_refresh.js',
+        ],
+    },
+    
     'installable': True,
     'application': True,
     'license': 'LGPL-3',

@@ -30,8 +30,8 @@ class MesDictionaryImportWizard(models.TransientModel):
         model_name = 'mes.event' if is_event else 'mes.counts'
         
         mapping = {
-            'DefaultOPCTag': 'default_OPCTag',
-            'DefaultPLCValue': 'default_PLCValue' if is_event else None,
+            'DefaultOPCTag': 'default_event_tag_type' if is_event else 'default_OPCTag',
+            'DefaultPLCValue': 'default_plc_value' if is_event else None,
             'IsModuleCount': None if is_event else 'is_module_count',
             'Wheel': None if is_event else 'wheel',
             'Module': None if is_event else 'module'
@@ -43,7 +43,7 @@ class MesDictionaryImportWizard(models.TransientModel):
             for csv_col, db_field in mapping.items():
                 if db_field and csv_col in row:
                     val = row[csv_col].strip()
-                    if db_field in ['default_PLCValue', 'wheel', 'module']:
+                    if db_field in ['default_plc_value', 'wheel', 'module']:
                         vals[db_field] = int(val) if val.isdigit() else 0
                     elif db_field == 'is_module_count':
                         vals[db_field] = val.lower() in ['1', 'true', 'yes']

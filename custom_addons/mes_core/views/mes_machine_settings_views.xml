@@ -22,21 +22,43 @@
                     
                     <notebook>
                         <page string="Config Signals" name="signals">
-                            <field name="signal_ids">
-                                <tree editable="bottom">
-                                    <field name="tag_name"/>
-                                    <field name="poll_type"/>
-                                    <field name="poll_frequency"/>
-                                    <field name="param_type"/>
-                                    <field name="signal_type"/>
-
-                                    <button name="copy" 
-                                        type="object" 
-                                        icon="fa-clone" 
-                                        title="Copy" 
-                                        class="btn-link"/>
-                                </tree>
-                            </field>
+                            <notebook>
+                                <page string="Counts">
+                                    <field name="count_tag_ids">
+                                        <tree editable="bottom">
+                                            <field name="count_id"/>
+                                            <field name="tag_name"/>
+                                            <field name="poll_type"/>
+                                            <field name="poll_frequency"/>
+                                            <field name="param_type"/>
+                                            <field name="is_cumulative" widget="boolean_toggle"/>
+                                        </tree>
+                                    </field>
+                                </page>
+                                <page string="Events">
+                                    <field name="event_tag_ids">
+                                        <tree editable="bottom">
+                                            <field name="event_id"/>
+                                            <field name="tag_name"/>
+                                            <field name="plc_value"/>
+                                            <field name="poll_type"/>
+                                            <field name="poll_frequency"/>
+                                            <field name="param_type"/>
+                                        </tree>
+                                    </field>
+                                </page>
+                                <page string="Processes">
+                                    <field name="process_tag_ids">
+                                        <tree editable="bottom">
+                                            <field name="process_id"/>
+                                            <field name="tag_name"/>
+                                            <field name="poll_type"/>
+                                            <field name="poll_frequency"/>
+                                            <field name="param_type"/>
+                                        </tree>
+                                    </field>
+                                </page>
+                            </notebook>
                         </page>
                     </notebook>
                 </sheet>

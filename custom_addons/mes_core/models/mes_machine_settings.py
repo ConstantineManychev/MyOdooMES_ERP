@@ -1,6 +1,6 @@
 import re
+from datetime import datetime, timedelta
 from odoo import models, fields, api
-
 
 class MesMachineSettings(models.Model):
     _name = 'mes.machine.settings'
@@ -11,7 +11,9 @@ class MesMachineSettings(models.Model):
     ip_connection = fields.Char(string='Connection IP', tracking=True)
     ip_data = fields.Char(string='TwinCAT/Data IP', tracking=True)
     
-    signal_ids = fields.One2many('mes.signal.tag', 'machine_settings_id', string='Monitored Signals', copy=True)
+    count_tag_ids = fields.One2many('mes.signal.count', 'machine_id', string='Counts')
+    event_tag_ids = fields.One2many('mes.signal.event', 'machine_id', string='Events')
+    process_tag_ids = fields.One2many('mes.signal.process', 'machine_id', string='Processes')
 
     _sql_constraints = [('name_uniq', 'unique (name)', 'Machine Name must be unique!')]
 
@@ -37,34 +39,193 @@ class MesMachineSettings(models.Model):
             self._execute_from_file('delete_machine.sql', (rec.name,))
         return super().unlink()
 
-class MesSignalTag(models.Model):
-    _name = 'mes.signal.tag'
-    _description = 'Monitored Signal Configuration'
-    _inherit = ['mes.timescale.base']
-    _rec_name = 'tag_name'
+    def _get_current_shift_window(self):
+        now = fields.Datetime.now()
+        current_hour = now.hour + now.minute / 60.0 + now.second / 3600.0
+        
+        shifts = self.env['mes.shift'].search([])
+        current_shift = None
+        
+        for shift in shifts:
+            if shift.start_hour < shift.end_hour:
+                if shift.start_hour <= current_hour < shift.end_hour:
+                    current_shift = shift
+                    break
+            else:
+                if current_hour >= shift.start_hour or current_hour < shift.end_hour:
+                    current_shift = shift
+                    break
+        
+        if not current_shift:
+            return None, None
 
-    machine_settings_id = fields.Many2one('mes.machine.settings', string='Machine', required=True, ondelete='cascade')
-    tag_name = fields.Char(string='Signal Tag', required=True)
+        start_date = now
+        if current_shift.start_hour > current_shift.end_hour and current_hour < current_shift.end_hour:
+            start_date = now - timedelta(days=1)
+            
+        start_time = start_date.replace(
+            hour=int(current_shift.start_hour), 
+            minute=int((current_shift.start_hour % 1) * 60), 
+            second=0, 
+            microsecond=0
+        )
+        
+        end_time = start_time + timedelta(hours=current_shift.duration)
+        
+        return start_time, end_time
     
+    def get_realtime_oee(self, runtime_event, production_count, workcenter=None):
+        import logging
+        _logger = logging.getLogger(__name__)
+
+        self.ensure_one()
+        start_time, end_time = self._get_current_shift_window()
+        
+        if not start_time or not end_time:
+            return {'error': 'Configuration error: No active shift. Calculation is not possible.'}
+            
+        now = fields.Datetime.now()
+        calc_end_time = min(now, end_time)
+        
+        state_tag, running_plc_value = runtime_event.get_mapping_for_machine(self)
+        good_count_tag, is_cumulative = production_count.get_count_config_for_machine(self)
+
+        if not state_tag or not good_count_tag:
+            return {'error': 'Configuration error: Missing state or count tag for this machine.'}
+
+        ts_manager = self.env['mes.timescale.base']
+        
+        if is_cumulative:
+            prod_sql = "SELECT COALESCE(MAX(value) - MIN(value), 0) as total_produced"
+        else:
+            prod_sql = "SELECT COALESCE(SUM(value), 0) as total_produced"
+        
+        query = f"""
+            WITH boundary_state AS (
+                SELECT %s::timestamptz as time, value 
+                FROM telemetry_event
+                WHERE machine_name = %s AND tag_name = %s AND time < %s
+                ORDER BY time DESC LIMIT 1
+            ),
+            shift_events AS (
+                SELECT time, value FROM boundary_state
+                UNION ALL
+                SELECT time, value 
+                FROM telemetry_event
+                WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
+            ),
+            state_durations AS (
+                SELECT 
+                    value as state,
+                    EXTRACT(EPOCH FROM (
+                        COALESCE(LEAD(time) OVER (ORDER BY time), %s) - time
+                    )) as duration_sec
+                FROM shift_events
+            ),
+            availability_stats AS (
+                SELECT COALESCE(SUM(duration_sec), 0) as total_running_sec FROM state_durations WHERE state = %s
+            ),
+            production_stats AS (
+                {prod_sql} FROM telemetry_count
+                WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
+            )
+            SELECT a.total_running_sec, p.total_produced
+            FROM availability_stats a CROSS JOIN production_stats p;
+        """
+        
+        params = (
+            start_time, self.name, state_tag, start_time,
+            self.name, state_tag, start_time, calc_end_time,
+            calc_end_time,
+            running_plc_value,
+            self.name, good_count_tag, start_time, calc_end_time
+        )
+        
+        with ts_manager._connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, params)
+                res = cur.fetchone() or (0, 0)
+                
+        total_running_sec, total_produced = (res[0] or 0), (res[1] or 0)
+        planned_production_time_sec = (calc_end_time - start_time).total_seconds()
+        
+        if workcenter and workcenter.ideal_capacity_per_min > 0:
+            ideal_rate_per_sec = workcenter.ideal_capacity_per_min / 60.0
+        else:
+            ideal_rate_per_sec = 1.0 
+            
+        raw_availability = total_running_sec / planned_production_time_sec if planned_production_time_sec > 0 else 0
+        availability = min(raw_availability, 1.0)
+        
+        raw_performance = total_produced / (total_running_sec * ideal_rate_per_sec) if total_running_sec > 0 else 0
+        performance = min(raw_performance, 1.0)
+        
+        quality = 1.0 
+        oee = availability * performance * quality
+
+        if planned_production_time_sec > 0:
+            downtime_losses = max(0.0, 1.0 - raw_availability)
+        else:
+            downtime_losses = 0.0
+            
+        perfect_amount_for_runtime = total_running_sec * ideal_rate_per_sec
+        
+        if planned_production_time_sec > 0 and perfect_amount_for_runtime > 0:
+            #lost_units_due_to_speed = max(0.0, perfect_amount_for_runtime - total_produced)
+            
+            #lost_seconds_due_to_speed = lost_units_due_to_speed / ideal_rate_per_sec
+            waste_losses = 1 - (total_produced / perfect_amount_for_runtime)
+        else:
+            waste_losses = 0.0
+
+        _logger.info(
+            "\n"
+            "=== OEE MATH DEBUG (%s) ===\n"
+            "1. ВРЕМЯ:\n"
+            "   - Смена (Planned Sec): %s\n"
+            "   - В работе (Running Sec): %s\n"
+            "2. СКОРОСТЬ:\n"
+            "   - Норма (Шт/Сек): %s\n"
+            "3. ПРОИЗВОДСТВО:\n"
+            "   - Идеал за время работы (Perfect Amount): %s\n"
+            "   - Факт (Total Produced): %s\n"
+            "4. ИТОГИ:\n"
+            "   - Performance: %s %%\n"
+            "   - Waste Losses: %s %%\n"
+            "===============================",
+            self.name,
+            planned_production_time_sec,
+            total_running_sec,
+            ideal_rate_per_sec,
+            perfect_amount_for_runtime,
+            total_produced,
+            performance * 100,
+            waste_losses * 100
+        )
+
+        return {
+            'availability': round(availability * 100, 2),
+            'performance': round(performance * 100, 2),
+            'quality': round(quality * 100, 2),
+            'oee': round(oee * 100, 2),
+            'total_produced': total_produced,
+            'waste_losses': round(waste_losses * 100, 2),
+            'downtime_losses': round(downtime_losses * 100, 2)
+        }
+
+
+class MesSignalBase(models.AbstractModel):
+    _name = 'mes.signal.base'
+    _description = 'Base Signal Config'
+    _inherit = ['mes.timescale.base']
+
+    tag_name = fields.Char(string='Signal Tag', required=True)
     poll_type = fields.Selection([('cyclic', 'Cyclic'), ('on_change', 'On Change')], default='cyclic', required=True)
     poll_frequency = fields.Integer(string='Freq (ms)', default=1000)
-
-    event_id = fields.Many2one('mes.event', string='Mapped Event')
-    count_id = fields.Many2one('mes.counts', string='Mapped Count')
-    
     param_type = fields.Selection([
-        ('auto', 'Auto'),
-        ('bool', 'Boolean'),
-        ('int', 'Integer'),
-        ('double', 'Double/Real'),
-        ('string', 'String')
+        ('auto', 'Auto'), ('bool', 'Boolean'), ('int', 'Integer'),
+        ('double', 'Double/Real'), ('string', 'String')
     ], string='Data Type', default='auto', required=True)
-    
-    signal_type = fields.Selection([
-        ('count', 'Count (Integer)'),
-        ('event', 'Event (Integer)'),
-        ('process', 'Process (Mixed)')
-    ], string='Category', required=True)
 
     @api.model
     def create(self, vals):
@@ -72,60 +233,88 @@ class MesSignalTag(models.Model):
         self._sync(rec)
         return rec
 
-    @api.onchange('signal_type')
-    def _onchange_signal_type(self):
-        for rec in self:
-            if rec.signal_type != 'event':
-                rec.event_id = False
-            if rec.signal_type != 'count':
-                rec.count_id = False
-
     def write(self, vals):
         res = super().write(vals)
         for rec in self:
             self._sync(rec)
         return res
 
-    def unlink(self):
-        for rec in self:
-            self._execute_from_file('delete_signal.sql', (rec.machine_settings_id.name, rec.tag_name))
-        return super().unlink()
-
     def _sync(self, rec):
         self._execute_from_file('upsert_signal.sql', (
-            rec.machine_settings_id.name, rec.tag_name, 
-            rec.poll_type, rec.poll_frequency, rec.param_type, rec.signal_type
+            rec.machine_id.name, rec.tag_name, 
+            rec.poll_type, rec.poll_frequency, rec.param_type, self._signal_type
         ))
 
-    def copy(self, default=None):
-        self.ensure_one()
-        default = dict(default or {})
-        if 'tag_name' not in default:
-            base, sep, _ = re.match(r'^(.*?)([\s_]*)(\d*)$', self.tag_name).groups()
-            sep = sep or '' 
-            
-            tags = self.env['mes.signal.tag'].search([
-                ('machine_settings_id', '=', self.machine_settings_id.id),
-                ('tag_name', '=like', f"{base}%")
-            ]).mapped('tag_name')
 
-            pattern = re.compile(rf'^{re.escape(base)}[\s_]*(\d+)$')
-            max_num = max((int(m.group(1)) for t in tags if (m := pattern.match(t))), default=0)
-            
-            default['tag_name'] = f"{base}{sep}{max_num + 1}"
+class MesSignalCount(models.Model):
+    _name = 'mes.signal.count'
+    _inherit = 'mes.signal.base'
+    _description = 'Count Signals'
+    _signal_type = 'count'
 
-        return super().copy(default)
-    
-    def get_tag_for_machine(self, machine_id):
-        self.ensure_one()
-        
-        custom_mapping = self.env['mes.signal.tag'].search([
-            ('machine_settings_id', '=', machine_id),
-            ('event_id', '=', self.id),
-            ('signal_type', '=', 'event')
-        ], limit=1)
-        
-        if custom_mapping:
-            return custom_mapping.tag_name
-            
-        return self.default_OPCTag
+    machine_id = fields.Many2one('mes.machine.settings', string='Machine', required=True, ondelete='cascade')
+    count_id = fields.Many2one('mes.counts', string='Dictionary Count', required=True)
+
+    is_cumulative = fields.Boolean(string='Cumulative (MAX-MIN)', default=False)
+
+    _sql_constraints = [
+        ('tag_uniq', 'unique(machine_id, tag_name)', 'Count Tag must be unique for this machine!'),
+        ('dict_uniq', 'unique(machine_id, count_id)', 'This dictionary count is already added for this machine!')
+    ]
+
+    def unlink(self):
+        for rec in self:
+            self._execute_from_file('delete_signal.sql', (rec.machine_id.name, rec.tag_name))
+        return super().unlink()
+
+    @api.onchange('count_id')
+    def _onchange_count_id(self):
+        if self.count_id:
+            self.is_cumulative = self.count_id.is_cumulative
+
+
+class MesSignalEvent(models.Model):
+    _name = 'mes.signal.event'
+    _inherit = 'mes.signal.base'
+    _description = 'Event Signals'
+    _signal_type = 'event'
+
+    machine_id = fields.Many2one('mes.machine.settings', string='Machine', required=True, ondelete='cascade')
+    event_id = fields.Many2one('mes.event', string='Dictionary Event', required=True)
+    plc_value = fields.Integer(string='PLC Value', required=True)
+
+    _sql_constraints = [
+        ('tag_val_uniq', 'unique(machine_id, tag_name, plc_value)', 'Tag + Value pair already exists for this machine!'),
+        ('dict_uniq', 'unique(machine_id, event_id)', 'This dictionary event is already configured for this machine!')
+    ]
+
+    def unlink(self):
+        for rec in self:
+            remaining = self.search_count([
+                ('machine_id', '=', rec.machine_id.id),
+                ('tag_name', '=', rec.tag_name),
+                ('id', '!=', rec.id)
+            ])
+            if remaining == 0:
+                self._execute_from_file('delete_signal.sql', (rec.machine_id.name, rec.tag_name))
+        return super().unlink()
+
+
+class MesSignalProcess(models.Model):
+    _name = 'mes.signal.process'
+    _inherit = 'mes.signal.base'
+    _description = 'Process Signals'
+    _signal_type = 'process'
+
+    machine_id = fields.Many2one('mes.machine.settings', string='Machine', required=True, ondelete='cascade')
+    process_id = fields.Many2one('mes.process', string='Dictionary Process', required=True)
+
+    _sql_constraints = [
+        ('tag_uniq', 'unique(machine_id, tag_name)', 'Process Tag must be unique for this machine!'),
+        ('dict_uniq', 'unique(machine_id, process_id)', 'This dictionary process is already added for this machine!')
+    ]
+
+    def unlink(self):
+        for rec in self:
+            self._execute_from_file('delete_signal.sql', (rec.machine_id.name, rec.tag_name))
+        return super().unlink()

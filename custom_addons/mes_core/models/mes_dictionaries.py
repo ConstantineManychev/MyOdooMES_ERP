@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 
 class MesShifts(models.Model):
     _name = 'mes.shift'
@@ -94,10 +95,11 @@ class MesCounts(models.Model):
     child_ids = fields.One2many('mes.counts', 'parent_id', string='Children')
     parent_path = fields.Char(index=True, unaccent=False)
 
-    complete_name = fields.Char(
-        'Complete Name', compute='_compute_complete_name', store=True)
+    complete_name = fields.Char('Complete Name', compute='_compute_complete_name', store=True)
 
     default_OPCTag = fields.Char(string='Default OPC Tag', help="Default tag for OPC integration")
+    is_cumulative = fields.Boolean(string='Cumulative (MAX-MIN)', default=False, 
+                                   help="If true, OEE calculation will use MAX-MIN difference for this count instead of summing up values")
     is_module_count = fields.Boolean(string='Is Module Count', help="Indicates if this count is related to module production")
     wheel = fields.Integer(string='Wheel', help="Number of the wheel associated with this count")
     module = fields.Integer(string='Module', help="Number of the module associated with this count")
@@ -115,6 +117,28 @@ class MesCounts(models.Model):
         if not self._check_recursion():
             raise ValidationError('Error! You cannot create recursive categories.')
 
+    def get_tag_for_machine(self, machine_id):
+        self.ensure_one()
+        override = self.env['mes.signal.count'].search([
+            ('count_id', '=', self.id),
+            ('machine_id', '=', machine_id.id if isinstance(machine_id, models.Model) else machine_id)
+        ], limit=1)
+        if override:
+            return override.tag_name
+        return self.default_OPCTag
+    
+    def get_count_config_for_machine(self, machine_id):
+        self.ensure_one()
+        override = self.env['mes.signal.count'].search([
+            ('count_id', '=', self.id),
+            ('machine_id', '=', machine_id.id if isinstance(machine_id, models.Model) else machine_id)
+        ], limit=1)
+        
+        if override:
+            return override.tag_name, override.is_cumulative
+        return self.default_OPCTag, self.is_cumulative
+
+
 class MesEvents(models.Model):
     _name = 'mes.event'
     _inherit = ['mes.hierarchy.mixin']
@@ -131,11 +155,13 @@ class MesEvents(models.Model):
     child_ids = fields.One2many('mes.event', 'parent_id', string='Children')
     parent_path = fields.Char(index=True, unaccent=False)
     
-    complete_name = fields.Char(
-        'Complete Name', compute='_compute_complete_name', store=True)
+    complete_name = fields.Char('Complete Name', compute='_compute_complete_name', store=True)
 
-    default_OPCTag = fields.Char(string='Default OPC Tag', help="Default tag for OPC integration")
-    default_PLCValue = fields.Integer(string='Default PLC Value', help="Default value for PLC integration")
+    default_event_tag_type = fields.Selection([
+        ('OEE.nMachineState', 'Machine State (OEE.nMachineState)'),
+        ('OEE.nStopRootReason', 'Stop Reason (OEE.nStopRootReason)')
+    ], string='Default Tag Type', help="Base tag source for this event")
+    default_plc_value = fields.Integer(string='Default PLC Value', help="Value that triggers this event")
 
     @api.depends('name', 'parent_id.complete_name')
     def _compute_complete_name(self):
@@ -150,16 +176,117 @@ class MesEvents(models.Model):
         if not self._check_recursion():
             raise ValidationError('Error! You cannot create recursive categories.')
 
+    def get_mapping_for_machine(self, machine_id):
+        self.ensure_one()
+        override = self.env['mes.signal.event'].search([
+            ('event_id', '=', self.id),
+            ('machine_id', '=', machine_id.id if isinstance(machine_id, models.Model) else machine_id)
+        ], limit=1)
+        if override:
+            return override.tag_name, override.plc_value
+        return self.default_event_tag_type, self.default_plc_value
+
+
+class MesProcess(models.Model):
+    _name = 'mes.process'
+    _inherit = ['mes.hierarchy.mixin']
+    _description = 'Process Parameters Dictionary'
+    _parent_name = "parent_id" 
+    _parent_store = True       
+    _rec_name = 'complete_name' 
+    _order = 'complete_name'
+
+    name = fields.Char(string='Process Name', required=True)
+    code = fields.Char(string='Code')
+    
+    parent_id = fields.Many2one('mes.process', string='Parent Group', index=True, ondelete='cascade')
+    child_ids = fields.One2many('mes.process', 'parent_id', string='Children')
+    parent_path = fields.Char(index=True, unaccent=False)
+    
+    complete_name = fields.Char('Complete Name', compute='_compute_complete_name', store=True)
+    default_OPCTag = fields.Char(string='Default OPC Tag', help="Default tag for OPC integration")
+
+    @api.depends('name', 'parent_id.complete_name')
+    def _compute_complete_name(self):
+        for rec in self:
+            if rec.parent_id:
+                rec.complete_name = '%s / %s' % (rec.parent_id.complete_name, rec.name)
+            else:
+                rec.complete_name = rec.name
+
+    def get_tag_for_machine(self, machine_id):
+        self.ensure_one()
+        override = self.env['mes.signal.process'].search([
+            ('process_id', '=', self.id),
+            ('machine_id', '=', machine_id.id if isinstance(machine_id, models.Model) else machine_id)
+        ], limit=1)
+        if override:
+            return override.tag_name
+        return self.default_OPCTag
+
 class MesWorkcenter(models.Model):
     _inherit = 'mrp.workcenter'
 
     machine_number = fields.Integer(string='Machine Number')
     maintainx_id = fields.Integer(string='MaintainX ID', help="ID used in MaintainX system")
     code_imatec = fields.Char(string='Imatec Name', help="Name used in external DB (e.g. IMA3)")
+
+    machine_settings_id = fields.Many2one('mes.machine.settings', string='Telemetry Settings')
+
+    runtime_event_id = fields.Many2one('mes.event', string='Runtime Event', help="Runtime event used for OEE calculation")
+    production_count_id = fields.Many2one('mes.counts', string='Production Count', help="Good parts count used for OEE calculation")
+    refresh_frequency = fields.Integer(string='Refresh Frequency (sec)', default=60, help="Frequency of OEE dashboard refresh in seconds")
+    ideal_capacity_per_min = fields.Float(string='Ideal Capacity (Parts/Min)', default=60.0)
+
+    current_oee = fields.Float(string='OEE (%)', compute='_compute_realtime_oee')
+    current_availability = fields.Float(string='Availability (%)', compute='_compute_realtime_oee')
+    current_performance = fields.Float(string='Performance (%)', compute='_compute_realtime_oee')
+    current_quality = fields.Float(string='Quality (%)', compute='_compute_realtime_oee')
+    current_produced = fields.Integer(string='Produced Today', compute='_compute_realtime_oee')
+    current_waste_losses = fields.Float(string='Waste Losses (%)', compute='_compute_realtime_oee')
+    current_downtime_losses = fields.Float(string='Downtime Losses (%)', compute='_compute_realtime_oee')
     
     _sql_constraints = [
         ('code_imatec_uniq', 'unique(code_imatec)', 'Imatec Code must be unique!')
     ]
+
+    @api.constrains('refresh_frequency')
+    def _check_refresh_frequency(self):
+        for wc in self:
+            if wc.refresh_frequency < 10:
+                raise ValidationError('Configuration error: Refresh frequency cannot be less than 10 seconds.')
+
+    def _compute_realtime_oee(self):
+        for wc in self:
+            if not wc.machine_settings_id or not wc.runtime_event_id or not wc.production_count_id:
+                wc._reset_oee()
+                continue
+            
+            oee_data = wc.machine_settings_id.get_realtime_oee(
+                runtime_event=wc.runtime_event_id,
+                production_count=wc.production_count_id,
+                workcenter=wc
+            )
+            
+            if 'error' in oee_data:
+                wc._reset_oee()
+            else:
+                wc.current_oee = oee_data.get('oee', 0.0)
+                wc.current_availability = oee_data.get('availability', 0.0)
+                wc.current_performance = oee_data.get('performance', 0.0)
+                wc.current_quality = oee_data.get('quality', 0.0)
+                wc.current_produced = oee_data.get('total_produced', 0)
+                wc.current_waste_losses = oee_data.get('waste_losses', 0.0)
+                wc.current_downtime_losses = oee_data.get('downtime_losses', 0.0)
+
+    def _reset_oee(self):
+        self.current_oee = 0.0
+        self.current_availability = 0.0
+        self.current_performance = 0.0
+        self.current_quality = 0.0
+        self.current_produced = 0
+        self.current_waste_losses = 0.0
+        self.current_downtime_losses = 0.0
 
 class MesStreams(models.Model):
     _name = 'mes.stream'
