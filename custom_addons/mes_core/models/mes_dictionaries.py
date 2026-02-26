@@ -1,6 +1,12 @@
 import operator
+import logging
+from datetime import datetime
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
+from odoo.http import request
+from odoo.osv import expression
+
+_logger = logging.getLogger(__name__)
 
 class MesShifts(models.Model):
     _name = 'mes.shift'
@@ -252,10 +258,127 @@ class MesWorkcenter(models.Model):
     current_runtime_formatted = fields.Char(string='Runtime', compute='_compute_realtime_oee')
     current_top_rejection = fields.Char(string='Top Rejection', compute='_compute_realtime_oee')
     current_top_alarm = fields.Char(string='Top Alarm', compute='_compute_realtime_oee')
+
+    allowed_pc_ips = fields.Char(
+        string='All Allowed PC IPs',
+        help='Specify the IP addresses of allowed computers, separated by commas (e.g., 192.168.1.50, 192.168.1.51)'
+    )
     
     _sql_constraints = [
         ('code_imatec_uniq', 'unique(code_imatec)', 'Imatec Code must be unique!')
     ]
+
+    @api.model
+    def fields_get(self, allfields=None, attributes=None):
+        res = super().fields_get(allfields, attributes)
+        custom_sort_fields = [
+            'current_oee', 'current_waste_losses', 'current_downtime_losses',
+            'current_produced', 'current_first_running_time', 'current_runtime_formatted'
+        ]
+        for field in custom_sort_fields:
+            if field in res:
+                res[field]['sortable'] = True
+        return res
+
+    @api.model
+    def web_search_read(self, domain=None, specification=None, offset=0, limit=None, order=None, count_limit=None, **kw):
+
+        domain = self._apply_operator_ip_filter(domain)
+        custom_order_field, reverse, order = self._extract_custom_order(order)
+        
+        res = super().web_search_read(
+            domain=domain, specification=specification, offset=offset, 
+            limit=limit, order=order, count_limit=count_limit, **kw
+        )
+        
+        if res.get('records'):
+            self._apply_custom_sort(res['records'], custom_order_field, reverse)
+            
+        return res
+
+    @api.model
+    def search_read(self, domain=None, fields=None, offset=0, limit=None, order=None, **kw):
+
+        domain = self._apply_operator_ip_filter(domain)
+        custom_order_field, reverse, order = self._extract_custom_order(order)
+        
+        res = super().search_read(
+            domain=domain, fields=fields, offset=offset, 
+            limit=limit, order=order, **kw
+        )
+        
+        if isinstance(res, list):
+            self._apply_custom_sort(res, custom_order_field, reverse)
+            
+        return res
+
+    @api.model
+    def _apply_operator_ip_filter(self, domain):
+        """Проверяет IP-адрес Оператора и фильтрует доступные станки."""
+        if request and self.env.user.has_group('mes_core.group_mes_operator') and not self.env.user.has_group('mes_core.group_mes_manager'):
+            client_ip = request.httprequest.headers.get('X-Forwarded-For', request.httprequest.remote_addr)
+            if client_ip:
+                client_ip = client_ip.split(',')[0].strip()
+            else:
+                client_ip = 'UNKNOWN'
+                
+            _logger.info(f"MES Security: Оператор открыл дашборд с IP-адреса: {client_ip}")
+            
+            all_restricted_wcs = self.env['mrp.workcenter'].sudo().search([('allowed_pc_ips', '!=', False)])
+            allowed_wc_ids = []
+            
+            for wc in all_restricted_wcs:
+                valid_ips = [ip.strip() for ip in wc.allowed_pc_ips.split(',')]
+                if client_ip in valid_ips:
+                    allowed_wc_ids.append(wc.id)
+            
+            ip_domain = [('id', 'in', allowed_wc_ids)]
+            return expression.AND([domain or [], ip_domain])
+        return domain
+
+    @api.model
+    def _extract_custom_order(self, order):
+        """Парсит SQL-строку сортировки и извлекает кастомное поле MES."""
+        custom_sort_fields = [
+            'current_oee', 'current_waste_losses', 'current_downtime_losses',
+            'current_produced', 'current_first_running_time', 'current_runtime_formatted'
+        ]
+        custom_order_field = None
+        reverse = False
+        
+        if order:
+            for part in order.split(','):
+                part = part.strip().lower()
+                for cf in custom_sort_fields:
+                    if part.startswith(cf):
+                        custom_order_field = cf
+                        reverse = 'desc' in part
+                        break
+                if custom_order_field:
+                    break
+            
+            if custom_order_field:
+                order = 'name asc' # Сбрасываем сортировку для SQL
+                
+        return custom_order_field, reverse, order
+
+    @api.model
+    def _apply_custom_sort(self, records, custom_order_field, reverse):
+        """Сортирует готовые словари в памяти (In-Memory Sort)."""
+        if not custom_order_field or not records:
+            return
+
+        def sort_key(item):
+            val = item.get(custom_order_field)
+            if val is False or val is None:
+                if custom_order_field == 'current_first_running_time':
+                    return datetime.min 
+                elif custom_order_field == 'current_runtime_formatted':
+                    return ""
+                return -float('inf')
+            return val
+
+        records.sort(key=sort_key, reverse=reverse)
 
     @api.constrains('refresh_frequency')
     def _check_refresh_frequency(self):
