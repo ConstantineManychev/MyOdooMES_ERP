@@ -15,13 +15,13 @@
         <record id="group_mes_manager" model="res.groups">
             <field name="name">Manager (Read All)</field>
             <field name="category_id" ref="module_category_mes"/>
-            <field name="implied_ids" eval="[(4, ref('group_mes_operator'))]"/>
+            <field name="implied_ids" eval="[(6, 0, [ref('mes_core.group_mes_operator'), ref('mrp.group_mrp_user')])]"/>
         </record>
 
         <record id="group_mes_administrator" model="res.groups">
             <field name="name">Administrator (Full Access)</field>
             <field name="category_id" ref="module_category_mes"/>
-            <field name="implied_ids" eval="[(4, ref('group_mes_manager'))]"/>
+            <field name="implied_ids" eval="[(6, 0, [ref('mes_core.group_mes_manager'), ref('mrp.group_mrp_manager')])]"/>
         </record>
     </data>
 

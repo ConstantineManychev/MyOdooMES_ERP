@@ -314,7 +314,6 @@ class MesWorkcenter(models.Model):
 
     @api.model
     def _apply_operator_ip_filter(self, domain):
-        """Проверяет IP-адрес Оператора и фильтрует доступные станки."""
         if request and self.env.user.has_group('mes_core.group_mes_operator') and not self.env.user.has_group('mes_core.group_mes_manager'):
             client_ip = request.httprequest.headers.get('X-Forwarded-For', request.httprequest.remote_addr)
             if client_ip:
@@ -322,7 +321,7 @@ class MesWorkcenter(models.Model):
             else:
                 client_ip = 'UNKNOWN'
                 
-            _logger.info(f"MES Security: Оператор открыл дашборд с IP-адреса: {client_ip}")
+            _logger.info(f"MES Security: Operator opened the dashboard from IP address: {client_ip}")
             
             all_restricted_wcs = self.env['mrp.workcenter'].sudo().search([('allowed_pc_ips', '!=', False)])
             allowed_wc_ids = []
@@ -338,7 +337,6 @@ class MesWorkcenter(models.Model):
 
     @api.model
     def _extract_custom_order(self, order):
-        """Парсит SQL-строку сортировки и извлекает кастомное поле MES."""
         custom_sort_fields = [
             'current_oee', 'current_waste_losses', 'current_downtime_losses',
             'current_produced', 'current_first_running_time', 'current_runtime_formatted'
@@ -358,13 +356,12 @@ class MesWorkcenter(models.Model):
                     break
             
             if custom_order_field:
-                order = 'name asc' # Сбрасываем сортировку для SQL
+                order = 'name asc' 
                 
         return custom_order_field, reverse, order
 
     @api.model
     def _apply_custom_sort(self, records, custom_order_field, reverse):
-        """Сортирует готовые словари в памяти (In-Memory Sort)."""
         if not custom_order_field or not records:
             return
 

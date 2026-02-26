@@ -207,7 +207,7 @@ class MesMachineSettings(models.Model):
                 ORDER BY time DESC LIMIT 1
             ),
             shift_events AS (
-                SELECT time, value FROM boundary_state
+                SELECT time, value FROM boundary_state WHERE value = %s
                 UNION ALL
                 SELECT time, value 
                 FROM telemetry_event
@@ -234,7 +234,7 @@ class MesMachineSettings(models.Model):
         
         params = (
             start_time, self.name, state_tag, start_time,
-            self.name, state_tag, start_time, calc_end_time,
+            running_plc_value, self.name, state_tag, start_time, calc_end_time,
             calc_end_time,
             running_plc_value,
             self.name, good_count_tag, start_time, calc_end_time
@@ -257,20 +257,26 @@ class MesMachineSettings(models.Model):
                 
                 first_time_query = f"""
                     WITH boundary AS (
-                        SELECT %s::timestamptz as time, value FROM telemetry_event
-                        WHERE machine_name = %s AND tag_name = %s AND time < %s ORDER BY time DESC LIMIT 1
+                        SELECT value FROM telemetry_event
+                        WHERE machine_name = %s AND tag_name = %s AND time < %s 
+                        ORDER BY time DESC, id DESC LIMIT 1
                     ),
-                    all_events AS (
-                        SELECT time, value FROM boundary UNION ALL
-                        SELECT time, value FROM telemetry_event
+                    first_running_in_shift AS (
+                        SELECT time FROM telemetry_event
                         WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
+                        AND value = %s
+                        ORDER BY time ASC, id ASC LIMIT 1
                     )
-                    SELECT MIN(GREATEST(time, %s)) FROM all_events WHERE value = %s
+                    SELECT 
+                        CASE 
+                            WHEN (SELECT value FROM boundary) = %s THEN %s::timestamptz
+                            ELSE (SELECT time FROM first_running_in_shift)
+                        END
                 """
                 cur.execute(first_time_query, (
-                    start_time, self.name, state_tag, start_time,
-                    self.name, state_tag, start_time, calc_end_time,
-                    start_time, running_plc_value
+                    self.name, state_tag, start_time,                                 
+                    self.name, state_tag, start_time, calc_end_time, running_plc_value,
+                    running_plc_value, start_time                                           
                 ))
                 
                 res_ft = cur.fetchone()

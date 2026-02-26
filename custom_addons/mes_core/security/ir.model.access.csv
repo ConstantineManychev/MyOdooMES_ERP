@@ -1,128 +1,105 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-# =========================================================================================
-# === 1. DICTIONARIES AND SETTINGS (Dictionaries, Machines, Signals)
-# === Admin: Full Access | Manager: Read Only | Operator: Read Only
-# =========================================================================================
-# Shifts
+
+
+
 access_mes_shift_admin,mes.shift.admin,model_mes_shift,mes_core.group_mes_administrator,1,1,1,1
-access_mes_shift_manager,mes.shift.manager,model_mes_shift,mes_core.group_mes_manager,1,0,0,0
-access_mes_shift_operator,mes.shift.operator,model_mes_shift,mes_core.group_mes_operator,1,0,0,0
-# Defects
 access_mes_defect_admin,mes.defect.admin,model_mes_defect,mes_core.group_mes_administrator,1,1,1,1
-access_mes_defect_manager,mes.defect.manager,model_mes_defect,mes_core.group_mes_manager,1,0,0,0
-access_mes_defect_operator,mes.defect.operator,model_mes_defect,mes_core.group_mes_operator,1,0,0,0
-# Counts / Rejects
 access_mes_counts_admin,mes.counts.admin,model_mes_counts,mes_core.group_mes_administrator,1,1,1,1
-access_mes_counts_manager,mes.counts.manager,model_mes_counts,mes_core.group_mes_manager,1,0,0,0
-access_mes_counts_operator,mes.counts.operator,model_mes_counts,mes_core.group_mes_operator,1,0,0,0
-# Events / Alarms
 access_mes_event_admin,mes.event.admin,model_mes_event,mes_core.group_mes_administrator,1,1,1,1
-access_mes_event_manager,mes.event.manager,model_mes_event,mes_core.group_mes_manager,1,0,0,0
-access_mes_event_operator,mes.event.operator,model_mes_event,mes_core.group_mes_operator,1,0,0,0
-# Streams
 access_mes_stream_admin,mes.stream.admin,model_mes_stream,mes_core.group_mes_administrator,1,1,1,1
-access_mes_stream_manager,mes.stream.manager,model_mes_stream,mes_core.group_mes_manager,1,0,0,0
-access_mes_stream_operator,mes.stream.operator,model_mes_stream,mes_core.group_mes_operator,1,0,0,0
-# Wheels / Tooling
 access_mes_wheel_admin,mes.wheel.admin,model_mes_wheel,mes_core.group_mes_administrator,1,1,1,1
-access_mes_wheel_manager,mes.wheel.manager,model_mes_wheel,mes_core.group_mes_manager,1,0,0,0
-access_mes_wheel_operator,mes.wheel.operator,model_mes_wheel,mes_core.group_mes_operator,1,0,0,0
-# Processes
 access_mes_process_admin,mes.process.admin,model_mes_process,mes_core.group_mes_administrator,1,1,1,1
-access_mes_process_manager,mes.process.manager,model_mes_process,mes_core.group_mes_manager,1,0,0,0
-access_mes_process_operator,mes.process.operator,model_mes_process,mes_core.group_mes_operator,1,0,0,0
-# Machine Settings
 access_mes_settings_admin,mes.machine.settings.admin,model_mes_machine_settings,mes_core.group_mes_administrator,1,1,1,1
-access_mes_settings_manager,mes.machine.settings.manager,model_mes_machine_settings,mes_core.group_mes_manager,1,0,0,0
-access_mes_settings_operator,mes.machine.settings.operator,model_mes_machine_settings,mes_core.group_mes_operator,1,0,0,0
-# Signal Count Mapping
 access_mes_sig_count_admin,mes.signal.count.admin,model_mes_signal_count,mes_core.group_mes_administrator,1,1,1,1
-access_mes_sig_count_manager,mes.signal.count.manager,model_mes_signal_count,mes_core.group_mes_manager,1,0,0,0
-access_mes_sig_count_operator,mes.signal.count.operator,model_mes_signal_count,mes_core.group_mes_operator,1,0,0,0
-# Signal Event Mapping
 access_mes_sig_event_admin,mes.signal.event.admin,model_mes_signal_event,mes_core.group_mes_administrator,1,1,1,1
-access_mes_sig_event_manager,mes.signal.event.manager,model_mes_signal_event,mes_core.group_mes_manager,1,0,0,0
-access_mes_sig_event_operator,mes.signal.event.operator,model_mes_signal_event,mes_core.group_mes_operator,1,0,0,0
-# Signal Process Mapping
 access_mes_sig_proc_admin,mes.signal.process.admin,model_mes_signal_process,mes_core.group_mes_administrator,1,1,1,1
-access_mes_sig_proc_manager,mes.signal.process.manager,model_mes_signal_process,mes_core.group_mes_manager,1,0,0,0
-access_mes_sig_proc_operator,mes.signal.process.operator,model_mes_signal_process,mes_core.group_mes_operator,1,0,0,0
-# Timescale DB Manager
 access_mes_timescale_admin,mes.timescale.admin,model_mes_timescale_db_manager,mes_core.group_mes_administrator,1,1,1,1
-access_mes_timescale_manager,mes.timescale.manager,model_mes_timescale_db_manager,mes_core.group_mes_manager,1,0,0,0
-access_mes_timescale_operator,mes.timescale.operator,model_mes_timescale_db_manager,mes_core.group_mes_operator,1,0,0,0
-# =========================================================================================
-# === 2. OPERATIONAL DATA (Reports, Tasks, Performance)
-# === Admin: Full Access | Manager: Read Only | Operator: Read/Write/Create (No Unlink/Delete)
-# =========================================================================================
-# Machine Performance
-access_mes_mach_perf_admin,mes.mach.perf.admin,model_mes_machine_performance,mes_core.group_mes_administrator,1,1,1,1
-access_mes_mach_perf_manager,mes.mach.perf.manager,model_mes_machine_performance,mes_core.group_mes_manager,1,0,0,0
-access_mes_mach_perf_operator,mes.mach.perf.operator,model_mes_machine_performance,mes_core.group_mes_operator,1,1,1,0
-# Performance Alarm
-access_mes_perf_alarm_admin,mes.perf.alarm.admin,model_mes_performance_alarm,mes_core.group_mes_administrator,1,1,1,1
-access_mes_perf_alarm_manager,mes.perf.alarm.manager,model_mes_performance_alarm,mes_core.group_mes_manager,1,0,0,0
-access_mes_perf_alarm_operator,mes.perf.alarm.operator,model_mes_performance_alarm,mes_core.group_mes_operator,1,1,1,0
-# Performance Rejection
-access_mes_perf_rej_admin,mes.perf.rej.admin,model_mes_performance_rejection,mes_core.group_mes_administrator,1,1,1,1
-access_mes_perf_rej_manager,mes.perf.rej.manager,model_mes_performance_rejection,mes_core.group_mes_manager,1,0,0,0
-access_mes_perf_rej_operator,mes.perf.rej.operator,model_mes_performance_rejection,mes_core.group_mes_operator,1,1,1,0
-# Production Report
-access_mes_prod_rep_admin,mes.prod.rep.admin,model_mes_production_report,mes_core.group_mes_administrator,1,1,1,1
-access_mes_prod_rep_manager,mes.prod.rep.manager,model_mes_production_report,mes_core.group_mes_manager,1,0,0,0
-access_mes_prod_rep_operator,mes.prod.rep.operator,model_mes_production_report,mes_core.group_mes_operator,1,1,1,0
-# Tasks
-access_mes_task_admin,mes.task.admin,model_mes_task,mes_core.group_mes_administrator,1,1,1,1
-access_mes_task_manager,mes.task.manager,model_mes_task,mes_core.group_mes_manager,1,0,0,0
-access_mes_task_operator,mes.task.operator,model_mes_task,mes_core.group_mes_operator,1,1,1,0
-# Planned Downtime
-access_mes_plan_dt_admin,mes.plan.dt.admin,model_mes_planned_downtime,mes_core.group_mes_administrator,1,1,1,1
-access_mes_plan_dt_manager,mes.plan.dt.manager,model_mes_planned_downtime,mes_core.group_mes_manager,1,0,0,0
-access_mes_plan_dt_operator,mes.plan.dt.operator,model_mes_planned_downtime,mes_core.group_mes_operator,1,1,1,0
-# =========================================================================================
-# === 3. NESTED LINES / HISTORIES (Subtables for Reports and Tasks)
-# === Admin: Full Access | Manager: Read Only | Operator: Full Access (Needed to edit lines in form views)
-# =========================================================================================
-# Task Status History
-access_mes_task_hist_admin,mes.task.hist.admin,model_mes_task_status_history,mes_core.group_mes_administrator,1,1,1,1
-access_mes_task_hist_manager,mes.task.hist.manager,model_mes_task_status_history,mes_core.group_mes_manager,1,0,0,0
-access_mes_task_hist_operator,mes.task.hist.operator,model_mes_task_status_history,mes_core.group_mes_operator,1,1,1,1
-# Production Report Subtables
-access_mes_packer_admin,mes.packer.admin,model_mes_production_packer,mes_core.group_mes_administrator,1,1,1,1
-access_mes_packer_manager,mes.packer.manager,model_mes_production_packer,mes_core.group_mes_manager,1,0,0,0
-access_mes_packer_operator,mes.packer.operator,model_mes_production_packer,mes_core.group_mes_operator,1,1,1,1
-access_mes_shipper_admin,mes.shipper.admin,model_mes_production_shipper,mes_core.group_mes_administrator,1,1,1,1
-access_mes_shipper_manager,mes.shipper.manager,model_mes_production_shipper,mes_core.group_mes_manager,1,0,0,0
-access_mes_shipper_operator,mes.shipper.operator,model_mes_production_shipper,mes_core.group_mes_operator,1,1,1,1
-access_mes_outer_admin,mes.outer.admin,model_mes_production_outer,mes_core.group_mes_administrator,1,1,1,1
-access_mes_outer_manager,mes.outer.manager,model_mes_production_outer,mes_core.group_mes_manager,1,0,0,0
-access_mes_outer_operator,mes.outer.operator,model_mes_production_outer,mes_core.group_mes_operator,1,1,1,1
-access_mes_qc_admin,mes.qc.admin,model_mes_production_qc,mes_core.group_mes_administrator,1,1,1,1
-access_mes_qc_manager,mes.qc.manager,model_mes_production_qc,mes_core.group_mes_manager,1,0,0,0
-access_mes_qc_operator,mes.qc.operator,model_mes_production_qc,mes_core.group_mes_operator,1,1,1,1
-access_mes_qc_defect_admin,mes.qc.defect.admin,model_mes_production_qc_defect,mes_core.group_mes_administrator,1,1,1,1
-access_mes_qc_defect_manager,mes.qc.defect.manager,model_mes_production_qc_defect,mes_core.group_mes_manager,1,0,0,0
-access_mes_qc_defect_operator,mes.qc.defect.operator,model_mes_production_qc_defect,mes_core.group_mes_operator,1,1,1,1
-access_mes_ingred_admin,mes.ingred.admin,model_mes_production_ingredient,mes_core.group_mes_administrator,1,1,1,1
-access_mes_ingred_manager,mes.ingred.manager,model_mes_production_ingredient,mes_core.group_mes_manager,1,0,0,0
-access_mes_ingred_operator,mes.ingred.operator,model_mes_production_ingredient,mes_core.group_mes_operator,1,1,1,1
-# =========================================================================================
-# === 4. IMPORT WIZARDS
-# === Admin: Full Access | Manager: Read Only | Operator: No Access (Lines omitted)
-# =========================================================================================
+
 access_mes_ext_wiz_admin,mes.ext.wiz.admin,model_mes_external_import_wizard,mes_core.group_mes_administrator,1,1,1,1
-access_mes_ext_wiz_manager,mes.ext.wiz.manager,model_mes_external_import_wizard,mes_core.group_mes_manager,1,0,0,0
 access_mes_dict_wiz_admin,mes.dict.wiz.admin,model_mes_dictionary_import_wizard,mes_core.group_mes_administrator,1,1,1,1
-access_mes_dict_wiz_manager,mes.dict.wiz.manager,model_mes_dictionary_import_wizard,mes_core.group_mes_manager,1,0,0,0
 access_mes_csv_wiz_admin,mes.csv.wiz.admin,model_mes_raw_data_csv_import_wizard,mes_core.group_mes_administrator,1,1,1,1
-access_mes_csv_wiz_manager,mes.csv.wiz.manager,model_mes_raw_data_csv_import_wizard,mes_core.group_mes_manager,1,0,0,0
-# =========================================================================================
-# === 5. FDW / TIMESCALE READ (Analytics from External DB)
-# === Admin: Read Only | Manager: Read Only | Operator: Read Only (PostgreSQL Timescale data is read-only)
-# =========================================================================================
+
 access_mes_fdw_hour_admin,mes.fdw.hour.admin,model_mes_telemetry_hourly_fdw,mes_core.group_mes_administrator,1,0,0,0
-access_mes_fdw_hour_manager,mes.fdw.hour.manager,model_mes_telemetry_hourly_fdw,mes_core.group_mes_manager,1,0,0,0
-access_mes_fdw_hour_operator,mes.fdw.hour.operator,model_mes_telemetry_hourly_fdw,mes_core.group_mes_operator,1,0,0,0
 access_mes_fdw_anom_admin,mes.fdw.anom.admin,model_mes_anomaly_fdw,mes_core.group_mes_administrator,1,0,0,0
+
+access_mes_mach_perf_admin,mes.mach.perf.admin,model_mes_machine_performance,mes_core.group_mes_administrator,1,1,1,1
+access_mes_perf_alarm_admin,mes.perf.alarm.admin,model_mes_performance_alarm,mes_core.group_mes_administrator,1,1,1,1
+access_mes_perf_rej_admin,mes.perf.rej.admin,model_mes_performance_rejection,mes_core.group_mes_administrator,1,1,1,1
+access_mes_prod_rep_admin,mes.prod.rep.admin,model_mes_production_report,mes_core.group_mes_administrator,1,1,1,1
+access_mes_task_admin,mes.task.admin,model_mes_task,mes_core.group_mes_administrator,1,1,1,1
+access_mes_plan_dt_admin,mes.plan.dt.admin,model_mes_planned_downtime,mes_core.group_mes_administrator,1,1,1,1
+access_mes_task_hist_admin,mes.task.hist.admin,model_mes_task_status_history,mes_core.group_mes_administrator,1,1,1,1
+access_mes_packer_admin,mes.packer.admin,model_mes_production_packer,mes_core.group_mes_administrator,1,1,1,1
+access_mes_shipper_admin,mes.shipper.admin,model_mes_production_shipper,mes_core.group_mes_administrator,1,1,1,1
+access_mes_outer_admin,mes.outer.admin,model_mes_production_outer,mes_core.group_mes_administrator,1,1,1,1
+access_mes_qc_admin,mes.qc.admin,model_mes_production_qc,mes_core.group_mes_administrator,1,1,1,1
+access_mes_qc_defect_admin,mes.qc.defect.admin,model_mes_production_qc_defect,mes_core.group_mes_administrator,1,1,1,1
+access_mes_ingred_admin,mes.ingred.admin,model_mes_production_ingredient,mes_core.group_mes_administrator,1,1,1,1
+
+
+
+access_mes_shift_manager,mes.shift.manager,model_mes_shift,mes_core.group_mes_manager,1,0,0,0
+access_mes_defect_manager,mes.defect.manager,model_mes_defect,mes_core.group_mes_manager,1,0,0,0
+access_mes_counts_manager,mes.counts.manager,model_mes_counts,mes_core.group_mes_manager,1,0,0,0
+access_mes_event_manager,mes.event.manager,model_mes_event,mes_core.group_mes_manager,1,0,0,0
+access_mes_stream_manager,mes.stream.manager,model_mes_stream,mes_core.group_mes_manager,1,0,0,0
+access_mes_wheel_manager,mes.wheel.manager,model_mes_wheel,mes_core.group_mes_manager,1,0,0,0
+access_mes_process_manager,mes.process.manager,model_mes_process,mes_core.group_mes_manager,1,0,0,0
+access_mes_settings_manager,mes.machine.settings.manager,model_mes_machine_settings,mes_core.group_mes_manager,1,0,0,0
+access_mes_sig_count_manager,mes.signal.count.manager,model_mes_signal_count,mes_core.group_mes_manager,1,0,0,0
+access_mes_sig_event_manager,mes.signal.event.manager,model_mes_signal_event,mes_core.group_mes_manager,1,0,0,0
+access_mes_sig_proc_manager,mes.signal.process.manager,model_mes_signal_process,mes_core.group_mes_manager,1,0,0,0
+access_mes_timescale_manager,mes.timescale.manager,model_mes_timescale_db_manager,mes_core.group_mes_manager,1,0,0,0
+
+access_mes_ext_wiz_manager,mes.ext.wiz.manager,model_mes_external_import_wizard,mes_core.group_mes_manager,1,0,0,0
+access_mes_dict_wiz_manager,mes.dict.wiz.manager,model_mes_dictionary_import_wizard,mes_core.group_mes_manager,1,0,0,0
+access_mes_csv_wiz_manager,mes.csv.wiz.manager,model_mes_raw_data_csv_import_wizard,mes_core.group_mes_manager,1,0,0,0
+
+access_mes_fdw_hour_manager,mes.fdw.hour.manager,model_mes_telemetry_hourly_fdw,mes_core.group_mes_manager,1,0,0,0
 access_mes_fdw_anom_manager,mes.fdw.anom.manager,model_mes_anomaly_fdw,mes_core.group_mes_manager,1,0,0,0
+
+access_mes_mach_perf_manager,mes.mach.perf.manager,model_mes_machine_performance,mes_core.group_mes_manager,1,0,0,0
+access_mes_perf_alarm_manager,mes.perf.alarm.manager,model_mes_performance_alarm,mes_core.group_mes_manager,1,0,0,0
+access_mes_perf_rej_manager,mes.perf.rej.manager,model_mes_performance_rejection,mes_core.group_mes_manager,1,0,0,0
+access_mes_prod_rep_manager,mes.prod.rep.manager,model_mes_production_report,mes_core.group_mes_manager,1,0,0,0
+access_mes_task_manager,mes.task.manager,model_mes_task,mes_core.group_mes_manager,1,0,0,0
+access_mes_plan_dt_manager,mes.plan.dt.manager,model_mes_planned_downtime,mes_core.group_mes_manager,1,0,0,0
+access_mes_task_hist_manager,mes.task.hist.manager,model_mes_task_status_history,mes_core.group_mes_manager,1,0,0,0
+access_mes_packer_manager,mes.packer.manager,model_mes_production_packer,mes_core.group_mes_manager,1,0,0,0
+access_mes_shipper_manager,mes.shipper.manager,model_mes_production_shipper,mes_core.group_mes_manager,1,0,0,0
+access_mes_outer_manager,mes.outer.manager,model_mes_production_outer,mes_core.group_mes_manager,1,0,0,0
+access_mes_qc_manager,mes.qc.manager,model_mes_production_qc,mes_core.group_mes_manager,1,0,0,0
+access_mes_qc_defect_manager,mes.qc.defect.manager,model_mes_production_qc_defect,mes_core.group_mes_manager,1,0,0,0
+access_mes_ingred_manager,mes.ingred.manager,model_mes_production_ingredient,mes_core.group_mes_manager,1,0,0,0
+
+
+
+access_mes_shift_operator,mes.shift.operator,model_mes_shift,mes_core.group_mes_operator,1,0,0,0
+access_mes_defect_operator,mes.defect.operator,model_mes_defect,mes_core.group_mes_operator,1,0,0,0
+access_mes_counts_operator,mes.counts.operator,model_mes_counts,mes_core.group_mes_operator,1,0,0,0
+access_mes_event_operator,mes.event.operator,model_mes_event,mes_core.group_mes_operator,1,0,0,0
+access_mes_stream_operator,mes.stream.operator,model_mes_stream,mes_core.group_mes_operator,1,0,0,0
+access_mes_wheel_operator,mes.wheel.operator,model_mes_wheel,mes_core.group_mes_operator,1,0,0,0
+access_mes_process_operator,mes.process.operator,model_mes_process,mes_core.group_mes_operator,1,0,0,0
+access_mes_settings_operator,mes.machine.settings.operator,model_mes_machine_settings,mes_core.group_mes_operator,1,0,0,0
+access_mes_sig_count_operator,mes.signal.count.operator,model_mes_signal_count,mes_core.group_mes_operator,1,0,0,0
+access_mes_sig_event_operator,mes.signal.event.operator,model_mes_signal_event,mes_core.group_mes_operator,1,0,0,0
+access_mes_sig_proc_operator,mes.signal.process.operator,model_mes_signal_process,mes_core.group_mes_operator,1,0,0,0
+access_mes_timescale_operator,mes.timescale.operator,model_mes_timescale_db_manager,mes_core.group_mes_operator,1,0,0,0
+
+access_mes_fdw_hour_operator,mes.fdw.hour.operator,model_mes_telemetry_hourly_fdw,mes_core.group_mes_operator,1,0,0,0
 access_mes_fdw_anom_operator,mes.fdw.anom.operator,model_mes_anomaly_fdw,mes_core.group_mes_operator,1,0,0,0
+
+access_mes_mach_perf_operator,mes.mach.perf.operator,model_mes_machine_performance,mes_core.group_mes_operator,1,1,1,0
+access_mes_perf_alarm_operator,mes.perf.alarm.operator,model_mes_performance_alarm,mes_core.group_mes_operator,1,1,1,0
+access_mes_perf_rej_operator,mes.perf.rej.operator,model_mes_performance_rejection,mes_core.group_mes_operator,1,1,1,0
+access_mes_prod_rep_operator,mes.prod.rep.operator,model_mes_production_report,mes_core.group_mes_operator,1,1,1,0
+access_mes_task_operator,mes.task.operator,model_mes_task,mes_core.group_mes_operator,1,1,1,0
+access_mes_plan_dt_operator,mes.plan.dt.operator,model_mes_planned_downtime,mes_core.group_mes_operator,1,1,1,0
+access_mes_task_hist_operator,mes.task.hist.operator,model_mes_task_status_history,mes_core.group_mes_operator,1,1,1,1
+access_mes_packer_operator,mes.packer.operator,model_mes_production_packer,mes_core.group_mes_operator,1,1,1,1
+access_mes_shipper_operator,mes.shipper.operator,model_mes_production_shipper,mes_core.group_mes_operator,1,1,1,1
+access_mes_outer_operator,mes.outer.operator,model_mes_production_outer,mes_core.group_mes_operator,1,1,1,1
+access_mes_qc_operator,mes.qc.operator,model_mes_production_qc,mes_core.group_mes_operator,1,1,1,1
+access_mes_qc_defect_operator,mes.qc.defect.operator,model_mes_production_qc_defect,mes_core.group_mes_operator,1,1,1,1
+access_mes_ingred_operator,mes.ingred.operator,model_mes_production_ingredient,mes_core.group_mes_operator,1,1,1,1
