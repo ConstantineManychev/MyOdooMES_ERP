@@ -1,18 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_mes_planned_downtime_tree" model="ir.ui.view">
-        <field name="name">mes.planned.downtime.tree</field>
-        <field name="model">mes.planned.downtime</field>
-        <field name="arch" type="xml">
-            <tree decoration-info="state == 'draft'" decoration-muted="state == 'applied'">
-                <field name="name"/>
-                <field name="downtime_type"/>
-                <field name="start_date"/>
-                <field name="end_date"/>
-                <field name="machine_ids" widget="many2many_tags"/>
-                <field name="state" widget="badge" decoration-success="state == 'applied'"/>
-            </tree>
-        </field>
-    </record>
 
     <record id="view_mes_planned_downtime_form" model="ir.ui.view">
         <field name="name">mes.planned.downtime.form</field>
@@ -20,31 +7,50 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <button name="action_apply" string="Apply to Calendar" type="object" class="oe_highlight" invisible="state != 'draft'"/>
-                    <button name="action_reset" string="Reset to Draft" type="object" invisible="state != 'applied'"/>
-                    <field name="state" widget="statusbar"/>
+                    <button name="generate_flat_schedule_for_week" string="Сгенерировать сейчас" type="object" class="oe_highlight"/>
                 </header>
                 <sheet>
-                    <div class="oe_title">
-                        <h1><field name="name" placeholder="e.g. Weekly Maintenance"/></h1>
-                    </div>
                     <group>
                         <group>
-                            <field name="downtime_type"/>
-                            <field name="start_date"/>
-                            <field name="end_date"/>
+                            <field name="name"/>
+                            <field name="rule_type"/>
+                            <field name="active" widget="boolean_toggle"/>
                         </group>
                         <group>
-                            <field name="machine_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                            <field name="machine_ids" widget="many2many_tags"/>
                         </group>
                     </group>
+                    
+                    <group invisible="rule_type != 'daily'">
+                        <field name="daily_start" widget="float_time"/>
+                        <field name="daily_end" widget="float_time"/>
+                    </group>
+                    
+                    <group invisible="rule_type != 'weekend'">
+                        <field name="weekend_start_day"/>
+                        <field name="weekend_start_time" widget="float_time"/>
+                        <field name="weekend_end_day"/>
+                        <field name="weekend_end_time" widget="float_time"/>
+                    </group>
+                    
+                    <group invisible="rule_type != 'one_time'">
+                        <field name="date_start"/>
+                        <field name="date_end"/>
+                    </group>
                 </sheet>
-                <div class="oe_chatter">
-                    <field name="message_follower_ids"/>
-                    <field name="activity_ids"/>
-                    <field name="message_ids"/>
-                </div>
             </form>
+        </field>
+    </record>
+
+    <record id="view_mes_planned_downtime_tree" model="ir.ui.view">
+        <field name="name">mes.planned.downtime.tree</field>
+        <field name="model">mes.planned.downtime</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="rule_type"/>
+                <field name="machine_ids" widget="many2many_tags"/>
+            </tree>
         </field>
     </record>
 
@@ -52,13 +58,26 @@
         <field name="name">Planned Downtime</field>
         <field name="res_model">mes.planned.downtime</field>
         <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_mes_planned_downtime_tree"/>
+        <field name="help" type="html">
+          <p class="o_view_nocontent_smiling_face">
+            Create a new planned downtime rule
+          </p>
+        </field>
     </record>
 
-<!--
-    <menuitem id="menu_mes_planned_downtime"
-              name="Planned Downtime"
-              parent="menu_mes_documents"
-              action="action_mes_planned_downtime"
-              sequence="40"/>
--->
+    <record id="view_mes_flat_downtime_tree" model="ir.ui.view">
+        <field name="name">mes.flat.downtime.tree</field>
+        <field name="model">mes.flat.downtime</field>
+        <field name="arch" type="xml">
+            <tree default_order="start_time desc" create="false" edit="false">
+                <field name="machine_id"/>
+                <field name="rule_id"/>
+                <field name="start_time"/>
+                <field name="end_time"/>
+                <field name="duration" widget="float_time"/>
+            </tree>
+        </field>
+    </record>
+
 </odoo>

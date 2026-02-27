@@ -99,12 +99,12 @@
               action="action_mes_event" 
               sequence="45"/> 
               
-    <menuitem id="menu_mes_employees" 
-              name="Employees" 
+    <menuitem id="menu_mes_planned_downtime" 
+              name="Planned Downtime Rules" 
               parent="menu_mes_catalogues" 
-              action="action_mes_config_employees" 
+              action="action_mes_planned_downtime" 
               sequence="100"/>
-
+              
     <!-- Configuration -->
     <menuitem id="menu_mes_settings" 
               name="General Settings" 

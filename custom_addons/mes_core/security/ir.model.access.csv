@@ -36,6 +36,8 @@ access_mes_qc_admin,mes.qc.admin,model_mes_production_qc,mes_core.group_mes_admi
 access_mes_qc_defect_admin,mes.qc.defect.admin,model_mes_production_qc_defect,mes_core.group_mes_administrator,1,1,1,1
 access_mes_ingred_admin,mes.ingred.admin,model_mes_production_ingredient,mes_core.group_mes_administrator,1,1,1,1
 
+access_mes_flat_dt_admin,mes.flat.dt.admin,model_mes_flat_downtime,mes_core.group_mes_administrator,1,1,1,1
+
 
 
 access_mes_shift_manager,mes.shift.manager,model_mes_shift,mes_core.group_mes_manager,1,0,0,0
@@ -73,6 +75,9 @@ access_mes_qc_defect_manager,mes.qc.defect.manager,model_mes_production_qc_defec
 access_mes_ingred_manager,mes.ingred.manager,model_mes_production_ingredient,mes_core.group_mes_manager,1,0,0,0
 
 
+access_mes_flat_dt_manager,mes.flat.dt.manager,model_mes_flat_downtime,mes_core.group_mes_manager,1,1,1,1
+
+
 
 access_mes_shift_operator,mes.shift.operator,model_mes_shift,mes_core.group_mes_operator,1,0,0,0
 access_mes_defect_operator,mes.defect.operator,model_mes_defect,mes_core.group_mes_operator,1,0,0,0
@@ -103,3 +108,5 @@ access_mes_outer_operator,mes.outer.operator,model_mes_production_outer,mes_core
 access_mes_qc_operator,mes.qc.operator,model_mes_production_qc,mes_core.group_mes_operator,1,1,1,1
 access_mes_qc_defect_operator,mes.qc.defect.operator,model_mes_production_qc_defect,mes_core.group_mes_operator,1,1,1,1
 access_mes_ingred_operator,mes.ingred.operator,model_mes_production_ingredient,mes_core.group_mes_operator,1,1,1,1
+
+access_mes_flat_dt_operator,mes.flat.dt.operator,model_mes_flat_downtime,mes_core.group_mes_operator,1,0,0,0
