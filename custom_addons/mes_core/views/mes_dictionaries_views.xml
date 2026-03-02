@@ -291,13 +291,14 @@
                         <span class="o_stat_text">MES OEE</span>
                     </div>
                 </button>
-                <button class="oe_stat_button" icon="fa-arrow-down" style="pointer-events: none;">
+                <button class="oe_stat_button" icon="fa-arrow-down" name="action_open_downtime_losses" type="object">
                     <div class="o_stat_info text-danger">
                         <span class="o_stat_value"><field name="current_downtime_losses" nolabel="1"/> %</span>
                         <span class="o_stat_text">Downtime Loss</span>
                     </div>
                 </button>
-                <button class="oe_stat_button" icon="fa-trash" style="pointer-events: none;">
+
+                <button class="oe_stat_button" icon="fa-trash" name="action_open_waste_losses" type="object">
                     <div class="o_stat_info text-danger">
                         <span class="o_stat_value"><field name="current_waste_losses" nolabel="1"/> %</span>
                         <span class="o_stat_text">Waste Loss</span>
@@ -359,7 +360,10 @@
                     <field name="current_runtime_formatted" string="Runtime" class="text-center"/>
                     
                     <field name="current_waste_losses" string="Waste Loss (%)" avg="Avg. Waste" class="text-center"/>
+                    <button name="action_open_waste_losses" type="object" icon="fa-list" title="Waste Details" class="btn btn-sm btn-link"/>
+
                     <field name="current_downtime_losses" string="DT Loss (%)" avg="Avg. DT" class="text-center"/>
+                    <button name="action_open_downtime_losses" type="object" icon="fa-list" title="Downtime Details" class="btn btn-sm btn-link"/>
                     <field name="current_oee" string="OEE (%)" avg="Avg. OEE" class="text-center"/>
                     
                     <field name="current_top_rejection" string="Top Rejection" class="text-center"/>

@@ -312,6 +312,18 @@ class MesWorkcenter(models.Model):
             
         return res
 
+    def action_open_waste_losses(self):
+        self.ensure_one()
+        if not self.machine_settings_id:
+            return
+        return self.machine_settings_id.action_open_waste_losses()
+
+    def action_open_downtime_losses(self):
+        self.ensure_one()
+        if not self.machine_settings_id:
+            return
+        return self.machine_settings_id.action_open_downtime_losses()
+    
     @api.model
     def _apply_operator_ip_filter(self, domain):
         if request and self.env.user.has_group('mes_core.group_mes_operator') and not self.env.user.has_group('mes_core.group_mes_manager'):

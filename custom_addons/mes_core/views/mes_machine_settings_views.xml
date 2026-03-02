@@ -88,4 +88,30 @@
         <field name="res_model">mes.machine.settings</field>
         <field name="view_mode">tree,form</field>
     </record>
+
+    <record id="view_mes_waste_loss_stat_tree" model="ir.ui.view">
+        <field name="name">mes.waste.loss.stat.tree</field>
+        <field name="model">mes.waste.loss.stat</field>
+        <field name="arch" type="xml">
+            <tree string="Waste Losses" create="false" edit="false" delete="false" default_order="waste_sum desc">
+                <field name="name"/>
+                <field name="waste_sum" sum="Total Waste"/>
+                <field name="waste_per_hour" sum="Total per Hour"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_downtime_loss_stat_tree" model="ir.ui.view">
+        <field name="name">mes.downtime.loss.stat.tree</field>
+        <field name="model">mes.downtime.loss.stat</field>
+        <field name="arch" type="xml">
+            <tree string="Downtime Losses" create="false" edit="false" delete="false" default_order="total_time desc">
+                <field name="name"/>
+                <field name="frequency" sum="Total Frequency"/>
+                <field name="freq_per_hour" sum="Total Freq/h"/>
+                <field name="total_time" sum="Total Time (min)"/>
+                <field name="time_per_hour" sum="Total Time/h"/>
+            </tree>
+        </field>
+    </record>
 </odoo>

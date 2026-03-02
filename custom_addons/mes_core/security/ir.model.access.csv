@@ -38,6 +38,9 @@ access_mes_ingred_admin,mes.ingred.admin,model_mes_production_ingredient,mes_cor
 
 access_mes_flat_dt_admin,mes.flat.dt.admin,model_mes_flat_downtime,mes_core.group_mes_administrator,1,1,1,1
 
+access_mes_waste_loss_stat_user,mes.waste.loss.stat.user,model_mes_waste_loss_stat,mes_core.group_mes_administrator,1,1,1,1
+access_mes_downtime_loss_stat_user,mes.downtime.loss.stat.user,model_mes_downtime_loss_stat,mes_core.group_mes_administrator,1,1,1,1
+
 
 
 access_mes_shift_manager,mes.shift.manager,model_mes_shift,mes_core.group_mes_manager,1,0,0,0
@@ -77,6 +80,8 @@ access_mes_ingred_manager,mes.ingred.manager,model_mes_production_ingredient,mes
 
 access_mes_flat_dt_manager,mes.flat.dt.manager,model_mes_flat_downtime,mes_core.group_mes_manager,1,1,1,1
 
+access_mes_waste_loss_stat_user,mes.waste.loss.stat.user,model_mes_waste_loss_stat,mes_core.group_mes_manager,1,1,1,1
+access_mes_downtime_loss_stat_user,mes.downtime.loss.stat.user,model_mes_downtime_loss_stat,mes_core.group_mes_manager,1,1,1,1
 
 
 access_mes_shift_operator,mes.shift.operator,model_mes_shift,mes_core.group_mes_operator,1,0,0,0
@@ -110,3 +115,6 @@ access_mes_qc_defect_operator,mes.qc.defect.operator,model_mes_production_qc_def
 access_mes_ingred_operator,mes.ingred.operator,model_mes_production_ingredient,mes_core.group_mes_operator,1,1,1,1
 
 access_mes_flat_dt_operator,mes.flat.dt.operator,model_mes_flat_downtime,mes_core.group_mes_operator,1,0,0,0
+
+access_mes_waste_loss_stat_user,mes.waste.loss.stat.user,model_mes_waste_loss_stat,mes_core.group_mes_operator,1,1,1,1
+access_mes_downtime_loss_stat_user,mes.downtime.loss.stat.user,model_mes_downtime_loss_stat,mes_core.group_mes_operator,1,1,1,1

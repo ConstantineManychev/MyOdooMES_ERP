@@ -435,6 +435,29 @@ class MesMachineSettings(models.Model):
 
         return kpi_results
 
+    def action_open_waste_losses(self):
+        self.ensure_one()
+        return {
+            'name': 'Waste Losses Details',
+            'type': 'ir.actions.act_window',
+            'res_model': 'mes.waste.loss.stat',
+            'view_mode': 'tree',
+            'domain': [('machine_id', '=', self.id)],
+            'context': {'default_machine_id': self.id},
+            'target': 'new',
+        }
+
+    def action_open_downtime_losses(self):
+        self.ensure_one()
+        return {
+            'name': 'Downtime Losses Details',
+            'type': 'ir.actions.act_window',
+            'res_model': 'mes.downtime.loss.stat',
+            'view_mode': 'tree',
+            'domain': [('machine_id', '=', self.id)],
+            'context': {'default_machine_id': self.id},
+            'target': 'new',
+        }
 
 class MesSignalBase(models.AbstractModel):
     _name = 'mes.signal.base'
@@ -540,3 +563,185 @@ class MesSignalProcess(models.Model):
         for rec in self:
             self._execute_from_file('delete_signal.sql', (rec.machine_id.name, rec.tag_name))
         return super().unlink()
+
+class MesWasteLossStat(models.TransientModel):
+    _name = 'mes.waste.loss.stat'
+    _description = 'Waste Losses Statistics'
+
+    machine_id = fields.Many2one('mes.machine.settings', string='Machine')
+    name = fields.Char(string='Waste Type (Count)')
+    waste_sum = fields.Float(string='Shift Total (pcs)')
+    waste_per_hour = fields.Float(string='Waste per Hour (pcs/h)')
+
+    @api.model
+    def search(self, args, offset=0, limit=None, order=None, count=False):
+
+        machine_id = None
+        if args:
+            for arg in args:
+                if isinstance(arg, (list, tuple)) and len(arg) == 3 and arg[0] == 'machine_id' and arg[1] == '=':
+                    machine_id = arg[2]
+                    break
+                    
+        if machine_id and not self.env.context.get('skip_generation'):
+            self.with_context(skip_generation=True).search([('machine_id', '=', machine_id)]).unlink()
+            self._generate_stats(machine_id)
+            
+        return super().search(args, offset=offset, limit=limit, order=order, count=count)
+
+    def _generate_stats(self, machine_id):
+        machine = self.env['mes.machine.settings'].browse(machine_id)
+        if not machine.exists(): return
+        
+        start_time, shift_end = machine._get_current_shift_window()
+        if not start_time: return
+        calc_end_time = min(fields.Datetime.now(), shift_end)
+        
+        workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
+        active_intervals, _ = machine._get_planned_working_intervals(start_time, shift_end, workcenter)
+        
+        total_running_sec = 0.0
+        good_tag = False
+        
+        if workcenter:
+            if hasattr(workcenter, 'runtime_event_id') and workcenter.runtime_event_id:
+                state_tag, running_plc_value = workcenter.runtime_event_id.get_mapping_for_machine(machine)
+                if state_tag:
+                    ts_manager = self.env['mes.timescale.base']
+                    with ts_manager._connection() as conn:
+                        with conn.cursor() as cur:
+                            total_running_sec = machine._fetch_active_runtime(cur, state_tag, running_plc_value, active_intervals)
+                            
+            if hasattr(workcenter, 'production_count_id') and workcenter.production_count_id:
+                good_tag, _ = workcenter.production_count_id.get_count_config_for_machine(machine)
+
+        hours_run = (total_running_sec / 3600.0) if total_running_sec > 0 else 0.0
+        
+        all_counts = self.env['mes.signal.count'].search([('machine_id', '=', machine.id)])
+        vals_list = []
+        
+        ts_manager = self.env['mes.timescale.base']
+        with ts_manager._connection() as conn:
+            with conn.cursor() as cur:
+                for count_def in all_counts:
+                    if good_tag and count_def.tag_name == good_tag:
+                        continue
+                        
+                    tag_name = count_def.tag_name
+                    is_cum = count_def.is_cumulative
+                    
+                    prod_sql = "SELECT COALESCE(MAX(value) - MIN(value), 0)" if is_cum else "SELECT COALESCE(SUM(value), 0)"
+                    query = f"{prod_sql} FROM telemetry_count WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s"
+                    cur.execute(query, (machine.name, tag_name, start_time, calc_end_time))
+                    res = cur.fetchone()
+                    waste_sum = float(res[0] if res and res[0] else 0.0)
+                    
+                    if waste_sum > 0:
+                        vals_list.append({
+                            'machine_id': machine.id,
+                            'name': count_def.count_id.name if count_def.count_id else tag_name,
+                            'waste_sum': waste_sum,
+                            'waste_per_hour': (waste_sum / hours_run) if hours_run > 0 else 0.0
+                        })
+                    
+        if vals_list:
+            self.with_context(skip_generation=True).create(vals_list)
+
+
+class MesDowntimeLossStat(models.TransientModel):
+    _name = 'mes.downtime.loss.stat'
+    _description = 'Downtime Losses Statistics'
+
+    machine_id = fields.Many2one('mes.machine.settings', string='Machine')
+    name = fields.Char(string='Event')
+    frequency = fields.Integer(string='Frequency')
+    freq_per_hour = fields.Float(string='Frequency per Hour')
+    total_time = fields.Float(string='Total Time (min)')
+    time_per_hour = fields.Float(string='Time per Hour (min/h)')
+
+    @api.model
+    def search(self, args, offset=0, limit=None, order=None, count=False):
+        machine_id = None
+        if args:
+            for arg in args:
+                if isinstance(arg, (list, tuple)) and len(arg) == 3 and arg[0] == 'machine_id' and arg[1] == '=':
+                    machine_id = arg[2]
+                    break
+                    
+        if machine_id and not self.env.context.get('skip_generation'):
+            self.with_context(skip_generation=True).search([('machine_id', '=', machine_id)]).unlink()
+            self._generate_stats(machine_id)
+            
+        return super().search(args, offset=offset, limit=limit, order=order, count=count)
+
+    def _generate_stats(self, machine_id):
+        machine = self.env['mes.machine.settings'].browse(machine_id)
+        if not machine.exists(): return
+        
+        start_time, shift_end = machine._get_current_shift_window()
+        if not start_time: return
+        calc_end_time = min(fields.Datetime.now(), shift_end)
+        
+        workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
+        active_intervals, _ = machine._get_planned_working_intervals(start_time, shift_end, workcenter)
+        
+        total_running_sec = 0.0
+        if workcenter and hasattr(workcenter, 'runtime_event_id') and workcenter.runtime_event_id:
+            state_tag, running_plc_value = workcenter.runtime_event_id.get_mapping_for_machine(machine)
+            if state_tag:
+                ts_manager = self.env['mes.timescale.base']
+                with ts_manager._connection() as conn:
+                    with conn.cursor() as cur:
+                        total_running_sec = machine._fetch_active_runtime(cur, state_tag, running_plc_value, active_intervals)
+                        
+        hours_run = (total_running_sec / 3600.0) if total_running_sec > 0 else 0.0
+        alarm_tag = machine.get_alarm_tag_name('OEE.nStopRootReason')
+        
+        query = f"""
+            WITH alarm_boundary AS (
+                SELECT time, value, 0::bigint as id FROM telemetry_event
+                WHERE machine_name = %s AND tag_name LIKE %s AND time < %s ORDER BY time DESC LIMIT 1
+            ),
+            alarm_events AS (
+                SELECT time, value, id FROM alarm_boundary UNION ALL
+                SELECT time, value, id FROM telemetry_event
+                WHERE machine_name = %s AND tag_name LIKE %s AND time >= %s AND time <= %s
+            ),
+            alarm_durations AS (
+                SELECT value as alarm_code, EXTRACT(EPOCH FROM (COALESCE(LEAD(time) OVER (ORDER BY time), %s) - time)) as duration_sec
+                FROM alarm_events
+            )
+            SELECT alarm_code, COUNT(alarm_code) as freq, SUM(duration_sec) as total_dur FROM alarm_durations
+            WHERE alarm_code IS NOT NULL AND alarm_code != 0
+            GROUP BY alarm_code;
+        """
+        
+        ts_manager = self.env['mes.timescale.base']
+        vals_list = []
+        with ts_manager._connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (
+                    machine.name, alarm_tag, start_time,
+                    machine.name, alarm_tag, start_time, calc_end_time, calc_end_time
+                ))
+                
+                rows = cur.fetchall()
+                for row in rows:
+                    alarm_code = row[0]
+                    freq = row[1] or 0
+                    duration_sec = row[2] or 0.0
+                    duration_min = duration_sec / 60.0
+                    
+                    if duration_min > 0 or freq > 0:
+                        alarm_name = machine.resolve_plc_value_to_name(alarm_code)
+                        vals_list.append({
+                            'machine_id': machine.id,
+                            'name': alarm_name,
+                            'frequency': freq,
+                            'freq_per_hour': (freq / hours_run) if hours_run > 0 else 0.0,
+                            'total_time': duration_min,
+                            'time_per_hour': (duration_min / hours_run) if hours_run > 0 else 0.0
+                        })
+        
+        if vals_list:
+            self.with_context(skip_generation=True).create(vals_list)
