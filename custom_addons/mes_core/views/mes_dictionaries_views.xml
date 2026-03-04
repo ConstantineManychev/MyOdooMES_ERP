@@ -137,6 +137,7 @@
                         <group>
                             <field name="default_event_tag_type"/>
                             <field name="default_plc_value"/>
+                            <field name="color" widget="color"/>
                         </group>
                     </group>
                     <notebook>
@@ -279,7 +280,6 @@
             <xpath expr="//button[@name='%(mrp.action_mrp_workcenter_load_report_graph)d']" position="attributes">
                 <attribute name="invisible">True</attribute>
             </xpath>
-            
             <xpath expr="//button[.//field[@name='performance']]" position="attributes">
                 <attribute name="invisible">True</attribute>
             </xpath>
@@ -297,7 +297,6 @@
                         <span class="o_stat_text">Downtime Loss</span>
                     </div>
                 </button>
-
                 <button class="oe_stat_button" icon="fa-trash" name="action_open_waste_losses" type="object">
                     <div class="o_stat_info text-danger">
                         <span class="o_stat_value"><field name="current_waste_losses" nolabel="1"/> %</span>
@@ -312,30 +311,40 @@
                 </button>
             </xpath>
             
-            <xpath expr="//notebook" position="before">
-                <group string="MES Telemetry Settings" name="mes_telemetry_settings">
-                    <group>
-                        <field name="machine_settings_id"/>
-                        <field name="refresh_frequency" widget="auto_refresh"/>
-                        <field name="ideal_capacity_per_min"/>
-                    </group>
-                    <group>
-                        <field name="runtime_event_id" options="{'no_create': True}"/>
-                        <field name="production_count_id" options="{'no_create': True}"/>
-                        <field name="allowed_pc_ips" placeholder="192.168.0.1"/>
-                    </group>
-                </group>
-            </xpath>
-            
             <xpath expr="//notebook" position="inside">
-                <page string="Real-Time OEE" name="realtime_oee_page">
+                
+                <page string="Live Dashboard" name="realtime_oee_page">
                     <group col="4">
                         <field name="current_oee" widget="progressbar" string="Overall OEE"/>
                         <field name="current_availability" widget="progressbar" string="Availability"/>
                         <field name="current_performance" widget="progressbar" string="Performance"/>
                         <field name="current_quality" widget="progressbar" string="Quality"/>
                     </group>
+                    
+                    <widget name="machine_live_charts"/>
                 </page>
+
+                <page string="MES Configuration" name="mes_config" groups="mes_core.group_mes_administrator">
+                    <group>
+                        <group string="Hardware Linking">
+                            <field name="machine_settings_id"/>
+                            <field name="machine_number"/>
+                            <field name="code_imatec"/>
+                            <field name="maintainx_id"/>
+                        </group>
+                        <group string="Telemetry Settings">
+                            <field name="runtime_event_id" options="{'no_create': True}"/>
+                            <field name="production_count_id" options="{'no_create': True}"/>
+                            <field name="ideal_capacity_per_min"/>
+                            <field name="refresh_frequency" widget="auto_refresh"/>
+                            <field name="chart_bucket_minutes"/> 
+                        </group>
+                        <group string="Security">
+                            <field name="allowed_pc_ips" placeholder="192.168.0.1"/>
+                        </group>
+                    </group>
+                </page>
+                
             </xpath>
             
         </field>

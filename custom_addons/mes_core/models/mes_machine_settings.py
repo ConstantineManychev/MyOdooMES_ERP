@@ -267,15 +267,16 @@ class MesMachineSettings(models.Model):
 
     def _fetch_downtime_stats_raw(self, cursor, start_time, end_time):
         alarm_tag = self.get_alarm_tag_name('OEE.nStopRootReason')
+        
         query = f"""
             WITH alarm_boundary AS (
                 SELECT tag_name, time, value, 0::bigint as id 
                 FROM telemetry_event
-                WHERE machine_name = %s LIKE %s AND time < %s 
+                WHERE machine_name = %s AND time < %s 
                 ORDER BY time DESC LIMIT 1
             ),
             alarm_events AS (
-                SELECT GREATEST(time, %s), value, id FROM alarm_boundary  where tag_name = %s
+                SELECT GREATEST(time, %s) as time, value, id FROM alarm_boundary where tag_name = %s
                 UNION ALL
                 SELECT time, value, id FROM telemetry_event
                 WHERE machine_name = %s AND tag_name LIKE %s AND time >= %s AND time <= %s
@@ -286,7 +287,7 @@ class MesMachineSettings(models.Model):
             )
             SELECT alarm_code, COUNT(alarm_code) as freq, SUM(duration_sec) as total_dur 
             FROM alarm_durations
-            WHERE alarm_code IS NOT NULL AND alarm_code != '0' AND alarm_code != ''
+            WHERE alarm_code IS NOT NULL AND alarm_code != 0
             GROUP BY alarm_code;
         """
 
@@ -348,24 +349,40 @@ class MesMachineSettings(models.Model):
 
     def action_open_waste_losses(self):
         self.ensure_one()
+        
+        self.env['mes.waste.loss.stat'].search([
+            ('machine_id', '=', self.id),
+            ('create_uid', '=', self.env.uid)
+        ]).unlink()
+        
+        self.env['mes.waste.loss.stat']._generate_stats(self.id)
+        
         return {
             'name': 'Waste Losses Details',
             'type': 'ir.actions.act_window',
             'res_model': 'mes.waste.loss.stat',
             'view_mode': 'tree',
-            'domain': [('machine_id', '=', self.id)],
+            'domain': [('machine_id', '=', self.id), ('create_uid', '=', self.env.uid)],
             'context': {'default_machine_id': self.id},
             'target': 'new',
         }
 
     def action_open_downtime_losses(self):
         self.ensure_one()
+        
+        self.env['mes.downtime.loss.stat'].search([
+            ('machine_id', '=', self.id),
+            ('create_uid', '=', self.env.uid)
+        ]).unlink()
+        
+        self.env['mes.downtime.loss.stat']._generate_stats(self.id)
+        
         return {
             'name': 'Downtime Losses Details',
             'type': 'ir.actions.act_window',
             'res_model': 'mes.downtime.loss.stat',
             'view_mode': 'tree',
-            'domain': [('machine_id', '=', self.id)],
+            'domain': [('machine_id', '=', self.id), ('create_uid', '=', self.env.uid)],
             'context': {'default_machine_id': self.id},
             'target': 'new',
         }
@@ -632,21 +649,6 @@ class MesWasteLossStat(models.TransientModel):
     waste_sum = fields.Float(string='Shift Total (pcs)')
     waste_per_hour = fields.Float(string='Waste per Hour (pcs/h)')
 
-    @api.model
-    def search(self, args, offset=0, limit=None, order=None, count=False):
-
-        machine_id = None
-        if args:
-            for arg in args:
-                if isinstance(arg, (list, tuple)) and len(arg) == 3 and arg[0] == 'machine_id' and arg[1] == '=':
-                    machine_id = arg[2]
-                    break
-                    
-        if machine_id and not self.env.context.get('skip_generation'):
-            self.with_context(skip_generation=True).search([('machine_id', '=', machine_id)]).unlink()
-            self._generate_stats(machine_id)
-            
-        return super().search(args, offset=offset, limit=limit, order=order, count=count)
 
     def _generate_stats(self, machine_id):
         machine = self.env['mes.machine.settings'].browse(machine_id)
@@ -709,22 +711,9 @@ class MesDowntimeLossStat(models.TransientModel):
     total_time = fields.Float(string='Total Time (min)')
     time_per_hour = fields.Float(string='Time per Hour (min/h)')
 
-    @api.model
-    def search(self, args, offset=0, limit=None, order=None, count=False):
-        machine_id = None
-        if args:
-            for arg in args:
-                if isinstance(arg, (list, tuple)) and len(arg) == 3 and arg[0] == 'machine_id' and arg[1] == '=':
-                    machine_id = arg[2]
-                    break
-                    
-        if machine_id and not self.env.context.get('skip_generation'):
-            self.with_context(skip_generation=True).search([('machine_id', '=', machine_id)]).unlink()
-            self._generate_stats(machine_id)
-            
-        return super().search(args, offset=offset, limit=limit, order=order, count=count)
 
     def _generate_stats(self, machine_id):
+        _logger.info(f"Starting generation of downtime loss stats for machine ID: {machine_id}")
         machine = self.env['mes.machine.settings'].browse(machine_id)
         if not machine.exists(): return
         

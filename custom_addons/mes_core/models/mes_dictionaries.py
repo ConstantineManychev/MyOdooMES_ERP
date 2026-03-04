@@ -218,6 +218,8 @@ class MesEvents(models.Model):
     
     complete_name = fields.Char('Complete Name', compute='_compute_complete_name', store=True)
 
+    color = fields.Char(string='Color', default='#808080', help="Color for the timeline dashboard")
+
     default_event_tag_type = fields.Selection([
         ('OEE.nMachineState', 'Machine State (OEE.nMachineState)'),
         ('OEE.nStopRootReason', 'Stop Reason (OEE.nStopRootReason)')
@@ -310,6 +312,8 @@ class MesWorkcenter(models.Model):
     current_runtime_formatted = fields.Char(string="Runtime", readonly=True, default='00:00:00')
     current_top_rejection = fields.Char(string="Top Rejection", readonly=True, default='None')
     current_top_alarm = fields.Char(string="Top Alarm", readonly=True, default='None')
+
+    chart_bucket_minutes = fields.Integer(string='Chart Bucket (Min)', default=15, help="Time grouping for production chart")
 
     allowed_pc_ips = fields.Char(
         string='All Allowed PC IPs',
@@ -433,6 +437,104 @@ class MesWorkcenter(models.Model):
         for wc in self:
             if wc.refresh_frequency < 10:
                 raise ValidationError('Configuration error: Refresh frequency cannot be less than 10 seconds.')
+            
+    @api.model
+    def get_live_chart_data(self, workcenter_id):
+        wc = self.browse(workcenter_id)
+        if not wc.exists() or not wc.machine_settings_id:
+            return {'error': 'Machine not configured'}
+
+        machine = wc.machine_settings_id
+        start_time, shift_end = self.env['mes.shift'].get_current_shift_window()
+        if not start_time:
+            return {'error': 'No active shift'}
+
+        calc_end_time = min(fields.Datetime.now(), shift_end)
+        
+        state_tag, running_plc_value = wc.runtime_event_id.get_mapping_for_machine(machine) if wc.runtime_event_id else (None, None)
+        good_count_tag, is_cumulative = wc.production_count_id.get_count_config_for_machine(machine) if wc.production_count_id else (None, False)
+
+        if not state_tag or not good_count_tag:
+            return {'error': 'Tags not configured'}
+
+        events_dict = self.env['mes.signal.event'].search([('machine_id', '=', machine.id)])
+        color_map = {ev.plc_value: ev.event_id.color or '#808080' for ev in events_dict}
+        name_map = {ev.plc_value: ev.event_id.name for ev in events_dict}
+
+        ts_manager = self.env['mes.timescale.base']
+        timeline_data = []
+        production_data = []
+        labels = []
+        ideal_data = []
+
+        bucket_min = max(1, wc.chart_bucket_minutes)
+        ideal_per_bucket = (wc.ideal_capacity_per_min or 0.0) * bucket_min
+
+        with ts_manager._connection() as conn:
+            with conn.cursor() as cur:
+                query_timeline = f"""
+                    WITH boundary AS (
+                        SELECT GREATEST(time, %s) as time, value, 0::bigint as id 
+                        FROM telemetry_event
+                        WHERE machine_name = %s AND tag_name = %s AND time < %s 
+                        ORDER BY time DESC, id DESC LIMIT 1
+                    ),
+                    events AS (
+                        SELECT time, value, id FROM boundary 
+                        UNION ALL
+                        SELECT time, value, id FROM telemetry_event
+                        WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
+                    ),
+                    intervals AS (
+                        SELECT time as start_time, 
+                               COALESCE(LEAD(time) OVER (ORDER BY time, id), %s) as end_time,
+                               value
+                        FROM events
+                    )
+                    SELECT start_time, end_time, value 
+                    FROM intervals 
+                    WHERE start_time < end_time
+                """
+                cur.execute(query_timeline, (
+                    start_time, machine.name, state_tag, start_time,
+                    machine.name, state_tag, start_time, calc_end_time,
+                    calc_end_time
+                ))
+                
+                for row in cur.fetchall():
+                    val = row[2]
+                    timeline_data.append({
+                        'start': row[0].isoformat(),
+                        'end': row[1].isoformat(),
+                        'duration': (row[1] - row[0]).total_seconds(),
+                        'color': color_map.get(val, '#cccccc'),
+                        'name': name_map.get(val, f'Code {val}')
+                    })
+
+                prod_agg = "MAX(value) - MIN(value)" if is_cumulative else "SUM(value)"
+                query_prod = f"""
+                    SELECT time_bucket('{bucket_min} minutes', time) AS bucket,
+                           COALESCE({prod_agg}, 0) as produced
+                    FROM telemetry_count
+                    WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
+                    GROUP BY bucket ORDER BY bucket
+                """
+                cur.execute(query_prod, (machine.name, good_count_tag, start_time, calc_end_time))
+                
+                for row in cur.fetchall():
+                    b_time = row[0].strftime('%H:%M')
+                    labels.append(b_time)
+                    production_data.append(float(row[1]))
+                    ideal_data.append(ideal_per_bucket)
+
+        return {
+            'timeline': timeline_data,
+            'chart': {
+                'labels': labels,
+                'production': production_data,
+                'ideal': ideal_data
+            }
+        }
 
 class MesStreams(models.Model):
     _name = 'mes.stream'
