@@ -42,40 +42,6 @@ class MesMachineSettings(models.Model):
             self._execute_from_file('delete_machine.sql', (rec.name,))
         return super().unlink()
 
-    def _get_current_shift_window(self):
-        now = fields.Datetime.now()
-        current_hour = now.hour + now.minute / 60.0 + now.second / 3600.0
-        
-        shifts = self.env['mes.shift'].search([])
-        current_shift = None
-        
-        for shift in shifts:
-            if shift.start_hour < shift.end_hour:
-                if shift.start_hour <= current_hour < shift.end_hour:
-                    current_shift = shift
-                    break
-            else:
-                if current_hour >= shift.start_hour or current_hour < shift.end_hour:
-                    current_shift = shift
-                    break
-        
-        if not current_shift:
-            return None, None
-
-        start_date = now
-        if current_shift.start_hour > current_shift.end_hour and current_hour < current_shift.end_hour:
-            start_date = now - timedelta(days=1)
-            
-        start_time = start_date.replace(
-            hour=int(current_shift.start_hour), 
-            minute=int((current_shift.start_hour % 1) * 60), 
-            second=0, 
-            microsecond=0
-        )
-        
-        end_time = start_time + timedelta(hours=current_shift.duration)
-        
-        return start_time, end_time
 
     def get_alarm_tag_name(self, default_type='OEE.nStopRootReason'):
         self.ensure_one()
@@ -149,32 +115,6 @@ class MesMachineSettings(models.Model):
             
         return "None"
 
-    def get_top_rejection_str(self, cursor, start_time, end_time, good_production_count_id):
-        top_rej_count = 0
-        top_rej_name = "None"
-        
-        all_reject_counts = self.env['mes.counts'].search([('id', '!=', good_production_count_id)])
-        
-        for count_def in all_reject_counts:
-            tag, is_cum = count_def.get_count_config_for_machine(self)
-            if not tag:
-                continue
-                
-            if is_cum:
-                q_rej = "SELECT COALESCE(MAX(value) - MIN(value), 0) FROM telemetry_count WHERE machine_name=%s AND tag_name=%s AND time >= %s AND time <= %s"
-            else:
-                q_rej = "SELECT COALESCE(SUM(value), 0) FROM telemetry_count WHERE machine_name=%s AND tag_name=%s AND time >= %s AND time <= %s"
-            
-            cursor.execute(q_rej, (self.name, tag, start_time, end_time))
-            val = cursor.fetchone()[0] or 0
-            
-            if val > top_rej_count:
-                top_rej_count = val
-                top_rej_name = count_def.name
-                
-        if top_rej_count > 0:
-            return f"{top_rej_name} ({int(top_rej_count)})"
-        return "None"
 
     def _get_planned_working_intervals(self, start_time, end_time, workcenter):
         now = fields.Datetime.now()
@@ -192,33 +132,25 @@ class MesMachineSettings(models.Model):
             ('end_time', '>', start_time)
         ])
 
-        _logger.info(f"For machine {workcenter.name}, found {len(downtimes)} downtimes overlapping with shift window {start_time} - {calc_end_time}")
 
         intervals = []
         for dt in downtimes:
             dt_s = max(dt.start_time, start_time)
             dt_e = min(dt.end_time, calc_end_time)
-            _logger.info(f"For machine {workcenter.name}, processing downtime from {dt_s} to {dt_e}")
 
             if dt_s < dt_e:
                 intervals.append([dt_s, dt_e])
-
-        _logger.info(f"For machine {workcenter.name}, found {len(intervals)} downtime intervals after processing overlapping downtimes")
-
 
         dt_merged = []
         if intervals:
             intervals.sort(key=lambda x: x[0])
             dt_merged = [intervals[0]]
             for current in intervals[1:]:
-                _logger.info(f"For machine {workcenter.name}, processing downtime from {current[0]} to {current[1]} for merging")
                 last = dt_merged[-1]
                 if current[0] <= last[1]:
                     dt_merged[-1] = [last[0], max(last[1], current[1])]
                 else:
                     dt_merged.append(current)
-
-        _logger.info(f"For machine {workcenter.name}, found {len(dt_merged)} merged downtime intervals after processing overlapping downtimes")
 
         active_intervals = []
         current_time = start_time
@@ -230,26 +162,11 @@ class MesMachineSettings(models.Model):
         if current_time < calc_end_time:
             active_intervals.append((current_time, calc_end_time))
 
-        _logger.info(f"For machine {workcenter.name}, found {len(active_intervals)} active intervals after processing merged downtimes")
-
         total_planned_runtime_sec = sum((i[1] - i[0]).total_seconds() for i in active_intervals)
 
         return active_intervals, total_planned_runtime_sec
 
-    def _fetch_shift_metrics(self, cursor, start_time, end_time, good_count_tag, is_cumulative, prod_count_id):
-        prod_sql = "SELECT COALESCE(MAX(value) - MIN(value), 0)" if is_cumulative else "SELECT COALESCE(SUM(value), 0)"
-        query = f"{prod_sql} FROM telemetry_count WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s"
-        cursor.execute(query, (self.name, good_count_tag, start_time, end_time))
-        res = cursor.fetchone()
-        total_produced = res[0] if res else 0
-
-        top_alarm = self.get_top_alarm_str(cursor, start_time, end_time)
-        top_rejection = self.get_top_rejection_str(cursor, start_time, end_time, prod_count_id)
-
-        return total_produced, top_alarm, top_rejection
-
     def _fetch_active_runtime(self, cursor, state_tag, plc_value, active_intervals):
-        _logger.info(f"Calculating active runtime for machine {self.name} with state_tag={state_tag}, plc_value={plc_value}, active_intervals={active_intervals}")
         if not active_intervals:
             return 0.0
 
@@ -305,8 +222,6 @@ class MesMachineSettings(models.Model):
         scan_start = active_intervals[0][0]
         scan_end = active_intervals[-1][1]
 
-        _logger.info(f"Calculating first start time for machine {self.name} from start_scan={scan_start} to end_scan={scan_end} with state_tag={state_tag} and plc_value={plc_value}")
-        
 
         val_list = [f"('{a_s} UTC'::timestamptz, '{a_e} UTC'::timestamptz)" for a_s, a_e in active_intervals]
         active_cte = "SELECT * FROM (VALUES " + ", ".join(val_list) + ") AS ai(ai_start, ai_end)"
@@ -350,9 +265,34 @@ class MesMachineSettings(models.Model):
         res = cursor.fetchone()
         return res[0].replace(tzinfo=None) if res and res[0] else False
 
+    def _fetch_downtime_stats_raw(self, cursor, start_time, end_time):
+        alarm_tag = self.get_alarm_tag_name('OEE.nStopRootReason')
+        query = f"""
+            WITH alarm_boundary AS (
+                SELECT time, value, 0::bigint as id FROM telemetry_event
+                WHERE machine_name = %s AND tag_name LIKE %s AND time < %s ORDER BY time DESC LIMIT 1
+            ),
+            alarm_events AS (
+                SELECT time, value, id FROM alarm_boundary UNION ALL
+                SELECT time, value, id FROM telemetry_event
+                WHERE machine_name = %s AND tag_name LIKE %s AND time >= %s AND time <= %s
+            ),
+            alarm_durations AS (
+                SELECT value as alarm_code, EXTRACT(EPOCH FROM (COALESCE(LEAD(time) OVER (ORDER BY time), %s) - time)) as duration_sec
+                FROM alarm_events
+            )
+            SELECT alarm_code, COUNT(alarm_code) as freq, SUM(duration_sec) as total_dur FROM alarm_durations
+            WHERE alarm_code IS NOT NULL AND alarm_code != 0 AND alarm_code != ''
+            GROUP BY alarm_code;
+        """
+        cursor.execute(query, (
+            self.name, alarm_tag, start_time,
+            self.name, alarm_tag, start_time, end_time, end_time
+        ))
+        return cursor.fetchall()
+
     def _calculate_kpi(self, total_running_sec, total_produced, total_planned_runtime_sec, workcenter):
         
-        _logger.info(f"For machine {workcenter.name}: total_running_sec={total_running_sec}, total_produced={total_produced}, total_planned_runtime_sec={total_planned_runtime_sec}")
         total_running_sec = max(0.0, total_running_sec)
         
         h, m, s = int(total_running_sec // 3600), int((total_running_sec % 3600) // 60), int(total_running_sec % 60)
@@ -372,8 +312,7 @@ class MesMachineSettings(models.Model):
         downtime_losses = max(0.0, 1.0 - raw_availability) if total_planned_runtime_sec > 0 else 0.0
         perfect_amount_for_runtime = total_running_sec * ideal_rate_per_sec
 
-        _logger.info(f"For machine {workcenter.name}: total_produced={total_produced}, perfect_amount_for_runtime={perfect_amount_for_runtime}, total_planned_runtime_sec={total_planned_runtime_sec}")
-        
+
         waste_losses = 1 - (total_produced / perfect_amount_for_runtime) if (total_planned_runtime_sec > 0 and perfect_amount_for_runtime > 0) else 0.0
         waste_losses = max(0.0, waste_losses)
 
@@ -387,53 +326,6 @@ class MesMachineSettings(models.Model):
             'total_produced': total_produced,
             'runtime_formatted': runtime_formatted,
         }
-
-    def get_realtime_oee(self, runtime_event, production_count, workcenter=None):
-        self.ensure_one()
-        
-        start_time, shift_end = self._get_current_shift_window()
-        if not start_time or not shift_end:
-            return {'error': 'Configuration error: No active shift. Calculation is not possible.'}
-            
-        state_tag, running_plc_value = runtime_event.get_mapping_for_machine(self)
-        good_count_tag, is_cumulative = production_count.get_count_config_for_machine(self)
-
-        if not state_tag or not good_count_tag:
-            return {'error': 'Configuration error: Missing state or count tag for this machine.'}
-
-        if not workcenter:
-            workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', self.id)], limit=1)
-
-        active_intervals, total_planned_runtime_sec = self._get_planned_working_intervals(start_time, shift_end, workcenter)
-
-        calc_end_time = min(fields.Datetime.now(), shift_end)
-
-        ts_manager = self.env['mes.timescale.base']
-        with ts_manager._connection() as conn:
-            with conn.cursor() as cur:
-                total_produced, top_alarm_str, top_rejection_str = self._fetch_shift_metrics(
-                    cur, start_time, calc_end_time, good_count_tag, is_cumulative, production_count.id
-                )
-                
-                total_running_sec = self._fetch_active_runtime(
-                    cur, state_tag, running_plc_value, active_intervals
-                )
-                
-                first_running_time = self._fetch_first_start_time(
-                    cur, state_tag, running_plc_value, active_intervals
-                )
-
-        kpi_results = self._calculate_kpi(
-            total_running_sec, total_produced, total_planned_runtime_sec, workcenter
-        )
-        
-        kpi_results.update({
-            'first_running_time': first_running_time,
-            'top_alarm': top_alarm_str,
-            'top_rejection': top_rejection_str
-        })
-
-        return kpi_results
 
     def action_open_waste_losses(self):
         self.ensure_one()
@@ -458,6 +350,124 @@ class MesMachineSettings(models.Model):
             'context': {'default_machine_id': self.id},
             'target': 'new',
         }
+
+    @api.model
+    def get_realtime_oee_batch(self, workcenters):
+        if not workcenters:
+            return {}
+
+        dummy_setting = self.search([], limit=1)
+        if not dummy_setting:
+            return {wc.id: {'error': 'No machine settings found'} for wc in workcenters}
+
+        start_time, shift_end = dummy_setting.env['mes.shift'].get_current_shift_window()
+        if not start_time or not shift_end:
+            return {wc.id: {'error': 'No active shift'} for wc in workcenters}
+
+        calc_end_time = min(fields.Datetime.now(), shift_end)
+        
+        results = {}
+        configs = {}
+        machine_names = []
+
+        for wc in workcenters:
+            machine = wc.machine_settings_id
+            if not machine:
+                continue
+
+            state_tag, running_plc_value = wc.runtime_event_id.get_mapping_for_machine(machine) if wc.runtime_event_id else (None, None)
+            good_count_tag, is_cumulative = wc.production_count_id.get_count_config_for_machine(machine) if wc.production_count_id else (None, False)
+
+            if not state_tag or not good_count_tag:
+                results[wc.id] = {'error': 'Configuration error: Missing state or count tag'}
+                continue
+
+            active_intervals, total_planned_runtime_sec = machine._get_planned_working_intervals(start_time, shift_end, wc)
+
+            configs[wc.id] = {
+                'machine': machine,
+                'state_tag': state_tag,
+                'running_plc_value': running_plc_value,
+                'good_count_tag': good_count_tag,
+                'is_cumulative': is_cumulative,
+                'active_intervals': active_intervals,
+                'total_planned_sec': total_planned_runtime_sec,
+                'prod_count_id': wc.production_count_id.id
+            }
+            if machine.name not in machine_names:
+                machine_names.append(machine.name)
+
+        if not configs:
+            return results
+
+        ts_manager = self.env['mes.timescale.base']
+        
+        with ts_manager._connection() as conn:
+            with conn.cursor() as cur:
+                query_counts = """
+                    SELECT machine_name, tag_name, 
+                           COALESCE(SUM(value), 0) as sum_val, 
+                           COALESCE(MAX(value) - MIN(value), 0) as cum_val
+                    FROM telemetry_count 
+                    WHERE machine_name = ANY(%s) AND time >= %s AND time <= %s
+                    GROUP BY machine_name, tag_name
+                """
+                cur.execute(query_counts, (machine_names, start_time, calc_end_time))
+                
+                count_data = {}
+                for m_name, t_name, s_val, c_val in cur.fetchall():
+                    count_data.setdefault(m_name, {})[t_name] = {'sum': float(s_val), 'cum': float(c_val)}
+
+                all_reject_counts = self.env['mes.counts'].search([])
+
+                for wc_id, cfg in configs.items():
+                    machine = cfg['machine']
+                    m_name = machine.name
+                    
+                    t_data = count_data.get(m_name, {}).get(cfg['good_count_tag'], {})
+                    total_produced = t_data.get('cum' if cfg['is_cumulative'] else 'sum', 0)
+
+                    top_rej_count = 0
+                    top_rej_name = "None"
+                    
+                    for r_count in all_reject_counts:
+                        if r_count.id == cfg['prod_count_id']:
+                            continue
+                        r_tag, r_is_cum = r_count.get_count_config_for_machine(machine)
+                        if not r_tag: 
+                            continue
+                            
+                        r_val = count_data.get(m_name, {}).get(r_tag, {})
+                        r_amount = r_val.get('cum' if r_is_cum else 'sum', 0)
+                        
+                        if r_amount > top_rej_count:
+                            top_rej_count = r_amount
+                            top_rej_name = r_count.name
+
+                    top_rejection_str = f"{top_rej_name} ({int(top_rej_count)})" if top_rej_count > 0 else "None"
+
+                    top_alarm_str = machine.get_top_alarm_str(cur, start_time, calc_end_time)
+                    total_running_sec = machine._fetch_active_runtime(
+                        cur, cfg['state_tag'], cfg['running_plc_value'], cfg['active_intervals']
+                    )
+                    first_running_time = machine._fetch_first_start_time(
+                        cur, cfg['state_tag'], cfg['running_plc_value'], cfg['active_intervals']
+                    )
+
+                    wc = workcenters.browse(wc_id)
+                    kpi = machine._calculate_kpi(
+                        total_running_sec, total_produced, cfg['total_planned_sec'], wc
+                    )
+                    
+                    kpi.update({
+                        'first_running_time': first_running_time,
+                        'top_alarm': top_alarm_str,
+                        'top_rejection': top_rejection_str
+                    })
+                    
+                    results[wc_id] = kpi
+
+        return results
 
 class MesSignalBase(models.AbstractModel):
     _name = 'mes.signal.base'
@@ -593,36 +603,28 @@ class MesWasteLossStat(models.TransientModel):
         machine = self.env['mes.machine.settings'].browse(machine_id)
         if not machine.exists(): return
         
-        start_time, shift_end = machine._get_current_shift_window()
+        start_time, shift_end = self.env['mes.shift'].get_current_shift_window()
         if not start_time: return
         calc_end_time = min(fields.Datetime.now(), shift_end)
         
         workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
         active_intervals, _ = machine._get_planned_working_intervals(start_time, shift_end, workcenter)
         
-        total_running_sec = 0.0
-        good_tag = False
-        
-        if workcenter:
-            if hasattr(workcenter, 'runtime_event_id') and workcenter.runtime_event_id:
-                state_tag, running_plc_value = workcenter.runtime_event_id.get_mapping_for_machine(machine)
-                if state_tag:
-                    ts_manager = self.env['mes.timescale.base']
-                    with ts_manager._connection() as conn:
-                        with conn.cursor() as cur:
-                            total_running_sec = machine._fetch_active_runtime(cur, state_tag, running_plc_value, active_intervals)
-                            
-            if hasattr(workcenter, 'production_count_id') and workcenter.production_count_id:
-                good_tag, _ = workcenter.production_count_id.get_count_config_for_machine(machine)
-
-        hours_run = (total_running_sec / 3600.0) if total_running_sec > 0 else 0.0
-        
         all_counts = self.env['mes.signal.count'].search([('machine_id', '=', machine.id)])
+        good_tag, _ = workcenter.production_count_id.get_count_config_for_machine(machine) if workcenter and workcenter.production_count_id else (False, False)
+        state_tag, running_plc_value = workcenter.runtime_event_id.get_mapping_for_machine(machine) if workcenter and workcenter.runtime_event_id else (False, False)
+
         vals_list = []
         
         ts_manager = self.env['mes.timescale.base']
         with ts_manager._connection() as conn:
             with conn.cursor() as cur:
+                total_running_sec = 0.0
+                if state_tag:
+                    total_running_sec = machine._fetch_active_runtime(cur, state_tag, running_plc_value, active_intervals)
+                
+                hours_run = (total_running_sec / 3600.0) if total_running_sec > 0 else 0.0
+
                 for count_def in all_counts:
                     if good_tag and count_def.tag_name == good_tag:
                         continue
@@ -678,58 +680,29 @@ class MesDowntimeLossStat(models.TransientModel):
         machine = self.env['mes.machine.settings'].browse(machine_id)
         if not machine.exists(): return
         
-        start_time, shift_end = machine._get_current_shift_window()
+        start_time, shift_end = self.env['mes.shift'].get_current_shift_window()
         if not start_time: return
         calc_end_time = min(fields.Datetime.now(), shift_end)
         
         workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
         active_intervals, _ = machine._get_planned_working_intervals(start_time, shift_end, workcenter)
+        state_tag, running_plc_value = workcenter.runtime_event_id.get_mapping_for_machine(machine) if workcenter and workcenter.runtime_event_id else (False, False)
         
-        total_running_sec = 0.0
-        if workcenter and hasattr(workcenter, 'runtime_event_id') and workcenter.runtime_event_id:
-            state_tag, running_plc_value = workcenter.runtime_event_id.get_mapping_for_machine(machine)
-            if state_tag:
-                ts_manager = self.env['mes.timescale.base']
-                with ts_manager._connection() as conn:
-                    with conn.cursor() as cur:
-                        total_running_sec = machine._fetch_active_runtime(cur, state_tag, running_plc_value, active_intervals)
-                        
-        hours_run = (total_running_sec / 3600.0) if total_running_sec > 0 else 0.0
-        alarm_tag = machine.get_alarm_tag_name('OEE.nStopRootReason')
-        
-        query = f"""
-            WITH alarm_boundary AS (
-                SELECT time, value, 0::bigint as id FROM telemetry_event
-                WHERE machine_name = %s AND tag_name LIKE %s AND time < %s ORDER BY time DESC LIMIT 1
-            ),
-            alarm_events AS (
-                SELECT time, value, id FROM alarm_boundary UNION ALL
-                SELECT time, value, id FROM telemetry_event
-                WHERE machine_name = %s AND tag_name LIKE %s AND time >= %s AND time <= %s
-            ),
-            alarm_durations AS (
-                SELECT value as alarm_code, EXTRACT(EPOCH FROM (COALESCE(LEAD(time) OVER (ORDER BY time), %s) - time)) as duration_sec
-                FROM alarm_events
-            )
-            SELECT alarm_code, COUNT(alarm_code) as freq, SUM(duration_sec) as total_dur FROM alarm_durations
-            WHERE alarm_code IS NOT NULL AND alarm_code != 0
-            GROUP BY alarm_code;
-        """
-        
-        ts_manager = self.env['mes.timescale.base']
         vals_list = []
+
+        ts_manager = self.env['mes.timescale.base']
         with ts_manager._connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, (
-                    machine.name, alarm_tag, start_time,
-                    machine.name, alarm_tag, start_time, calc_end_time, calc_end_time
-                ))
+                total_running_sec = 0.0
+                if state_tag:
+                    total_running_sec = machine._fetch_active_runtime(cur, state_tag, running_plc_value, active_intervals)
+                        
+                hours_run = (total_running_sec / 3600.0) if total_running_sec > 0 else 0.0
                 
-                rows = cur.fetchall()
+                rows = machine._fetch_downtime_stats_raw(cur, start_time, calc_end_time)
+                
                 for row in rows:
-                    alarm_code = row[0]
-                    freq = row[1] or 0
-                    duration_sec = row[2] or 0.0
+                    alarm_code, freq, duration_sec = row[0], (row[1] or 0), (row[2] or 0.0)
                     duration_min = duration_sec / 60.0
                     
                     if duration_min > 0 or freq > 0:

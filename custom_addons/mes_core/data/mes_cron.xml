@@ -24,5 +24,17 @@
             <field name="numbercall">-1</field>
             <field name="nextcall" eval="(DateTime.now() + relativedelta(days=1)).strftime('%Y-%m-%d 00:00:00')"/>
         </record>
+
+        <record id="ir_cron_update_machine_metrics" model="ir.cron">
+            <field name="name">MES: Update Realtime Machine Metrics</field>
+            <field name="model_id" ref="mrp.model_mrp_workcenter"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_update_realtime_metrics()</field>
+            <field name="user_id" ref="base.user_root"/>
+            <field name="interval_number">1</field>
+            <field name="interval_type">minutes</field>
+            <field name="numbercall">-1</field>
+            <field name="active" eval="True"/>
+        </record>
     </data>
 </odoo>

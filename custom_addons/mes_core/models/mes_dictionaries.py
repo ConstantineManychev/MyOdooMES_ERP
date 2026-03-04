@@ -1,6 +1,6 @@
 import operator
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
 from odoo.http import request
@@ -30,6 +30,41 @@ class MesShifts(models.Model):
                 shift.duration = shift.end_hour - shift.start_hour
             else:
                 shift.duration = 24.0 - shift.start_hour + shift.end_hour
+
+    @api.model
+    def get_current_shift_window(self):
+        now = fields.Datetime.now()
+        current_hour = now.hour + now.minute / 60.0 + now.second / 3600.0
+        
+        shifts = self.search([])
+        current_shift = None
+        
+        for shift in shifts:
+            if shift.start_hour < shift.end_hour:
+                if shift.start_hour <= current_hour < shift.end_hour:
+                    current_shift = shift
+                    break
+            else:
+                if current_hour >= shift.start_hour or current_hour < shift.end_hour:
+                    current_shift = shift
+                    break
+        
+        if not current_shift:
+            return None, None
+
+        start_date = now
+        if current_shift.start_hour > current_shift.end_hour and current_hour < current_shift.end_hour:
+            start_date = now - timedelta(days=1)
+            
+        start_time = start_date.replace(
+            hour=int(current_shift.start_hour), 
+            minute=int((current_shift.start_hour % 1) * 60), 
+            second=0, 
+            microsecond=0
+        )
+        
+        end_time = start_time + timedelta(hours=current_shift.duration)
+        return start_time, end_time
 
 class MesDefects(models.Model):
     _name = 'mes.defect'
@@ -245,19 +280,17 @@ class MesWorkcenter(models.Model):
     refresh_frequency = fields.Integer(string='Refresh Frequency (sec)', default=60, help="Frequency of OEE dashboard refresh in seconds")
     ideal_capacity_per_min = fields.Float(string='Ideal Capacity (Parts/Min)', default=200.0)
 
-    current_availability = fields.Float(string='Availability (%)', compute='_compute_realtime_oee')
-    current_performance = fields.Float(string='Performance (%)', compute='_compute_realtime_oee')
-    current_quality = fields.Float(string='Quality (%)', compute='_compute_realtime_oee')
-    current_produced = fields.Integer(string='Produced Today', compute='_compute_realtime_oee')
-
-    current_oee = fields.Float(string='OEE (%)', compute='_compute_realtime_oee', search='_search_current_oee')
-    current_waste_losses = fields.Float(string='Waste Losses (%)', compute='_compute_realtime_oee', search='_search_waste_losses')
-    current_downtime_losses = fields.Float(string='Downtime Losses (%)', compute='_compute_realtime_oee', search='_search_downtime_losses')
-
-    current_first_running_time = fields.Datetime(string='Start Time', compute='_compute_realtime_oee')
-    current_runtime_formatted = fields.Char(string='Runtime', compute='_compute_realtime_oee')
-    current_top_rejection = fields.Char(string='Top Rejection', compute='_compute_realtime_oee')
-    current_top_alarm = fields.Char(string='Top Alarm', compute='_compute_realtime_oee')
+    current_oee = fields.Float(string="OEE (%)", readonly=True, default=0.0)
+    current_availability = fields.Float(string="Availability (%)", readonly=True, default=0.0)
+    current_performance = fields.Float(string="Performance (%)", readonly=True, default=0.0)
+    current_quality = fields.Float(string="Quality (%)", readonly=True, default=0.0)
+    current_produced = fields.Integer(string="Produced", readonly=True, default=0)
+    current_waste_losses = fields.Float(string="Waste Losses", readonly=True, default=0.0)
+    current_downtime_losses = fields.Float(string="Downtime Losses", readonly=True, default=0.0)
+    current_first_running_time = fields.Datetime(string="First Running Time", readonly=True)
+    current_runtime_formatted = fields.Char(string="Runtime", readonly=True, default='00:00:00')
+    current_top_rejection = fields.Char(string="Top Rejection", readonly=True, default='None')
+    current_top_alarm = fields.Char(string="Top Alarm", readonly=True, default='None')
 
     allowed_pc_ips = fields.Char(
         string='All Allowed PC IPs',
@@ -269,48 +302,77 @@ class MesWorkcenter(models.Model):
     ]
 
     @api.model
-    def fields_get(self, allfields=None, attributes=None):
-        res = super().fields_get(allfields, attributes)
-        custom_sort_fields = [
-            'current_oee', 'current_waste_losses', 'current_downtime_losses',
-            'current_produced', 'current_first_running_time', 'current_runtime_formatted'
-        ]
-        for field in custom_sort_fields:
-            if field in res:
-                res[field]['sortable'] = True
-        return res
-
-    @api.model
-    def web_search_read(self, domain=None, specification=None, offset=0, limit=None, order=None, count_limit=None, **kw):
-
+    def _search(self, domain, offset=0, limit=None, order=None, access_rights_uid=None):
         domain = self._apply_operator_ip_filter(domain)
-        custom_order_field, reverse, order = self._extract_custom_order(order)
-        
-        res = super().web_search_read(
-            domain=domain, specification=specification, offset=offset, 
-            limit=limit, order=order, count_limit=count_limit, **kw
-        )
-        
-        if res.get('records'):
-            self._apply_custom_sort(res['records'], custom_order_field, reverse)
-            
-        return res
-
+        return super()._search(domain, offset=offset, limit=limit, order=order, access_rights_uid=access_rights_uid)
+    
     @api.model
-    def search_read(self, domain=None, fields=None, offset=0, limit=None, order=None, **kw):
+    def cron_update_realtime_metrics(self):
+        workcenters = self.search([
+            ('machine_settings_id', '!=', False),
+            ('runtime_event_id', '!=', False),
+            ('production_count_id', '!=', False)
+        ])
+        
+        if not workcenters:
+            return
 
-        domain = self._apply_operator_ip_filter(domain)
-        custom_order_field, reverse, order = self._extract_custom_order(order)
+        settings_model = self.env['mes.machine.settings']
+        oee_results = settings_model.get_realtime_oee_batch(workcenters)
+
+        for wc in workcenters:
+            data = oee_results.get(wc.id, {})
+            if not data or 'error' in data:
+                continue
+
+            vals = {}
+            if wc.current_oee != data.get('oee', 0.0): 
+                vals['current_oee'] = data.get('oee', 0.0)
+            if wc.current_availability != data.get('availability', 0.0): 
+                vals['current_availability'] = data.get('availability', 0.0)
+            if wc.current_performance != data.get('performance', 0.0): 
+                vals['current_performance'] = data.get('performance', 0.0)
+            if wc.current_quality != data.get('quality', 0.0): 
+                vals['current_quality'] = data.get('quality', 0.0)
+            if wc.current_produced != data.get('total_produced', 0): 
+                vals['current_produced'] = data.get('total_produced', 0)
+            if wc.current_waste_losses != data.get('waste_losses', 0.0): 
+                vals['current_waste_losses'] = data.get('waste_losses', 0.0)
+            if wc.current_downtime_losses != data.get('downtime_losses', 0.0): 
+                vals['current_downtime_losses'] = data.get('downtime_losses', 0.0)
+            if wc.current_first_running_time != data.get('first_running_time'): 
+                vals['current_first_running_time'] = data.get('first_running_time')
+            if wc.current_runtime_formatted != data.get('runtime_formatted', '00:00:00'): 
+                vals['current_runtime_formatted'] = data.get('runtime_formatted', '00:00:00')
+            if wc.current_top_rejection != data.get('top_rejection', 'None'): 
+                vals['current_top_rejection'] = data.get('top_rejection', 'None')
+            if wc.current_top_alarm != data.get('top_alarm', 'None'): 
+                vals['current_top_alarm'] = data.get('top_alarm', 'None')
+
+            if vals:
+                wc.write(vals)
+
+    def action_force_metrics_update(self):
+        self.ensure_one()
+        oee_results = self.env['mes.machine.settings'].get_realtime_oee_batch(self)
         
-        res = super().search_read(
-            domain=domain, fields=fields, offset=offset, 
-            limit=limit, order=order, **kw
-        )
-        
-        if isinstance(res, list):
-            self._apply_custom_sort(res, custom_order_field, reverse)
-            
-        return res
+        data = oee_results.get(self.id, {})
+        if not data or 'error' in data:
+            return
+
+        self.write({
+            'current_oee': data.get('oee', 0.0),
+            'current_availability': data.get('availability', 0.0),
+            'current_performance': data.get('performance', 0.0),
+            'current_quality': data.get('quality', 0.0),
+            'current_produced': data.get('total_produced', 0),
+            'current_waste_losses': data.get('waste_losses', 0.0),
+            'current_downtime_losses': data.get('downtime_losses', 0.0),
+            'current_first_running_time': data.get('first_running_time'),
+            'current_runtime_formatted': data.get('runtime_formatted', '00:00:00'),
+            'current_top_rejection': data.get('top_rejection', 'None'),
+            'current_top_alarm': data.get('top_alarm', 'None')
+        })
 
     def action_open_waste_losses(self):
         self.ensure_one()
@@ -347,123 +409,11 @@ class MesWorkcenter(models.Model):
             return expression.AND([domain or [], ip_domain])
         return domain
 
-    @api.model
-    def _extract_custom_order(self, order):
-        custom_sort_fields = [
-            'current_oee', 'current_waste_losses', 'current_downtime_losses',
-            'current_produced', 'current_first_running_time', 'current_runtime_formatted'
-        ]
-        custom_order_field = None
-        reverse = False
-        
-        if order:
-            for part in order.split(','):
-                part = part.strip().lower()
-                for cf in custom_sort_fields:
-                    if part.startswith(cf):
-                        custom_order_field = cf
-                        reverse = 'desc' in part
-                        break
-                if custom_order_field:
-                    break
-            
-            if custom_order_field:
-                order = 'name asc' 
-                
-        return custom_order_field, reverse, order
-
-    @api.model
-    def _apply_custom_sort(self, records, custom_order_field, reverse):
-        if not custom_order_field or not records:
-            return
-
-        def sort_key(item):
-            val = item.get(custom_order_field)
-            if val is False or val is None:
-                if custom_order_field == 'current_first_running_time':
-                    return datetime.min 
-                elif custom_order_field == 'current_runtime_formatted':
-                    return ""
-                return -float('inf')
-            return val
-
-        records.sort(key=sort_key, reverse=reverse)
-
     @api.constrains('refresh_frequency')
     def _check_refresh_frequency(self):
         for wc in self:
             if wc.refresh_frequency < 10:
                 raise ValidationError('Configuration error: Refresh frequency cannot be less than 10 seconds.')
-
-    def _compute_realtime_oee(self):
-        for wc in self:
-            if not wc.machine_settings_id or not wc.runtime_event_id or not wc.production_count_id:
-                wc._reset_oee()
-                continue
-            
-            oee_data = wc.machine_settings_id.get_realtime_oee(
-                runtime_event=wc.runtime_event_id,
-                production_count=wc.production_count_id,
-                workcenter=wc
-            )
-            
-            if 'error' in oee_data:
-                wc._reset_oee()
-            else:
-                wc.current_oee = oee_data.get('oee', 0.0)
-                wc.current_availability = oee_data.get('availability', 0.0)
-                wc.current_performance = oee_data.get('performance', 0.0)
-                wc.current_quality = oee_data.get('quality', 0.0)
-                wc.current_produced = oee_data.get('total_produced', 0)
-
-                wc.current_waste_losses = oee_data.get('waste_losses', 0.0)
-                wc.current_downtime_losses = oee_data.get('downtime_losses', 0.0)
-
-                wc.current_first_running_time = oee_data.get('first_running_time', False)
-                wc.current_runtime_formatted = oee_data.get('runtime_formatted', '00:00:00')
-                wc.current_top_rejection = oee_data.get('top_rejection', 'None')
-                wc.current_top_alarm = oee_data.get('top_alarm', 'None')
-
-    def _reset_oee(self):
-        self.current_oee = 0.0
-        self.current_availability = 0.0
-        self.current_performance = 0.0
-        self.current_quality = 0.0
-        self.current_produced = 0
-
-        self.current_waste_losses = 0.0
-        self.current_downtime_losses = 0.0
-
-        self.current_first_running_time = False
-        self.current_runtime_formatted = '00:00:00'
-        self.current_top_rejection = 'None'
-        self.current_top_alarm = 'None'
-
-    def _get_op_func(self, operator_str):
-        ops = {
-            '=': operator.eq, '!=': operator.ne,
-            '<': operator.lt, '<=': operator.le,
-            '>': operator.gt, '>=': operator.ge
-        }
-        return ops.get(operator_str, operator.eq)
-
-    def _search_current_oee(self, operator_str, value):
-        op_func = self._get_op_func(operator_str)
-        wcs = self.search([('machine_settings_id', '!=', False)])
-        match_ids = wcs.filtered(lambda wc: op_func(wc.current_oee, value)).ids
-        return [('id', 'in', match_ids)] if match_ids else [('id', '=', 0)]
-
-    def _search_waste_losses(self, operator_str, value):
-        op_func = self._get_op_func(operator_str)
-        wcs = self.search([('machine_settings_id', '!=', False)])
-        match_ids = wcs.filtered(lambda wc: op_func(wc.current_waste_losses, value)).ids
-        return [('id', 'in', match_ids)] if match_ids else [('id', '=', 0)]
-
-    def _search_downtime_losses(self, operator_str, value):
-        op_func = self._get_op_func(operator_str)
-        wcs = self.search([('machine_settings_id', '!=', False)])
-        match_ids = wcs.filtered(lambda wc: op_func(wc.current_downtime_losses, value)).ids
-        return [('id', 'in', match_ids)] if match_ids else [('id', '=', 0)]
 
 class MesStreams(models.Model):
     _name = 'mes.stream'
