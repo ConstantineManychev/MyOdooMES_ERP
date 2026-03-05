@@ -1,6 +1,7 @@
 import operator
 import logging
 from datetime import datetime, timedelta
+import math
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
 from odoo.http import request
@@ -440,6 +441,9 @@ class MesWorkcenter(models.Model):
             
     @api.model
     def get_live_chart_data(self, workcenter_id):
+        import math
+        from datetime import timedelta
+
         wc = self.browse(workcenter_id)
         if not wc.exists() or not wc.machine_settings_id:
             return {'error': 'Machine not configured'}
@@ -457,8 +461,47 @@ class MesWorkcenter(models.Model):
         if not state_tag or not good_count_tag:
             return {'error': 'Tags not configured'}
 
-        alarm_tag = machine.get_alarm_tag_name('OEE.nStopRootReason')
+        bucket_min = max(1, wc.chart_bucket_minutes)
+        bucket_sec = bucket_min * 60
+        ideal_per_bucket = (wc.ideal_capacity_per_min or 0.0) * bucket_min
+        total_shift_sec = (calc_end_time - start_time).total_seconds()
+        num_intervals = math.ceil(total_shift_sec / bucket_sec) if total_shift_sec > 0 else 1
+        
+        labels, production_data, ideal_data, bucket_indices = [], [], [], {}
+        for i in range(num_intervals + 1):
+            b_time = start_time + timedelta(seconds=i * bucket_sec)
+            labels.append(b_time.strftime('%H:%M'))
+            production_data.append(0.0)
+            ideal_data.append(ideal_per_bucket if i > 0 else 0.0) 
+            bucket_indices[b_time] = i
 
+        timeline_data = []
+        with self.env['mes.timescale.base']._connection() as conn:
+            with conn.cursor() as cur:
+                raw_timeline = machine._fetch_timeline_raw(cur, start_time, calc_end_time)
+                timeline_data = self._process_timeline_colors(machine, raw_timeline, state_tag, running_plc_value)
+                
+                raw_production = machine._fetch_production_chart_raw(cur, good_count_tag, start_time, calc_end_time, bucket_min, is_cumulative)
+                for row in raw_production:
+                    b_time = row[0].replace(tzinfo=None) if row[0].tzinfo else row[0]
+                    if b_time in bucket_indices:
+                        plot_idx = bucket_indices[b_time] + 1 
+                        if plot_idx < len(production_data):
+                            production_data[plot_idx] = float(row[1])
+
+        return {
+            'timeline': timeline_data,
+            'chart_duration_sec': num_intervals * bucket_sec,
+            'shift_start': start_time.isoformat(), 
+            'chart': {
+                'labels': labels,
+                'production': production_data,
+                'ideal': ideal_data,
+                'bucket_sec': bucket_sec
+            }
+        }
+
+    def _process_timeline_colors(self, machine, raw_timeline, state_tag, running_plc_value):
         local_evts = self.env['mes.signal.event'].search([('machine_id', '=', machine.id)])
         name_map = {(ev.tag_name, ev.plc_value): ev.event_id.name for ev in local_evts}
         color_map = {(ev.tag_name, ev.plc_value): ev.event_id.color or '#808080' for ev in local_evts}
@@ -467,98 +510,32 @@ class MesWorkcenter(models.Model):
         fallback_name_map = {ge.default_plc_value: ge.name for ge in global_evts}
         fallback_color_map = {ge.default_plc_value: (ge.color or '#808080') for ge in global_evts}
 
-        ts_manager = self.env['mes.timescale.base']
-        timeline_data = []
-        production_data = []
-        labels = []
-        ideal_data = []
+        result = []
+        for row in raw_timeline:
+            val = int(row[2]) if row[2] is not None else 0
+            t_name = row[3]
+            key = (t_name, val)
+            
+            evt_name = name_map.get(key) or fallback_name_map.get(val)
+            evt_color = color_map.get(key) or fallback_color_map.get(val)
+            
+            if not evt_name:
+                if t_name == state_tag and val == running_plc_value:
+                    evt_name, evt_color = 'Running', '#28a745'
+                elif val == 0:
+                    evt_name, evt_color = 'Ready / Cleared', '#cccccc'
+                else:
+                    evt_name = f'Code {val}'
+                    evt_color = '#dc3545' if t_name != state_tag else '#ffc107'
 
-        bucket_min = max(1, wc.chart_bucket_minutes)
-        ideal_per_bucket = (wc.ideal_capacity_per_min or 0.0) * bucket_min
-
-        with ts_manager._connection() as conn:
-            with conn.cursor() as cur:
-                query_timeline = f"""
-                    WITH boundary AS (
-                        SELECT GREATEST(time, %s) as time, value, tag_name, 0::bigint as id 
-                        FROM telemetry_event
-                        WHERE machine_name = %s AND time < %s 
-                        ORDER BY time DESC, id DESC LIMIT 1
-                    ),
-                    events AS (
-                        SELECT time, value, tag_name, id FROM boundary 
-                        UNION ALL
-                        SELECT time, value, tag_name, id FROM telemetry_event
-                        WHERE machine_name = %s AND time >= %s AND time <= %s
-                    ),
-                    intervals AS (
-                        SELECT time as start_time, 
-                               COALESCE(LEAD(time) OVER (ORDER BY time, id), %s) as end_time,
-                               value, tag_name
-                        FROM events
-                    )
-                    SELECT start_time, end_time, value, tag_name 
-                    FROM intervals 
-                    WHERE start_time < end_time
-                """
-                cur.execute(query_timeline, (
-                    start_time, 
-                    machine.name, start_time,
-                    machine.name, start_time, calc_end_time,
-                    calc_end_time
-                ))
-                
-                for row in cur.fetchall():
-                    val = int(row[2]) if row[2] is not None else 0
-                    t_name = row[3]
-                    key = (t_name, val)
-                    
-                    evt_name = name_map.get(key) or fallback_name_map.get(val)
-                    evt_color = color_map.get(key) or fallback_color_map.get(val)
-                    
-                    if not evt_name:
-                        if t_name == state_tag and val == running_plc_value:
-                            evt_name = 'Running'
-                            evt_color = '#28a745'
-                        elif val == 0:
-                            evt_name = 'Ready / Cleared'
-                            evt_color = '#cccccc'
-                        else:
-                            evt_name = f'Code {val}'
-                            evt_color = '#dc3545' if t_name != state_tag else '#ffc107'
-
-                    timeline_data.append({
-                        'start': row[0].isoformat(),
-                        'end': row[1].isoformat(),
-                        'duration': (row[1] - row[0]).total_seconds(),
-                        'color': evt_color,
-                        'name': evt_name
-                    })
-
-                prod_agg = "MAX(value) - MIN(value)" if is_cumulative else "SUM(value)"
-                query_prod = f"""
-                    SELECT time_bucket('{bucket_min} minutes', time) AS bucket,
-                           COALESCE({prod_agg}, 0) as produced
-                    FROM telemetry_count
-                    WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
-                    GROUP BY bucket ORDER BY bucket
-                """
-                cur.execute(query_prod, (machine.name, good_count_tag, start_time, calc_end_time))
-                
-                for row in cur.fetchall():
-                    b_time = row[0].strftime('%H:%M')
-                    labels.append(b_time)
-                    production_data.append(float(row[1]))
-                    ideal_data.append(ideal_per_bucket)
-
-        return {
-            'timeline': timeline_data,
-            'chart': {
-                'labels': labels,
-                'production': production_data,
-                'ideal': ideal_data
-            }
-        }
+            result.append({
+                'start': row[0].isoformat(),
+                'end': row[1].isoformat(),
+                'duration': (row[1] - row[0]).total_seconds(),
+                'color': evt_color,
+                'name': evt_name
+            })
+        return result
 
 class MesStreams(models.Model):
     _name = 'mes.stream'

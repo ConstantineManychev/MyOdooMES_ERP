@@ -184,18 +184,18 @@ class MesMachineSettings(models.Model):
                 ORDER BY time DESC, id DESC LIMIT 1
             ),
             events AS (
-                SELECT time, value, id FROM boundary where value = %s AND tag_name = %s
+                SELECT time, tag_name, value, id FROM boundary where value = %s AND tag_name = %s
                 UNION ALL
-                SELECT time, value, id FROM telemetry_event
-                WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
+                SELECT time, tag_name, value, id FROM telemetry_event
+                WHERE machine_name = %s AND time >= %s AND time <= %s
             ),
             state_durations AS (
-                SELECT time as state_start, value as state,
+                SELECT time as state_start, tag_name as tag, value as state,
                     COALESCE(LEAD(time) OVER (ORDER BY time ASC, id ASC), %s) as state_end
                 FROM events
             ),
             running_durations AS (
-                SELECT state_start, state_end FROM state_durations WHERE state = %s
+                SELECT state_start, state_end FROM state_durations WHERE tag = %s AND state = %s
             ),
             active_windows AS ( {active_cte} )
             SELECT COALESCE(SUM(
@@ -208,9 +208,9 @@ class MesMachineSettings(models.Model):
         """
         cursor.execute(query, (
             self.name, scan_start,
-            plc_value, state_tag, self.name, state_tag, scan_start, scan_end,
+            plc_value, state_tag, self.name, scan_start, scan_end,
             scan_end,
-            plc_value
+            state_tag, plc_value
         ))
         res = cursor.fetchone()
         return float(res[0]) if res else 0.0
@@ -276,7 +276,7 @@ class MesMachineSettings(models.Model):
                 ORDER BY time DESC LIMIT 1
             ),
             alarm_events AS (
-                SELECT GREATEST(time, %s) as time, value, id FROM alarm_boundary where tag_name = %s
+                SELECT GREATEST(time, %s) as time, value, id FROM alarm_boundary
                 UNION ALL
                 SELECT time, value, id FROM telemetry_event
                 WHERE machine_name = %s AND tag_name LIKE %s AND time >= %s AND time <= %s
@@ -293,7 +293,7 @@ class MesMachineSettings(models.Model):
 
         cursor.execute(query, (
             self.name, start_time,
-            start_time, alarm_tag, self.name, alarm_tag, start_time, end_time, 
+            start_time, self.name, alarm_tag, start_time, end_time, 
             end_time
         ))
         return cursor.fetchall()
@@ -310,6 +310,49 @@ class MesMachineSettings(models.Model):
         cursor.execute(query, (self.name, start_time, end_time))
 
         return {row[0]: {'sum': float(row[1]), 'cum': float(row[2])} for row in cursor.fetchall()}
+
+    def _fetch_timeline_raw(self, cursor, start_time, end_time):
+        query = """
+            WITH boundary AS (
+                SELECT time as time, value, tag_name, 0::bigint as id 
+                FROM telemetry_event
+                WHERE machine_name = %s AND time < %s 
+                ORDER BY time DESC, id DESC LIMIT 1
+            ),
+            events AS (
+                SELECT GREATEST(time, %s), value, tag_name, id FROM boundary 
+                UNION ALL
+                SELECT time, value, tag_name, id FROM telemetry_event
+                WHERE machine_name = %s AND time >= %s AND time <= %s
+            ),
+            intervals AS (
+                SELECT time as start_time, 
+                       COALESCE(LEAD(time) OVER (ORDER BY time, id), %s) as end_time,
+                       value, tag_name
+                FROM events
+            )
+            SELECT start_time, end_time, value, tag_name 
+            FROM intervals 
+            WHERE start_time < end_time
+        """
+        cursor.execute(query, (
+            start_time, self.name, start_time,
+            self.name, start_time, end_time,
+            end_time
+        ))
+        return cursor.fetchall()
+
+    def _fetch_production_chart_raw(self, cursor, tag_name, start_time, end_time, bucket_min, is_cumulative):
+        prod_agg = "MAX(value) - MIN(value)" if is_cumulative else "SUM(value)"
+        query = f"""
+            SELECT time_bucket('{bucket_min} minutes', time) AS bucket,
+                   COALESCE({prod_agg}, 0) as produced
+            FROM telemetry_count
+            WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
+            GROUP BY bucket ORDER BY bucket
+        """
+        cursor.execute(query, (self.name, tag_name, start_time, end_time))
+        return cursor.fetchall()
 
     def _calculate_kpi(self, total_running_sec, total_produced, total_planned_runtime_sec, workcenter):
         

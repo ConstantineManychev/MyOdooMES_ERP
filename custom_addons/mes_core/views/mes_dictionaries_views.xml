@@ -252,19 +252,6 @@
         <field name="view_mode">tree</field>
     </record>
 
-    <record id="view_mrp_workcenter_form_inherit_mes" model="ir.ui.view">
-        <field name="name">mrp.workcenter.form.inherit.mes</field>
-        <field name="model">mrp.workcenter</field>
-        <field name="inherit_id" ref="mrp.mrp_workcenter_view"/>
-        <field name="arch" type="xml">
-            <xpath expr="//field[@name='code']" position="after">
-                <field name="machine_number"/>
-                <field name="code_imatec"/>
-                <field name="maintainx_id"/>
-            </xpath>
-        </field>
-    </record>
-
     <record id="mes_workcenter_oee_form" model="ir.ui.view">
         <field name="name">mes.workcenter.oee.form</field>
         <field name="model">mrp.workcenter</field>
@@ -281,6 +268,20 @@
                 <attribute name="invisible">True</attribute>
             </xpath>
             <xpath expr="//button[.//field[@name='performance']]" position="attributes">
+                <attribute name="invisible">True</attribute>
+            </xpath>
+
+            <xpath expr="//field[@name='code']" position="attributes">
+                <attribute name="invisible">True</attribute>
+            </xpath>
+
+            <xpath expr="//field[@name='tag_ids']" position="attributes">
+                <attribute name="invisible">True</attribute>
+            </xpath>
+            <xpath expr="//field[@name='resource_calendar_id']" position="attributes">
+                <attribute name="invisible">True</attribute>
+            </xpath>
+            <xpath expr="//field[@name='alternative_workcenter_ids']" position="attributes">
                 <attribute name="invisible">True</attribute>
             </xpath>
 
@@ -311,22 +312,18 @@
                 </button>
             </xpath>
             
-            <xpath expr="//notebook" position="inside">
-                
-                <page string="Live Dashboard" name="realtime_oee_page">
-                    <group col="4">
-                        <field name="current_oee" widget="progressbar" string="Overall OEE"/>
-                        <field name="current_availability" widget="progressbar" string="Availability"/>
-                        <field name="current_performance" widget="progressbar" string="Performance"/>
-                        <field name="current_quality" widget="progressbar" string="Quality"/>
-                    </group>
+            <xpath expr="//group[group/field[@name='name']]" position="after">
+                <div class="o_mes_dashboard_header mt-4 mb-4" style="width: 100%;">
                     
                     <widget name="machine_live_charts"/>
-                </page>
-
+                </div>
+            </xpath>
+            
+            <xpath expr="//notebook" position="inside">
                 <page string="MES Configuration" name="mes_config" groups="mes_core.group_mes_administrator">
                     <group>
                         <group string="Hardware Linking">
+                            <field name="code" string="Workcenter Code"/>
                             <field name="machine_settings_id"/>
                             <field name="machine_number"/>
                             <field name="code_imatec"/>
@@ -344,7 +341,6 @@
                         </group>
                     </group>
                 </page>
-                
             </xpath>
             
         </field>

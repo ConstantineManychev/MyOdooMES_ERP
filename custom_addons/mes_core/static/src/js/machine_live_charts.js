@@ -11,11 +11,13 @@ export class MachineLiveCharts extends Component {
         this.canvasRef = useRef("chartCanvas");
         this.chartInstance = null;
         this.refreshInterval = null;
+        this.rawData = null; 
         
         this.state = useState({
-            timeline: [],
             error: false,
-            totalDuration: 1
+            visibleTimeline: [],
+            zoomLevel: 1,  
+            panOffset: 0  
         });
 
         onMounted(async () => {
@@ -40,36 +42,84 @@ export class MachineLiveCharts extends Component {
             return;
         }
 
-        const result = await this.orm.call(
-            "mrp.workcenter", 
-            "get_live_chart_data", 
-            [this.props.record.resId]
-        );
-
+        const result = await this.orm.call("mrp.workcenter", "get_live_chart_data", [this.props.record.resId]);
         if (result.error) {
             this.state.error = result.error;
             return;
         }
 
         this.state.error = false;
-        this.updateTimeline(result.timeline);
-        this.updateChart(result.chart);
+        this.rawData = result;
+        this.applyZoomAndPan(); 
     }
 
-    updateTimeline(data) {
-        if (!data || !data.length) {
-            this.state.timeline = [];
-            return;
+    applyZoomAndPan() {
+        if (!this.rawData) return;
+        
+        const zl = parseFloat(this.state.zoomLevel);
+        const pan = parseFloat(this.state.panOffset);
+        const totalSec = this.rawData.chart_duration_sec;
+        const bucketSec = this.rawData.chart.bucket_sec;
+        const shiftStart = new Date(this.rawData.shift_start).getTime();
+
+        const desiredViewSec = totalSec / zl;
+        const maxOffsetSec = totalSec - desiredViewSec;
+        const desiredStartSec = maxOffsetSec * (pan / 100);
+        const desiredEndSec = desiredStartSec + desiredViewSec;
+
+        let startIdx = Math.floor(desiredStartSec / bucketSec);
+        let endIdx = Math.ceil(desiredEndSec / bucketSec);
+
+        startIdx = Math.max(0, startIdx);
+        endIdx = Math.min(this.rawData.chart.labels.length - 1, endIdx);
+
+        if (endIdx - startIdx < 1) {
+            endIdx = Math.min(this.rawData.chart.labels.length - 1, startIdx + 1);
+        }
+
+        const actualStartSec = startIdx * bucketSec;
+        const actualEndSec = endIdx * bucketSec;
+        const actualViewSec = actualEndSec - actualStartSec;
+
+        this.state.visibleTimeline = [];
+        for (const block of this.rawData.timeline) {
+            const blockStartSec = (new Date(block.start).getTime() - shiftStart) / 1000;
+            const blockEndSec = (new Date(block.end).getTime() - shiftStart) / 1000;
+
+            const clampedStart = Math.max(actualStartSec, blockStartSec);
+            const clampedEnd = Math.min(actualEndSec, blockEndSec);
+
+            if (clampedStart < clampedEnd) {
+                this.state.visibleTimeline.push({
+                    ...block,
+                    widthPct: ((clampedEnd - clampedStart) / actualViewSec) * 100,
+                    durationMin: Math.round(block.duration / 60)
+                });
+            }
+        }
+
+        const slicedData = {
+            labels: this.rawData.chart.labels.slice(startIdx, endIdx + 1),
+            production: this.rawData.chart.production.slice(startIdx, endIdx + 1),
+            ideal: this.rawData.chart.ideal.slice(startIdx, endIdx + 1),
+        };
+
+        this.updateChart(slicedData);
+    }
+
+    onWheelZoom(ev) {
+        ev.preventDefault(); 
+        const zoomStep = 0.5;
+        let newZoom = parseFloat(this.state.zoomLevel);
+        
+        if (ev.deltaY < 0) {
+            newZoom = Math.min(20, newZoom + zoomStep);
+        } else {
+            newZoom = Math.max(1, newZoom - zoomStep);
         }
         
-        const total = data.reduce((acc, curr) => acc + curr.duration, 0);
-        this.state.totalDuration = total > 0 ? total : 1;
-        
-        this.state.timeline = data.map(item => ({
-            ...item,
-            widthPct: (item.duration / this.state.totalDuration) * 100,
-            durationMin: Math.round(item.duration / 60)
-        }));
+        this.state.zoomLevel = newZoom;
+        this.applyZoomAndPan();
     }
 
     updateChart(data) {
@@ -84,8 +134,22 @@ export class MachineLiveCharts extends Component {
         }
 
         const ctx = this.canvasRef.el.getContext("2d");
+        
+        const alignTimeline = (chart) => {
+            const chartArea = chart.chartArea;
+            const canvas = chart.canvas || (chart.chart && chart.chart.canvas);
+            if (!canvas || !chartArea) return;
+            
+            const dashboard = canvas.closest('.o_mes_live_dashboard');
+            const wrapper = dashboard ? dashboard.querySelector('.mes-timeline-wrapper') : null;
+            if (wrapper) {
+                wrapper.style.marginLeft = chartArea.left + 'px';
+                wrapper.style.width = (chartArea.right - chartArea.left) + 'px';
+            }
+        };
+
         this.chartInstance = new window.Chart(ctx, {
-            type: 'line', 
+            type: 'line',
             data: {
                 labels: data.labels,
                 datasets: [
@@ -93,11 +157,11 @@ export class MachineLiveCharts extends Component {
                         label: 'Good Parts',
                         data: data.production,
                         borderColor: '#28a745',
-                        backgroundColor: 'rgba(40, 167, 69, 0.15)', 
+                        backgroundColor: 'rgba(40, 167, 69, 0.15)',
                         borderWidth: 2,
-                        fill: true, 
-                        tension: 0.3, 
-                        pointRadius: 3, 
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3,
                         pointBackgroundColor: '#28a745',
                         order: 2
                     },
@@ -107,9 +171,9 @@ export class MachineLiveCharts extends Component {
                         type: 'line',
                         borderColor: '#dc3545',
                         borderWidth: 2,
-                        borderDash: [5, 5], 
-                        fill: false, 
-                        pointRadius: 0, 
+                        borderDash: [5, 5],
+                        fill: false,
+                        pointRadius: 0,
                         order: 1
                     }
                 ]
@@ -117,29 +181,21 @@ export class MachineLiveCharts extends Component {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: { duration: 0 }, 
+                animation: { 
+                    duration: 0,
+                    onComplete: function() { alignTimeline(this); },
+                    onProgress: function() { alignTimeline(this); }
+                }, 
                 scales: {
-                    yAxes: [{ 
-                        ticks: { 
-                            beginAtZero: true 
-                        } 
-                    }]
+                    yAxes: [{ ticks: { beginAtZero: true } }],
+                    xAxes: [{ ticks: { maxRotation: 45, minRotation: 45 } }]
                 },
-                tooltips: {
-                    mode: 'index',
-                    intersect: false,
-                },
-                hover: {
-                    mode: 'nearest',
-                    intersect: true
-                }
+                tooltips: { mode: 'index', intersect: false },
+                hover: { mode: 'nearest', intersect: true }
             }
         });
     }
 }
 
 MachineLiveCharts.template = "mes_core.MachineLiveChartsTmpl";
-
-registry.category("view_widgets").add("machine_live_charts", {
-    component: MachineLiveCharts,
-});
+registry.category("view_widgets").add("machine_live_charts", { component: MachineLiveCharts });
