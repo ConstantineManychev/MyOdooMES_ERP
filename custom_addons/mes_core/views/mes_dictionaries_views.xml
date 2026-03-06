@@ -285,6 +285,13 @@
                 <attribute name="invisible">True</attribute>
             </xpath>
 
+            <xpath expr="//page[@name='general_info']" position="attributes">
+                <attribute name="invisible">True</attribute>
+            </xpath>
+            <xpath expr="//page[@name='capacity']" position="attributes">
+                <attribute name="invisible">True</attribute>
+            </xpath>
+
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button class="oe_stat_button" icon="fa-pie-chart" style="pointer-events: none;">
                     <div class="o_stat_info">

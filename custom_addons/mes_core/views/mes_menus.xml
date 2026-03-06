@@ -56,6 +56,12 @@
               action="action_mes_anomaly_dashboard"
               sequence="20"/>
 
+       <menuitem id="menu_mes_shift_analytics" 
+              name="Shift Analytics Dashboard" 
+              parent="menu_mes_analytics" 
+              action="action_mes_analytics_wizard" 
+              sequence="15"/>
+
     <!-- Catalogues -->
     <menuitem id="menu_mes_shift" 
               name="Shifts" 

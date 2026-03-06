@@ -266,7 +266,8 @@ class MesMachineSettings(models.Model):
         res = cursor.fetchone()
         return res[0].replace(tzinfo=None) if res and res[0] else False
 
-    def _fetch_downtime_stats_raw(self, cursor, start_time, end_time):
+    def _fetch_downtime_stats_raw(self, cursor, start_time, end_time, event_tags):
+        if not event_tags: return []
         alarm_tag = self.get_alarm_tag_name('OEE.nStopRootReason')
         
         query = f"""
@@ -277,19 +278,20 @@ class MesMachineSettings(models.Model):
                 ORDER BY time DESC LIMIT 1
             ),
             alarm_events AS (
-                SELECT GREATEST(time, %s) as time, value, id FROM alarm_boundary WHERE tag_name = %s
+                SELECT tag_name, GREATEST(time, %s) as time, value, id FROM alarm_boundary WHERE tag_name = %s
                 UNION ALL
-                SELECT time, value, id FROM telemetry_event
+                SELECT tag_name, time, value, id FROM telemetry_event
                 WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
             ),
             alarm_durations AS (
-                SELECT value as alarm_code, EXTRACT(EPOCH FROM (COALESCE(LEAD(time) OVER (ORDER BY time, id), %s) - time)) as duration_sec
+                SELECT tag_name, value, 
+                       EXTRACT(EPOCH FROM (COALESCE(LEAD(time) OVER (PARTITION BY tag_name ORDER BY time, id), %s) - time)) as duration_sec
                 FROM alarm_events
             )
-            SELECT alarm_code, COUNT(alarm_code) as freq, SUM(duration_sec) as total_dur 
+            SELECT tag_name, value as alarm_code, COUNT(*) as freq, SUM(duration_sec) as total_dur 
             FROM alarm_durations
-            WHERE alarm_code IS NOT NULL AND alarm_code != 0
-            GROUP BY alarm_code;
+            WHERE value IS NOT NULL AND value != 0
+            GROUP BY tag_name, value;
         """
 
         cursor.execute(query, (
@@ -392,6 +394,43 @@ class MesMachineSettings(models.Model):
             'total_produced': total_produced,
             'runtime_formatted': runtime_formatted,
         }
+
+    def _calculate_kpi_for_window(self, workcenter, start_time, end_time):
+        
+        if not workcenter:
+            return None
+        
+        machine = workcenter.machine_settings_id
+        
+        state_tag, running_plc_value = workcenter.runtime_event_id.get_mapping_for_machine(machine) if workcenter.runtime_event_id else (None, None)
+        good_count_tag, is_cumulative = workcenter.production_count_id.get_count_config_for_machine(machine) if workcenter.production_count_id else (None, False)
+
+        if not state_tag or not good_count_tag:
+            return None
+
+
+        active_intervals, total_planned_sec = self._get_planned_working_intervals(start_time, end_time, workcenter)
+        if total_planned_sec <= 0:
+            return None
+
+        with self.env['mes.timescale.base']._connection() as conn:
+            with conn.cursor() as cur:
+                total_running_sec = self._fetch_active_runtime(cur, state_tag, running_plc_value, active_intervals)
+                
+                total_produced = 0
+                if is_cumulative:
+                    cur.execute("SELECT COALESCE(MAX(value) - MIN(value), 0) FROM telemetry_count WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s", (self.name, good_count_tag, start_time, end_time))
+                else:
+                    cur.execute("SELECT COALESCE(SUM(value), 0) FROM telemetry_count WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s", (self.name, good_count_tag, start_time, end_time))
+                res = cur.fetchone()
+                if res and res[0]:
+                    total_produced += float(res[0])
+                        
+                kpi = self._calculate_kpi(total_running_sec, total_produced, total_planned_sec, workcenter)
+                
+                kpi['produced'] = total_produced
+                kpi['first_running_time'] = self._fetch_first_start_time(cur, state_tag, running_plc_value, active_intervals)
+                return kpi
 
     def action_open_waste_losses(self):
         self.ensure_one()
@@ -718,10 +757,8 @@ class MesWasteLossStat(models.TransientModel):
 
                 raw_counts = machine._fetch_waste_stats_raw(cur, start_time, calc_end_time)
                 
-                # Складываем разные теги в единый Dictionary Count
                 waste_by_dict = {}
                 for count_def in machine.count_tag_ids:
-                    # Игнорируем теги, которые идут в Good Parts
                     if workcenter and count_def.count_id == workcenter.production_count_id:
                         continue
                         

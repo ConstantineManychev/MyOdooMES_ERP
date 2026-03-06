@@ -41,6 +41,9 @@ access_mes_flat_dt_admin,mes.flat.dt.admin,model_mes_flat_downtime,mes_core.grou
 access_mes_waste_loss_stat_user,mes.waste.loss.stat.user,model_mes_waste_loss_stat,mes_core.group_mes_administrator,1,1,1,1
 access_mes_downtime_loss_stat_user,mes.downtime.loss.stat.user,model_mes_downtime_loss_stat,mes_core.group_mes_administrator,1,1,1,1
 
+access_mes_analytics_wiz_adm,mes.analytics.wiz.adm,model_mes_analytics_wizard,mes_core.group_mes_administrator,1,1,1,1
+access_mes_analytics_rep_adm,mes.analytics.rep.adm,model_mes_analytics_report_line,mes_core.group_mes_administrator,1,1,1,1
+
 
 
 access_mes_shift_manager,mes.shift.manager,model_mes_shift,mes_core.group_mes_manager,1,0,0,0
@@ -82,6 +85,12 @@ access_mes_flat_dt_manager,mes.flat.dt.manager,model_mes_flat_downtime,mes_core.
 
 access_mes_waste_loss_stat_user,mes.waste.loss.stat.user,model_mes_waste_loss_stat,mes_core.group_mes_manager,1,1,1,1
 access_mes_downtime_loss_stat_user,mes.downtime.loss.stat.user,model_mes_downtime_loss_stat,mes_core.group_mes_manager,1,1,1,1
+
+
+access_mes_analytics_wiz_mgr,mes.analytics.wiz.mgr,model_mes_analytics_wizard,mes_core.group_mes_manager,1,1,1,1
+access_mes_analytics_rep_mgr,mes.analytics.rep.mgr,model_mes_analytics_report_line,mes_core.group_mes_manager,1,1,1,1
+
+
 
 
 access_mes_shift_operator,mes.shift.operator,model_mes_shift,mes_core.group_mes_operator,1,0,0,0

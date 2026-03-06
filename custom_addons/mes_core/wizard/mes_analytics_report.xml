@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mes_analytics_report_search" model="ir.ui.view">
+        <field name="name">mes.analytics.report.line.search</field>
+        <field name="model">mes.analytics.report.line</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="workcenter_id"/>
+                <field name="shift_date_name"/>
+                <group expand="1" string="Group By">
+                    <filter string="Machine" name="group_by_machine" context="{'group_by':'workcenter_id'}"/>
+                    <filter string="Date / Shift" name="group_by_shift_date" context="{'group_by':'shift_date_name'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_mes_analytics_report_tree" model="ir.ui.view">
+        <field name="name">mes.analytics.report.line.tree</field>
+        <field name="model">mes.analytics.report.line</field>
+        <field name="arch" type="xml">
+            <tree string="Analytics Report" 
+                  decoration-success="oee &gt;= 85" 
+                  decoration-warning="oee &gt;= 67 and oee &lt; 85" 
+                  decoration-danger="oee &lt; 67"
+                  create="false" edit="false" delete="false">
+                <field name="workcenter_id"/>
+                <field name="shift_date_name"/>
+                <field name="first_running_time" optional="show"/>
+                <field name="produced" sum="Total Produced" class="text-center"/>
+                <field name="waste_losses" avg="Avg Waste" class="text-center"/>
+                <field name="downtime_losses" avg="Avg DT" class="text-center"/>
+                <field name="availability" avg="Avg Avail" class="text-center" optional="hide"/>
+                <field name="performance" avg="Avg Perf" class="text-center" optional="hide"/>
+                <field name="quality" avg="Avg Qual" class="text-center" optional="hide"/>
+                <field name="oee" avg="Avg OEE" class="text-center fw-bold"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_analytics_report_pivot" model="ir.ui.view">
+        <field name="name">mes.analytics.report.line.pivot</field>
+        <field name="model">mes.analytics.report.line</field>
+        <field name="arch" type="xml">
+            <pivot string="Analytics Report">
+                <field name="workcenter_id" type="row"/>
+                <field name="shift_date_name" type="row"/>
+                <field name="oee" type="measure"/>
+                <field name="produced" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_mes_analytics_wizard_form" model="ir.ui.view">
+        <field name="name">mes.analytics.wizard.form</field>
+        <field name="model">mes.analytics.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Generate Shift Analytics">
+                <group>
+                    <group>
+                        <field name="start_datetime"/>
+                        <field name="end_datetime"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_generate_report" type="object" string="Generate Report" class="btn btn-primary"/>
+                    <button string="Cancel" class="btn btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mes_analytics_wizard" model="ir.actions.act_window">
+        <field name="name">Shift Analytics</field>
+        <field name="res_model">mes.analytics.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

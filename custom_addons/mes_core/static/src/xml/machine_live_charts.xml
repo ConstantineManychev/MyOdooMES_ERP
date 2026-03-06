@@ -8,7 +8,22 @@
             
             <t t-else="">
                 <div class="d-flex justify-content-between align-items-center mb-2 bg-light p-2 rounded border">
-                    <h5 class="mb-0 text-muted ms-2"><i class="fa fa-line-chart me-2"/>Production Output</h5>
+                    
+                    <h5 class="mb-0 ms-2 d-flex align-items-center">
+                        <i class="fa fa-line-chart me-2 text-muted"/>
+                        <select class="form-select border-0 bg-transparent text-dark fw-bold p-0 pe-4" 
+                                style="font-size: 1.1rem; cursor: pointer; box-shadow: none; width: auto;" 
+                                t-on-change="onCountChange"
+                                t-att-disabled="state.availableCounts.length === 0">
+                            <t t-if="state.availableCounts.length === 0">
+                                <option>No variables mapped</option>
+                            </t>
+                            <t t-foreach="state.availableCounts" t-as="c" t-key="c.id">
+                                <option t-att-value="c.id" t-att-selected="c.id == state.selectedCountId"><t t-esc="c.name"/></option>
+                            </t>
+                        </select>
+                    </h5>
+
                     <div class="d-flex align-items-center gap-4 me-2">
                         <div class="d-flex align-items-center" title="Scroll mouse wheel on chart to zoom">
                             <i class="fa fa-search-minus text-muted me-2"/>

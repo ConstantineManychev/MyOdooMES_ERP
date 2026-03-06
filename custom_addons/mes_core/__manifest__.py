@@ -25,6 +25,8 @@
         'wizard/dictionary_import_wizard.xml',
         'wizard/raw_data_csv_import_wizard.xml',
 
+        'wizard/mes_analytics_report.xml',
+
         'views/mes_menus.xml',
     ],
 

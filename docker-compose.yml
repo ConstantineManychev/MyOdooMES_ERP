@@ -48,7 +48,7 @@ services:
   odoo_db:
     image: postgres:15
     environment:
-      - POSTGRES_DB=${DB_USER}
+      - POSTGRES_DB=${DB_NAME}
       - POSTGRES_PASSWORD=${DB_PASS}
       - POSTGRES_USER=${DB_USER}
       - TELEMETRY_HOST=${TELEMETRY_HOST}

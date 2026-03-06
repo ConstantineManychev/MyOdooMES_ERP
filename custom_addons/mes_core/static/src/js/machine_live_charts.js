@@ -17,7 +17,10 @@ export class MachineLiveCharts extends Component {
             error: false,
             visibleTimeline: [],
             zoomLevel: 1,  
-            panOffset: 0  
+            panOffset: 0,
+            availableCounts: [],
+            selectedCountId: false,
+            selectedCountName: 'Good Parts'
         });
 
         onMounted(async () => {
@@ -42,7 +45,17 @@ export class MachineLiveCharts extends Component {
             return;
         }
 
-        const result = await this.orm.call("mrp.workcenter", "get_live_chart_data", [this.props.record.resId]);
+        await this.orm.call("mrp.workcenter", "action_force_metrics_update", [[this.props.record.resId]]);
+        if (this.props.record.load) {
+            await this.props.record.load();
+        }
+
+        const result = await this.orm.call(
+            "mrp.workcenter", 
+            "get_live_chart_data", 
+            [this.props.record.resId, this.state.selectedCountId || false]
+        );
+
         if (result.error) {
             this.state.error = result.error;
             return;
@@ -50,7 +63,16 @@ export class MachineLiveCharts extends Component {
 
         this.state.error = false;
         this.rawData = result;
+        this.state.availableCounts = result.available_counts;
+        this.state.selectedCountId = result.selected_count_id;
+        this.state.selectedCountName = result.selected_count_name;
+        
         this.applyZoomAndPan(); 
+    }
+
+    async onCountChange(ev) {
+        this.state.selectedCountId = parseInt(ev.target.value);
+        await this.fetchData();
     }
 
     applyZoomAndPan() {
@@ -102,6 +124,7 @@ export class MachineLiveCharts extends Component {
             labels: this.rawData.chart.labels.slice(startIdx, endIdx + 1),
             production: this.rawData.chart.production.slice(startIdx, endIdx + 1),
             ideal: this.rawData.chart.ideal.slice(startIdx, endIdx + 1),
+            show_ideal: this.rawData.chart.show_ideal // <--- ДОБАВЛЕНО
         };
 
         this.updateChart(slicedData);
@@ -124,11 +147,36 @@ export class MachineLiveCharts extends Component {
 
     updateChart(data) {
         if (!this.canvasRef.el) return;
+
+        const idealDataset = {
+            label: 'Ideal Capacity',
+            data: data.ideal,
+            type: 'line',
+            borderColor: '#dc3545',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            fill: false,
+            pointRadius: 0,
+            order: 1
+        };
         
         if (this.chartInstance) {
             this.chartInstance.data.labels = data.labels;
             this.chartInstance.data.datasets[0].data = data.production;
-            this.chartInstance.data.datasets[1].data = data.ideal;
+            this.chartInstance.data.datasets[0].label = this.state.selectedCountName;
+            
+            if (data.show_ideal) {
+                if (this.chartInstance.data.datasets.length === 1) {
+                    this.chartInstance.data.datasets.push(idealDataset);
+                } else {
+                    this.chartInstance.data.datasets[1].data = data.ideal;
+                }
+            } else {
+                if (this.chartInstance.data.datasets.length > 1) {
+                    this.chartInstance.data.datasets.pop();
+                }
+            }
+            
             this.chartInstance.update();
             return;
         }
@@ -148,35 +196,28 @@ export class MachineLiveCharts extends Component {
             }
         };
 
+        const datasets = [{
+            label: this.state.selectedCountName,
+            data: data.production,
+            borderColor: '#28a745',
+            backgroundColor: 'rgba(40, 167, 69, 0.15)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+            pointBackgroundColor: '#28a745',
+            order: 2
+        }];
+
+        if (data.show_ideal) {
+            datasets.push(idealDataset);
+        }
+
         this.chartInstance = new window.Chart(ctx, {
             type: 'line',
             data: {
                 labels: data.labels,
-                datasets: [
-                    {
-                        label: 'Good Parts',
-                        data: data.production,
-                        borderColor: '#28a745',
-                        backgroundColor: 'rgba(40, 167, 69, 0.15)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 3,
-                        pointBackgroundColor: '#28a745',
-                        order: 2
-                    },
-                    {
-                        label: 'Ideal Capacity',
-                        data: data.ideal,
-                        type: 'line',
-                        borderColor: '#dc3545',
-                        borderWidth: 2,
-                        borderDash: [5, 5],
-                        fill: false,
-                        pointRadius: 0,
-                        order: 1
-                    }
-                ]
+                datasets: datasets
             },
             options: {
                 responsive: true,

@@ -326,9 +326,11 @@ class MesWorkcenter(models.Model):
     ]
 
     @api.model
-    def _search(self, domain, offset=0, limit=None, order=None, access_rights_uid=None):
-        domain = self._apply_operator_ip_filter(domain)
-        return super()._search(domain, offset=offset, limit=limit, order=order, access_rights_uid=access_rights_uid)
+    def _search(self, domain, offset=0, limit=None, order=None, **kwargs):
+        if not self.env.context.get('skip_ip_filter'):
+            domain = self._apply_operator_ip_filter(domain)
+            
+        return super()._search(domain, offset=offset, limit=limit, order=order, **kwargs)
     
     @api.model
     def cron_update_realtime_metrics(self):
@@ -421,7 +423,7 @@ class MesWorkcenter(models.Model):
                 
             _logger.info(f"MES Security: Operator opened the dashboard from IP address: {client_ip}")
             
-            all_restricted_wcs = self.env['mrp.workcenter'].sudo().search([('allowed_pc_ips', '!=', False)])
+            all_restricted_wcs = self.env['mrp.workcenter'].with_context(skip_ip_filter=True).sudo().search([('allowed_pc_ips', '!=', False)])
             allowed_wc_ids = []
             
             for wc in all_restricted_wcs:
@@ -440,7 +442,7 @@ class MesWorkcenter(models.Model):
                 raise ValidationError('Configuration error: Refresh frequency cannot be less than 10 seconds.')
             
     @api.model
-    def get_live_chart_data(self, workcenter_id):
+    def get_live_chart_data(self, workcenter_id, selected_count_id=False):
         import math
         from datetime import timedelta
 
@@ -453,19 +455,44 @@ class MesWorkcenter(models.Model):
         if not start_time: return {'error': 'No active shift'}
         calc_end_time = min(fields.Datetime.now(), shift_end)
 
-        good_signals = machine.count_tag_ids.filtered(lambda x: x.count_id == wc.production_count_id)
+        available_counts = []
+        seen_ids = set()
+        for ct in machine.count_tag_ids:
+            if ct.count_id and ct.count_id.id not in seen_ids:
+                available_counts.append({
+                    'id': ct.count_id.id,
+                    'name': ct.count_id.name
+                })
+                seen_ids.add(ct.count_id.id)
+
+        target_count_id = self.env['mes.counts'].browse(int(selected_count_id)) if selected_count_id else wc.production_count_id
+        
+        show_ideal_line = False
+        if wc.production_count_id and target_count_id:
+            show_ideal_line = (target_count_id.id == wc.production_count_id.id)
+
+        good_signals = machine.count_tag_ids.filtered(lambda x: x.count_id == target_count_id)
         good_tags = list(set(good_signals.mapped('tag_name')))
         tag_is_cum = {sig.tag_name: sig.is_cumulative for sig in good_signals}
+        
+        if not good_tags and target_count_id and target_count_id.default_OPCTag:
+            def_tag = target_count_id.default_OPCTag
+            good_tags = [def_tag]
+            tag_is_cum = {def_tag: target_count_id.is_cumulative}
 
         event_signals = machine.event_tag_ids
         all_event_tags = list(set(event_signals.mapped('tag_name')))
         
         state_sig = event_signals.filtered(lambda x: x.event_id == wc.runtime_event_id)
-        state_tag = state_sig[0].tag_name if state_sig else None
-        running_plc_value = state_sig[0].plc_value if state_sig else None
+        state_configs = [{'tag': s.tag_name, 'val': s.plc_value} for s in state_sig]
         
-        if state_tag and state_tag not in all_event_tags:
-            all_event_tags.append(state_tag)
+        if not state_configs and wc.runtime_event_id and wc.runtime_event_id.default_event_tag_type:
+            def_tag = wc.runtime_event_id.default_event_tag_type
+            state_configs = [{'tag': def_tag, 'val': wc.runtime_event_id.default_plc_value}]
+            
+        for sc in state_configs:
+            if sc['tag'] not in all_event_tags:
+                all_event_tags.append(sc['tag'])
 
         bucket_min = max(1, wc.chart_bucket_minutes)
         bucket_sec = bucket_min * 60
@@ -487,34 +514,37 @@ class MesWorkcenter(models.Model):
             with conn.cursor() as cur:
                 if all_event_tags:
                     raw_timeline = machine._fetch_timeline_raw(cur, start_time, calc_end_time, all_event_tags)
-                    timeline_data = self._process_timeline_colors(machine, raw_timeline, state_tag, running_plc_value)
+                    timeline_data = self._process_timeline_colors(machine, raw_timeline, state_configs)
                 
                 if good_tags:
                     raw_production = machine._fetch_production_chart_raw(cur, good_tags, start_time, calc_end_time, bucket_min)
                     for row in raw_production:
                         t_name = row[0]
                         b_time = row[1].replace(tzinfo=None) if row[1].tzinfo else row[1]
-                        
                         produced = float(row[3]) if tag_is_cum.get(t_name) else float(row[2])
                         
                         if b_time in bucket_indices:
                             plot_idx = bucket_indices[b_time] + 1 
                             if plot_idx < len(production_data):
-                                production_data[plot_idx] += produced # Складываем теги вместе!
+                                production_data[plot_idx] += produced
 
         return {
             'timeline': timeline_data,
             'chart_duration_sec': num_intervals * bucket_sec,
             'shift_start': start_time.isoformat(), 
+            'available_counts': available_counts,
+            'selected_count_id': target_count_id.id if target_count_id else False,
+            'selected_count_name': target_count_id.name if target_count_id else 'Data',
             'chart': {
                 'labels': labels,
                 'production': production_data,
                 'ideal': ideal_data,
-                'bucket_sec': bucket_sec
+                'bucket_sec': bucket_sec,
+                'show_ideal': show_ideal_line
             }
         }
 
-    def _process_timeline_colors(self, machine, raw_timeline, state_tag, running_plc_value):
+    def _process_timeline_colors(self, machine, raw_timeline, state_configs):
         name_map = {}
         color_map = {}
         
@@ -540,13 +570,16 @@ class MesWorkcenter(models.Model):
             evt_color = color_map.get(key) or fallback_color_map.get(val)
             
             if not evt_name:
-                if t_name == state_tag and val == running_plc_value:
+                is_running = any(c['tag'] == t_name and c['val'] == val for c in state_configs)
+                is_state_tag = any(c['tag'] == t_name for c in state_configs)
+                
+                if is_running:
                     evt_name, evt_color = 'Running', '#28a745'
                 elif val == 0:
                     evt_name, evt_color = 'Ready / Cleared', '#cccccc'
                 else:
                     evt_name = f'Code {val}'
-                    evt_color = '#dc3545' if t_name != state_tag else '#ffc107'
+                    evt_color = '#dc3545' if is_state_tag else '#ffc107'
 
             result.append({
                 'start': row[0].isoformat(),
