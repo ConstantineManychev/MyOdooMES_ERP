@@ -82,30 +82,50 @@ class MesMachineSettings(models.Model):
             
         return plc_str
     
-    def get_top_alarm_str(self, cursor, start_time, end_time):
+    def get_top_alarm_str(self, cursor, active_intervals):
+        if not active_intervals:
+            return "None"
+
+        start_time = active_intervals[0][0]
+        end_time = active_intervals[-1][1]
+
+        val_list = [f"('{a_s} UTC'::timestamptz, '{a_e} UTC'::timestamptz)" for a_s, a_e in active_intervals]
+        active_cte = "SELECT * FROM (VALUES " + ", ".join(val_list) + ") AS ai(ai_start, ai_end)"
+
         alarm_tag = self.get_alarm_tag_name('OEE.nStopRootReason')
 
         alarm_query = f"""
-            WITH alarm_boundary AS (
-                SELECT %s::timestamptz as time, value::text FROM telemetry_event
-                WHERE machine_name = %s AND tag_name LIKE %s AND time < %s ORDER BY time DESC LIMIT 1
+            WITH active_windows AS ( {active_cte} ),
+            alarm_boundary AS (
+                SELECT time, tag_name, value::text FROM telemetry_event
+                WHERE machine_name = %s AND time < %s ORDER BY time DESC LIMIT 1
             ),
             alarm_events AS (
-                SELECT time, value::text FROM alarm_boundary UNION ALL
+                SELECT GREATEST(time, %s) as time, value::text FROM alarm_boundary WHERE tag_name LIKE %s UNION ALL
                 SELECT time, value::text FROM telemetry_event
                 WHERE machine_name = %s AND tag_name LIKE %s AND time >= %s AND time <= %s
             ),
-            alarm_durations AS (
-                SELECT value as alarm_code, EXTRACT(EPOCH FROM (COALESCE(LEAD(time) OVER (ORDER BY time), %s) - time)) as duration_sec
+            state_durations AS (
+                SELECT value as alarm_code, time as state_start,
+                       COALESCE(LEAD(time) OVER (ORDER BY time ASC, id ASC), %(end_time)s) as state_end
                 FROM alarm_events
+            ),
+            intersected_durations AS (
+                SELECT alarm_code,
+                       GREATEST(state_start, aw.ai_start) as eff_start,
+                       LEAST(state_end, aw.ai_end) as eff_end
+                FROM state_durations sd
+                INNER JOIN active_windows aw ON aw.ai_start < sd.state_end AND aw.ai_end > sd.state_start
             )
-            SELECT alarm_code, SUM(duration_sec) as total_dur FROM alarm_durations
-            WHERE alarm_code != '0' AND alarm_code != '' AND alarm_code IS NOT NULL
-            GROUP BY alarm_code ORDER BY total_dur DESC LIMIT 1;
+            SELECT alarm_code, SUM(EXTRACT(EPOCH FROM (eff_end - eff_start))) as total_dur 
+            FROM intersected_durations
+            WHERE alarm_code != '0' AND alarm_code != '' AND alarm_code IS NOT NULL AND eff_start < eff_end
+            GROUP BY alarm_code 
+            ORDER BY total_dur DESC LIMIT 1;
         """
         cursor.execute(alarm_query, (
-            start_time, self.name, alarm_tag, start_time,
-            self.name, alarm_tag, start_time, end_time, end_time
+            self.name, start_time,   
+            start_time, alarm_tag, self.name, alarm_tag, start_time, end_time, end_time
         ))
         res_al = cursor.fetchone()
         
@@ -132,7 +152,6 @@ class MesMachineSettings(models.Model):
             ('start_time', '<', calc_end_time),
             ('end_time', '>', start_time)
         ])
-
 
         intervals = []
         for dt in downtimes:
@@ -167,139 +186,90 @@ class MesMachineSettings(models.Model):
 
         return active_intervals, total_planned_runtime_sec
 
-    def _fetch_active_runtime(self, cursor, state_tag, plc_value, active_intervals):
-        if not active_intervals:
-            return 0.0
+    def _fetch_interval_stats(self, cursor, active_intervals, tags, mode='runtime', state_tag=None, state_val=None):
+        if not active_intervals or not tags:
+            if mode == 'downtime': return []
+            elif mode == 'first_start': return False
+            else: return 0.0
 
-        scan_start = active_intervals[0][0]
-        scan_end = active_intervals[-1][1]
-
-        val_list = [f"('{a_s} UTC'::timestamptz, '{a_e} UTC'::timestamptz)" for a_s, a_e in active_intervals]
-        active_cte = "SELECT * FROM (VALUES " + ", ".join(val_list) + ") AS ai(ai_start, ai_end)"
-
-        query = f"""
-            WITH boundary AS (
-                SELECT tag_name, time, value, 0::bigint as id
-                FROM telemetry_event
-                WHERE machine_name = %s AND time <= %s
-                ORDER BY time DESC, id DESC LIMIT 1
-            ),
-            events AS (
-                SELECT time, tag_name, value, id FROM boundary where value = %s AND tag_name = %s
-                UNION ALL
-                SELECT time, tag_name, value, id FROM telemetry_event
-                WHERE machine_name = %s AND time >= %s AND time <= %s
-            ),
-            state_durations AS (
-                SELECT time as state_start, tag_name as tag, value as state,
-                    COALESCE(LEAD(time) OVER (ORDER BY time ASC, id ASC), %s) as state_end
-                FROM events
-            ),
-            running_durations AS (
-                SELECT state_start, state_end FROM state_durations WHERE tag = %s AND state = %s
-            ),
-            active_windows AS ( {active_cte} )
-            SELECT COALESCE(SUM(
-                GREATEST(0, EXTRACT(EPOCH FROM (
-                    LEAST(r.state_end, aw.ai_end) - GREATEST(r.state_start, aw.ai_start)
-                )))
-            ), 0)
-            FROM running_durations r
-            INNER JOIN active_windows aw ON aw.ai_start < r.state_end AND aw.ai_end > r.state_start
-        """
-        cursor.execute(query, (
-            self.name, scan_start,
-            plc_value, state_tag, self.name, scan_start, scan_end,
-            scan_end,
-            state_tag, plc_value
-        ))
-        res = cursor.fetchone()
-        return float(res[0]) if res else 0.0
-
-    def _fetch_first_start_time(self, cursor, state_tag, plc_value, active_intervals):
-        if not active_intervals:
-            return False
-
-        scan_start = active_intervals[0][0]
-        scan_end = active_intervals[-1][1]
-
+        start_time = active_intervals[0][0]
+        end_time = active_intervals[-1][1]
 
         val_list = [f"('{a_s} UTC'::timestamptz, '{a_e} UTC'::timestamptz)" for a_s, a_e in active_intervals]
         active_cte = "SELECT * FROM (VALUES " + ", ".join(val_list) + ") AS ai(ai_start, ai_end)"
 
         query = f"""
-            WITH boundary AS (
-                SELECT tag_name, time, value, 0::bigint as id
-                FROM telemetry_event
-                WHERE machine_name = %s AND time <= %s
-                ORDER BY time DESC, id DESC LIMIT 1
-            ),
-            events AS (
-                SELECT time, value, id FROM boundary where value = %s AND tag_name = %s
-                UNION ALL
-                SELECT time, value, id FROM telemetry_event
-                WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
-            ),
-            state_durations AS (
-                SELECT GREATEST(time, %s) as r_start,
-                    COALESCE(LEAD(time) OVER (ORDER BY time ASC, id ASC), %s) as r_end,
-                    value as state
-                FROM events
-            ),
-            running_durations AS (
-                SELECT r_start, r_end FROM state_durations WHERE state = %s AND r_start < r_end
-            ),
-            active_windows AS ( {active_cte} ),
-            effective_runs AS (
-                SELECT GREATEST(r.r_start, aw.ai_start) as eff_start
-                FROM running_durations r
-                INNER JOIN active_windows aw ON aw.ai_start < r.r_end AND aw.ai_end > r.r_start
-            )
-            SELECT MIN(eff_start) FROM effective_runs;
-        """
-        cursor.execute(query, (
-            self.name, scan_start,
-            plc_value, state_tag, self.name, state_tag, scan_start, scan_end,
-            scan_start, scan_end,
-            plc_value
-        ))
-        res = cursor.fetchone()
-        return res[0].replace(tzinfo=None) if res and res[0] else False
-
-    def _fetch_downtime_stats_raw(self, cursor, start_time, end_time, event_tags):
-        if not event_tags: return []
-        alarm_tag = self.get_alarm_tag_name('OEE.nStopRootReason')
-        
-        query = f"""
-            WITH alarm_boundary AS (
-                SELECT tag_name, time, value, 0::bigint as id 
+            WITH active_windows AS ( {active_cte} ),
+            boundary AS (
+                SELECT DISTINCT ON (tag_name)
+                    time, value, tag_name, 0::bigint as id 
                 FROM telemetry_event
                 WHERE machine_name = %s AND time < %s 
-                ORDER BY time DESC LIMIT 1
+                ORDER BY tag_name, time DESC, id DESC
             ),
-            alarm_events AS (
-                SELECT tag_name, GREATEST(time, %s) as time, value, id FROM alarm_boundary WHERE tag_name = %s
+            events AS (
+                SELECT GREATEST(time, %s) as time, value, tag_name, id FROM boundary WHERE tag_name = ANY(%s) 
                 UNION ALL
-                SELECT tag_name, time, value, id FROM telemetry_event
-                WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
+                SELECT time, value, tag_name, id FROM telemetry_event
+                WHERE machine_name = %s AND tag_name = ANY(%s) AND time >= %s AND time <= %s
             ),
-            alarm_durations AS (
-                SELECT tag_name, value, 
-                       EXTRACT(EPOCH FROM (COALESCE(LEAD(time) OVER (PARTITION BY tag_name ORDER BY time, id), %s) - time)) as duration_sec
-                FROM alarm_events
+            state_durations AS (
+                SELECT id, tag_name, value, time as state_start,
+                       COALESCE(LEAD(time) OVER (PARTITION BY tag_name ORDER BY time ASC, id ASC), %s) as state_end
+                FROM events
+            ),
+            intersected_durations AS (
+                SELECT sd.id, sd.tag_name, sd.value,
+                       GREATEST(sd.state_start, aw.ai_start) as eff_start,
+                       LEAST(sd.state_end, aw.ai_end) as eff_end
+                FROM state_durations sd
+                INNER JOIN active_windows aw ON aw.ai_start < sd.state_end AND aw.ai_end > sd.state_start
             )
-            SELECT tag_name, value as alarm_code, COUNT(*) as freq, SUM(duration_sec) as total_dur 
-            FROM alarm_durations
-            WHERE value IS NOT NULL AND value != 0
-            GROUP BY tag_name, value;
         """
 
-        cursor.execute(query, (
-            self.name, start_time,
-            start_time, alarm_tag, self.name, alarm_tag, start_time, end_time, 
-            end_time
-        ))
-        return cursor.fetchall()
+        if mode == 'runtime':
+            query += """
+                SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (eff_end - eff_start))), 0)
+                FROM intersected_durations
+                WHERE tag_name = %s AND value = %s AND eff_start < eff_end
+            """
+            cursor.execute(query, (
+                self.name, start_time,   
+                start_time, tags, self.name, tags, start_time, end_time,
+                end_time,
+                state_tag, state_val
+            ))
+            res = cursor.fetchone()
+            return float(res[0]) if res else 0.0
+
+        elif mode == 'downtime':
+            query += """
+                SELECT tag_name, value as alarm_code, COUNT(DISTINCT id) as freq, SUM(EXTRACT(EPOCH FROM (eff_end - eff_start))) as total_dur
+                FROM intersected_durations
+                WHERE value IS NOT NULL AND value != 0 AND eff_start < eff_end
+                GROUP BY tag_name, value
+            """
+            cursor.execute(query, (
+                self.name, start_time,  
+                start_time, tags, self.name, tags, start_time, end_time,
+                end_time
+            ))
+            return cursor.fetchall()
+            
+        elif mode == 'first_start':
+            query += """
+                SELECT MIN(eff_start)
+                FROM intersected_durations
+                WHERE tag_name = %s AND value = %s AND eff_start < eff_end
+            """
+            cursor.execute(query, (
+                self.name, start_time,  
+                start_time, tags, self.name, tags, start_time, end_time,
+                end_time,
+                state_tag, state_val
+            ))
+            res = cursor.fetchone()
+            return res[0].replace(tzinfo=None) if res and res[0] else False
 
     def _fetch_waste_stats_raw(self, cursor, start_time, end_time):
         query = """
@@ -408,14 +378,15 @@ class MesMachineSettings(models.Model):
         if not state_tag or not good_count_tag:
             return None
 
-
         active_intervals, total_planned_sec = self._get_planned_working_intervals(start_time, end_time, workcenter)
         if total_planned_sec <= 0:
             return None
 
         with self.env['mes.timescale.base']._connection() as conn:
             with conn.cursor() as cur:
-                total_running_sec = self._fetch_active_runtime(cur, state_tag, running_plc_value, active_intervals)
+                total_running_sec = self._fetch_interval_stats(
+                    cur, active_intervals, [state_tag], mode='runtime', state_tag=state_tag, state_val=running_plc_value
+                )
                 
                 total_produced = 0
                 if is_cumulative:
@@ -429,7 +400,9 @@ class MesMachineSettings(models.Model):
                 kpi = self._calculate_kpi(total_running_sec, total_produced, total_planned_sec, workcenter)
                 
                 kpi['produced'] = total_produced
-                kpi['first_running_time'] = self._fetch_first_start_time(cur, state_tag, running_plc_value, active_intervals)
+                kpi['first_running_time'] = self._fetch_interval_stats(
+                    cur, active_intervals, [state_tag], mode='first_start', state_tag=state_tag, state_val=running_plc_value
+                )
                 return kpi
 
     def action_open_waste_losses(self):
@@ -567,12 +540,15 @@ class MesMachineSettings(models.Model):
 
                     top_rejection_str = f"{top_rej_name} ({int(top_rej_count)})" if top_rej_count > 0 else "None"
 
-                    top_alarm_str = machine.get_top_alarm_str(cur, start_time, calc_end_time)
-                    total_running_sec = machine._fetch_active_runtime(
-                        cur, cfg['state_tag'], cfg['running_plc_value'], cfg['active_intervals']
+                    top_alarm_str = machine.get_top_alarm_str(cur, cfg['active_intervals'])
+                    
+                    total_running_sec = machine._fetch_interval_stats(
+                        cur, cfg['active_intervals'], [cfg['state_tag']], mode='runtime', 
+                        state_tag=cfg['state_tag'], state_val=cfg['running_plc_value']
                     )
-                    first_running_time = machine._fetch_first_start_time(
-                        cur, cfg['state_tag'], cfg['running_plc_value'], cfg['active_intervals']
+                    first_running_time = machine._fetch_interval_stats(
+                        cur, cfg['active_intervals'], [cfg['state_tag']], mode='first_start', 
+                        state_tag=cfg['state_tag'], state_val=cfg['running_plc_value']
                     )
 
                     wc = workcenters.browse(wc_id)
@@ -752,7 +728,10 @@ class MesWasteLossStat(models.TransientModel):
         vals_list = []
         with self.env['mes.timescale.base']._connection() as conn:
             with conn.cursor() as cur:
-                total_running_sec = machine._fetch_active_runtime(cur, state_tag, running_plc_value, active_intervals) if state_tag else 0.0
+                total_running_sec = machine._fetch_interval_stats(
+                    cur, active_intervals, [state_tag], mode='runtime', state_tag=state_tag, state_val=running_plc_value
+                ) if state_tag else 0.0
+                
                 hours_run = (total_running_sec / 3600.0) if total_running_sec > 0 else 0.0
 
                 raw_counts = machine._fetch_waste_stats_raw(cur, start_time, calc_end_time)
@@ -809,15 +788,20 @@ class MesDowntimeLossStat(models.TransientModel):
         state_tag = state_sig[0].tag_name if state_sig else None
         running_plc_value = state_sig[0].plc_value if state_sig else 0
 
-        all_event_tags = list(set(machine.event_tag_ids.mapped('tag_name')))
+        #all_event_tags = list(set(machine.event_tag_ids.mapped('tag_name')))
+        alarm_tag = machine.get_alarm_tag_name('OEE.nStopRootReason').replace('%', '')
         
         vals_list = []
         with self.env['mes.timescale.base']._connection() as conn:
             with conn.cursor() as cur:
-                total_running_sec = machine._fetch_active_runtime(cur, state_tag, running_plc_value, active_intervals) if state_tag else 0.0
+                active_intervals = machine._get_planned_working_intervals(start_time, shift_end, workcenter)[0]
+                
+                total_running_sec = machine._fetch_interval_stats(
+                    cur, active_intervals, [state_tag], mode='runtime', state_tag=state_tag, state_val=running_plc_value
+                ) if state_tag else 0.0
                 hours_run = (total_running_sec / 3600.0) if total_running_sec > 0 else 0.0
                 
-                rows = machine._fetch_downtime_stats_raw(cur, start_time, calc_end_time, all_event_tags)
+                rows = machine._fetch_interval_stats(cur, active_intervals, [alarm_tag], mode='downtime')
                 
                 stats_by_event = {}
                 for row in rows:
