@@ -22,10 +22,13 @@
         
         'views/mes_telemetry_views.xml',
         'views/mes_machine_settings_views.xml',
+        'views/mes_report_base_views.xml',
+
         'wizard/dictionary_import_wizard.xml',
         'wizard/raw_data_csv_import_wizard.xml',
 
         'wizard/mes_analytics_report.xml',
+        'wizard/mes_alarm_report.xml',
 
         'views/mes_menus.xml',
     ],

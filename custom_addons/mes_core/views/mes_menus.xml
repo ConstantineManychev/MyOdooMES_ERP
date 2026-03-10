@@ -56,6 +56,12 @@
               action="action_mes_anomaly_dashboard"
               sequence="20"/>
 
+    <menuitem id="menu_mes_alarm_analytics" 
+              name="Alarms Explorer" 
+              parent="menu_mes_analytics" 
+              action="action_mes_alarm_wizard" 
+              sequence="16"/>
+
        <menuitem id="menu_mes_shift_analytics" 
               name="Shift Analytics Dashboard" 
               parent="menu_mes_analytics" 

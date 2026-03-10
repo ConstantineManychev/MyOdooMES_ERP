@@ -124,7 +124,7 @@ export class MachineLiveCharts extends Component {
             labels: this.rawData.chart.labels.slice(startIdx, endIdx + 1),
             production: this.rawData.chart.production.slice(startIdx, endIdx + 1),
             ideal: this.rawData.chart.ideal.slice(startIdx, endIdx + 1),
-            show_ideal: this.rawData.chart.show_ideal // <--- ДОБАВЛЕНО
+            show_ideal: this.rawData.chart.show_ideal
         };
 
         this.updateChart(slicedData);

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mes_alarm_report_tree" model="ir.ui.view">
+        <field name="name">mes.alarm.report.line.tree</field>
+        <field name="model">mes.alarm.report.line</field>
+        <field name="arch" type="xml">
+            <tree string="Alarms List" create="false" edit="false" delete="false" default_order="total_time desc">
+                <field name="row_group_label"/>
+                <field name="col_group_label"/>
+                <field name="frequency" sum="Total Freq"/>
+                <field name="total_time" sum="Total Time" widget="float_time"/>
+                <field name="freq_per_hour" avg="Avg Freq/H"/>
+                <field name="time_per_hour" avg="Avg Time/H"/>
+                <field name="avg_time_per_stop" avg="Avg Stop Time"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_alarm_report_pivot" model="ir.ui.view">
+        <field name="name">mes.alarm.report.line.pivot</field>
+        <field name="model">mes.alarm.report.line</field>
+        <field name="arch" type="xml">
+            <pivot string="Alarms Matrix" disable_linking="True">
+                <field name="row_group_label" type="row"/>
+                <field name="col_group_label" type="col"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_mes_alarm_wizard_form" model="ir.ui.view">
+        <field name="name">mes.alarm.report.wizard.form</field>
+        <field name="model">mes.alarm.report.wizard</field>
+        <field name="inherit_id" ref="mes_core.view_mes_report_base_form"/>
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='skd_filters']" position="inside">
+                <label for="event_ids" string="Event/Alarm"/>
+                <div class="o_row">
+                    <field name="event_filter_type" nolabel="1"/>
+                    <field name="event_ids" widget="many2many_tags" nolabel="1" placeholder="All Data"/>
+                </div>
+            </xpath>
+            <xpath expr="//group[@name='row_group']" position="inside">
+                <field name="row_by_event"/>
+            </xpath>
+            <xpath expr="//group[@name='col_group']" position="inside">
+                <field name="col_by_event"/>
+            </xpath>
+            <xpath expr="//page[@name='measures_page']" position="inside">
+                <group>
+                    <group>
+                        <field name="show_frequency"/>
+                        <field name="show_total_time"/>
+                        <field name="show_avg_time_per_stop"/>
+                    </group>
+                    <group>
+                        <field name="show_freq_per_hour"/>
+                        <field name="show_time_per_hour"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_mes_alarm_wizard" model="ir.actions.act_window">
+        <field name="name">Alarms Matrix Builder</field>
+        <field name="res_model">mes.alarm.report.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_mes_alarm_analytics" 
+              name="Alarms Matrix Builder" 
+              parent="mrp.menu_mrp_reporting" 
+              action="action_mes_alarm_wizard" 
+              sequence="16"/>
+</odoo>

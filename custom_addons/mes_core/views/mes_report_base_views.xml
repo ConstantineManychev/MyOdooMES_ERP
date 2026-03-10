@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mes_report_base_form" model="ir.ui.view">
+        <field name="name">mes.report.base.form</field>
+        <field name="model">mes.report.base.wizard</field>
+        <field name="arch" type="xml">
+            <form string="SKD Report Constructor">
+                <sheet>
+                    <group>
+                        <group string="Time Aggregation">
+                            <field name="start_datetime"/>
+                            <field name="end_datetime"/>
+                            <field name="time_scale"/>
+                        </group>
+                        
+                        <group string="Data Filters" name="skd_filters">
+                            <label for="machine_ids" string="Machine"/>
+                            <div class="o_row">
+                                <field name="machine_filter_type" nolabel="1"/>
+                                <field name="machine_ids" widget="many2many_tags" nolabel="1" placeholder="All Data"/>
+                            </div>
+                            </group>
+                    </group>
+                    <notebook>
+                        <page string="Matrix Structure (Rows &amp; Cols)">
+                            <group>
+                                <group string="Combine into Row Header" name="row_group">
+                                    <field name="row_by_machine"/>
+                                    <field name="row_by_period"/>
+                                </group>
+                                <group string="Combine into Column Header" name="col_group">
+                                    <field name="col_by_machine"/>
+                                    <field name="col_by_period"/>
+                                </group>
+                                <div class="text-muted mt-3" colspan="2">
+                                    <i>Tip: Select multiple fields to combine them into a single flat grouping level.</i>
+                                </div>
+                            </group>
+                        </page>
+                        <page string="Indicators (Measures)" name="measures_page">
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer>
+                    <button name="action_generate_report" type="object" string="Generate Matrix" class="btn btn-primary"/>
+                    <button string="Cancel" class="btn btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

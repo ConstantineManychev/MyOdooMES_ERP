@@ -72,7 +72,6 @@ class MesAnalyticsWizard(models.TransientModel):
                     actual_start_utc = max(shift_start_local, start_dt).astimezone(pytz.UTC).replace(tzinfo=None)
                     actual_end_utc = min(shift_end_local, end_dt).astimezone(pytz.UTC).replace(tzinfo=None)
 
-                    # Формат ГГГГ-ММ-ДД ЧЧ:ММ делает сортировку строк идеальной
                     shift_date_name = f"{shift_start_local.strftime('%Y-%m-%d %H:%M')} [{shift.name}]"
 
                     for wc in workcenters:
