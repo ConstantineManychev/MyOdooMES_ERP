@@ -22,6 +22,14 @@ class MesReportBaseWizard(models.TransientModel):
         ('period', 'Entire Selected Period')
     ], string="Time Aggregation", default='month', required=True)
 
+    record_limit = fields.Integer(default=0)    
+
+    limit_by = fields.Selection(
+            selection='_get_limit_by_options',
+            default='total_time',
+            required=True
+        )
+
     row_by_machine = fields.Boolean("Machine", default=True)
     row_by_period = fields.Boolean("Period", default=False)
     col_by_machine = fields.Boolean("Machine", default=False)
@@ -50,6 +58,12 @@ class MesReportBaseWizard(models.TransientModel):
             res['end_datetime'] = datetime.now().replace(hour=23, minute=59, second=59)
         return res
 
+    @api.model
+    def _get_limit_by_options(self):
+        return [
+            ('total_time', 'Total Time')
+        ]
+    
     def _get_filtered_machines(self):
         domain = []
         if self.machine_ids:
@@ -91,10 +105,14 @@ class MesReportBaseWizard(models.TransientModel):
                     actual_s = max(shift_s_loc, start_dt_local).astimezone(pytz.UTC).replace(tzinfo=None)
                     actual_e = min(shift_e_loc, end_dt_local).astimezone(pytz.UTC).replace(tzinfo=None)
                     
-                    if self.time_scale == 'shift': p_name = f"{current_date.strftime('%Y-%m-%d')} [{shift.name}]"
-                    elif self.time_scale == 'day': p_name = current_date.strftime('%Y-%m-%d')
-                    elif self.time_scale == 'month': p_name = current_date.strftime('%Y-%B')
-                    else: p_name = f"Total Period"
+                    if self.time_scale == 'shift': 
+                        p_name = f"{current_date.strftime('%Y-%m-%d')} {h_s:02d}:{m_s:02d} [{shift.name}]"
+                    elif self.time_scale == 'day': 
+                        p_name = current_date.strftime('%Y-%m-%d')
+                    elif self.time_scale == 'month': 
+                        p_name = current_date.strftime('%Y-%B')
+                    else: 
+                        p_name = f"Total Period"
                         
                     if p_name not in periods_dict:
                         periods_dict[p_name] = []

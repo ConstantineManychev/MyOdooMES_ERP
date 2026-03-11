@@ -107,7 +107,7 @@ class MesMachineSettings(models.Model):
             ),
             state_durations AS (
                 SELECT value as alarm_code, time as state_start,
-                       COALESCE(LEAD(time) OVER (ORDER BY time ASC, id ASC), %(end_time)s) as state_end
+                       COALESCE(LEAD(time) OVER (ORDER BY time ASC), %s) as state_end
                 FROM alarm_events
             ),
             intersected_durations AS (

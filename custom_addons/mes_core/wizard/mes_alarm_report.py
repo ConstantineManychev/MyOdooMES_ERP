@@ -20,6 +20,16 @@ class MesAlarmReportWizard(models.TransientModel):
     show_avg_time_per_stop = fields.Boolean("Avg Duration per Stop (min)", default=False)
     show_time_per_hour = fields.Boolean("Duration per Hour Run", default=False)
 
+    @api.model
+    def _get_limit_by_options(self):
+        return [
+            ('frequency', 'Frequency'),
+            ('freq_per_hour', 'Frequency / Hour'),
+            ('total_time', 'Total Time'),
+            ('avg_time_per_stop', 'Avg Time / Stop'),
+            ('time_per_hour', 'Time / Hour')
+        ]
+
     def action_generate_report(self):
         self.env['mes.alarm.report.line'].search([('user_id', '=', self.env.user.id)]).unlink()
 
@@ -106,6 +116,9 @@ class MesAlarmReportWizard(models.TransientModel):
                                 })
         
         if lines:
+            lines.sort(key=lambda x: x.get(self.limit_by, 0), reverse=True)
+            if self.record_limit > 0:
+                lines = lines[:self.record_limit]
             self.env['mes.alarm.report.line'].create(lines)
 
         measures = []
