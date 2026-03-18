@@ -20,6 +20,8 @@
                     <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
                     <filter string="Priority" name="group_priority" context="{'group_by': 'priority'}"/>
                     <filter string="Machine" name="group_machine" context="{'group_by': 'machine_id'}"/>
+                    <filter string="Creation Day" name="group_mx_created_day" context="{'group_by': 'maintainx_created_at:day'}"/>
+                    <filter string="Update Day" name="group_mx_updated_day" context="{'group_by': 'maintainx_updated_at:day'}"/>
                 </group>
 
                 <searchpanel>
@@ -72,7 +74,8 @@
                 <field name="priority"/>
                 <field name="machine_id"/>
                 <field name="assigned_id"/>
-                <field name="create_date"/> <templates>
+                <field name="create_date"/>
+                <templates>
                     <t t-name="kanban-box">
                         <div class="oe_kanban_global_click oe_kanban_card">
                             
