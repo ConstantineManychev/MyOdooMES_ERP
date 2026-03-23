@@ -157,11 +157,9 @@ export class MachineLiveCharts extends Component {
         let endIdx = Math.ceil(viewEndSec / stepSec);
         
         const prodSeries = this.rawMetric.chart?.production || [];
-        const maxIdx = Math.max(0, prodSeries.length - 1);
         
-        endIdx = Math.min(maxIdx, endIdx);
         if (endIdx - startIdx < 1) {
-            endIdx = Math.min(maxIdx, startIdx + 1);
+            endIdx = startIdx + 1;
         }
 
         const boundStartSec = startIdx * stepSec;
@@ -179,12 +177,16 @@ export class MachineLiveCharts extends Component {
                 if (clampStart < clampEnd && !isNaN(clampStart) && !isNaN(clampEnd)) {
                     this.state.visibleTimeline.push({
                         ...block,
+                        leftPct: ((clampStart - boundStartSec) / activeDurSec) * 100,
                         widthPct: ((clampEnd - clampStart) / activeDurSec) * 100,
                         durationMin: Math.round(block.duration / 60)
                     });
                 }
             }
         }
+
+        const currentOffsetSec = (Date.now() - startMs) / 1000;
+        const processEndSec = Math.min(boundEndSec, currentOffsetSec);
 
         const procList = [];
         if (Array.isArray(this.rawMetric.chart?.processes)) {
@@ -201,14 +203,18 @@ export class MachineLiveCharts extends Component {
                     }
                 }
                 
-                const slicedProc = rawProc.filter(pt => pt.x >= boundStartSec && pt.x <= boundEndSec);
+                const slicedProc = rawProc.filter(pt => pt.x >= boundStartSec && pt.x <= processEndSec);
                 const prevPts = rawProc.filter(pt => pt.x < boundStartSec);
                 
                 if (prevPts.length > 0) {
                     slicedProc.unshift({ x: boundStartSec, y: prevPts[prevPts.length - 1].y });
                 }
+                
                 if (slicedProc.length > 0) {
-                    slicedProc.push({ x: boundEndSec, y: slicedProc[slicedProc.length - 1].y });
+                    const lastState = slicedProc[slicedProc.length - 1];
+                    if (lastState.x < processEndSec) {
+                        slicedProc.push({ x: processEndSec, y: lastState.y });
+                    }
                 }
 
                 procList.push({
@@ -392,22 +398,26 @@ export class MachineLiveCharts extends Component {
             }
         } : {};
 
+        const syncTimelinePlugin = {
+            id: 'syncTimeline',
+            afterLayout: function(chart) {
+                alignTimeline(chart);
+            }
+        };
+
         this.chartInst = new window.Chart(ctx, {
             type: 'line',
             data: { datasets: ds },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: { 
-                    duration: 0,
-                    onComplete: function() { alignTimeline(this); },
-                    onProgress: function() { alignTimeline(this); }
-                }, 
+                animation: { duration: 0 }, 
                 scales: axCfg,
                 tooltips: ttCfg,
                 plugins: plCfg,
                 hover: { mode: 'nearest', intersect: true }
-            }
+            },
+            plugins: [syncTimelinePlugin]
         });
     }
 }

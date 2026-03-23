@@ -72,9 +72,9 @@
                 <div class="mes-timeline-container mb-4" t-on-wheel="onWheelZoom">
                     <h5 class="mb-2 text-muted" style="margin-left: 15px;">Machine State Timeline</h5>
                     <div class="mes-timeline-wrapper" style="width: 100%;">
-                        <div class="d-flex w-100 rounded overflow-hidden" style="height: 40px; background-color: #f8f9fa; border: 1px solid #dee2e6; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
+                        <div class="d-flex w-100 rounded overflow-hidden" style="position: relative; height: 40px; background-color: #f8f9fa; border: 1px solid #dee2e6; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
                             <t t-foreach="state.visibleTimeline" t-as="block" t-key="block_index">
-                                <div t-attf-style="width: {{block.widthPct}}%; background-color: {{block.color}};" 
+                                <div t-attf-style="width: {{block.widthPct}}%; left: {{block.leftPct}}%; position: absolute; background-color: {{block.color}};" 
                                      t-att-title="block.name + ' (' + block.durationMin + ' min)'"
                                      data-bs-toggle="tooltip" 
                                      class="h-100 border-end border-white">
