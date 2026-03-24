@@ -116,11 +116,13 @@ class MesReportBaseWizard(models.TransientModel):
                     act_s = max(shift_s, s_utc).astimezone(pytz.UTC).replace(tzinfo=None)
                     act_e = min(shift_e, e_utc).astimezone(pytz.UTC).replace(tzinfo=None)
                     
-                    if self.period_grouping == 'shift':
-                        p_name = f"{shift_s.strftime('%Y-%m-%d')} [{shift.name}]"
-                    elif self.period_grouping == 'day':
+                    # ИСПРАВЛЕНО: Используем правильное имя поля `self.time_scale`
+                    if self.time_scale == 'shift':
+                        # ИСПРАВЛЕНО: Добавляем время в начале для правильной сортировки в Odoo (хронологически)
+                        p_name = f"{shift_s.strftime('%Y-%m-%d %H:%M')} [{shift.name}]"
+                    elif self.time_scale == 'day':
                         p_name = shift_s.strftime('%Y-%m-%d')
-                    elif self.period_grouping == 'month':
+                    elif self.time_scale == 'month':
                         p_name = shift_s.strftime('%Y-%m')
                     else:
                         p_name = "All Period"

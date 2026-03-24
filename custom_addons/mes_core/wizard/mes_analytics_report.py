@@ -37,24 +37,14 @@ class MesAnalyticsWizard(models.TransientModel):
         if not machines:
             return
 
-        shifts = self.env['mes.shift'].search([], order='start_hour asc')
-        periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts)
-
         lines_to_create = []
 
         for machine in machines:
-            wc = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
-            if not wc:
-                continue
-                
-            tz_name = wc.company_id.tz or 'UTC'
-            shifts = self.env['mes.shift'].search([('company_id', '=', wc.company_id.id)], order='start_hour asc')
-            periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts, tz_name)
-            
             workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
             if not workcenter:
                 continue
             
+            # Получаем индивидуальные смены и периоды для машины в ее часовом поясе
             tz_name = workcenter.company_id.tz or 'UTC'
             shifts = self.env['mes.shift'].search([('company_id', '=', workcenter.company_id.id)], order='start_hour asc')
             periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts, tz_name)

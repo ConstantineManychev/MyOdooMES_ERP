@@ -34,24 +34,16 @@ class MesAlarmReportWizard(models.TransientModel):
         self.env['mes.alarm.report.line'].search([('user_id', '=', self.env.user.id)]).unlink()
 
         machines = self._get_filtered_machines()
-        shifts = self.env['mes.shift'].search([], order='start_hour asc')
-        
-        periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts)
+        if not machines:
+            return
 
         lines = []
         for machine in machines:
-            wc = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
-            if not wc:
-                continue
-                
-            tz_name = wc.company_id.tz or 'UTC'
-            shifts = self.env['mes.shift'].search([('company_id', '=', wc.company_id.id)], order='start_hour asc')
-            periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts, tz_name)
-
             workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
             if not workcenter:
                 continue
 
+            # Получаем индивидуальные смены и периоды для машины в ее часовом поясе
             tz_name = workcenter.company_id.tz or 'UTC'
             shifts = self.env['mes.shift'].search([('company_id', '=', workcenter.company_id.id)], order='start_hour asc')
             periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts, tz_name)
@@ -63,13 +55,17 @@ class MesAlarmReportWizard(models.TransientModel):
             alarm_tag = machine.get_alarm_tag_name('OEE.nStopRootReason').replace('%', '')
 
             for p_name, time_blocks in periods_dict.items():
+                if not time_blocks:
+                    continue
+
                 all_active_intervals = []
                 for t_s, t_e in time_blocks:
                     act_int, _ = machine._get_planned_working_intervals(t_s, t_e, workcenter)
                     all_active_intervals.extend(act_int)
                     
                 all_active_intervals = self._merge_intervals(all_active_intervals)
-                if not all_active_intervals: continue
+                if not all_active_intervals: 
+                    continue
                     
                 with self.env['mes.timescale.base']._connection() as conn:
                     with conn.cursor() as cur:
@@ -80,13 +76,15 @@ class MesAlarmReportWizard(models.TransientModel):
                         hours_run = run_sec / 3600.0
                         
                         rows = machine._fetch_interval_stats(cur, all_active_intervals, [alarm_tag], mode='downtime')
-                        if not rows: continue
+                        if not rows: 
+                            continue
                         
                         stats_by_event = {}
                         for row in rows:
                             t_name, a_code, freq, dur_sec = row[0], row[1], row[2], row[3]
                             matched = machine.event_tag_ids.filtered(lambda x: x.tag_name == t_name and x.plc_value == a_code)
-                            if not matched: continue
+                            if not matched: 
+                                continue
                             
                             for sig in matched:
                                 if not self._is_item_allowed(sig.event_id.id, self.event_ids.ids, self.event_filter_type):

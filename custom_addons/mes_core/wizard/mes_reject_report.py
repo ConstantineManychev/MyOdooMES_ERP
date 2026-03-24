@@ -5,12 +5,6 @@ class MesRejectReportWizard(models.TransientModel):
     _inherit = 'mes.report.base.wizard'
     _description = 'Reject Report Matrix Wizard'
 
-    period_grouping = fields.Selection([
-        ('shift', 'Day + Shift'),
-        ('day', 'Day'),
-        ('month', 'Month')
-    ], string="Period Format", default='shift', required=True)
-
     cnt_filter_type = fields.Selection([
         ('in', 'In List'),
         ('not_in', 'Not in List')
