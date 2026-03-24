@@ -2,23 +2,64 @@ from odoo import http
 from odoo.http import request
 import psycopg2.extras
 import logging
+import pytz
+from datetime import datetime
 
 _logger = logging.getLogger(__name__)
 
 class MesTelemetryImportAPI(http.Controller):
     
+    def _process_telemetry_batch(self, batch):
+        if not batch:
+            return []
+            
+        processed = []
+        now_utc = datetime.now(pytz.UTC).strftime('%Y-%m-%d %H:%M:%S')
+        tz_cache = {}
+
+        for item in batch:
+            if isinstance(item, dict):
+                t_val = item.get('time')
+                a_val = item.get('arrived_time')
+                m_name = item.get('machine_name')
+                tag = item.get('tag_name')
+                val = item.get('value')
+            else:
+                t_val, a_val, m_name, tag, val = item
+
+            if m_name not in tz_cache:
+                mac = request.env['mes.machine.settings'].sudo().search([('name', '=', m_name)], limit=1)
+                wc = request.env['mrp.workcenter'].sudo().search([('machine_settings_id', '=', mac.id)], limit=1)
+                tz_name = wc.company_id.tz if wc and wc.company_id.tz else 'UTC'
+                tz_cache[m_name] = pytz.timezone(tz_name)
+
+            tz_obj = tz_cache[m_name]
+
+            if t_val:
+                t_str = str(t_val)
+                time_format = '%Y-%m-%d %H:%M:%S.%f' if '.' in t_str else '%Y-%m-%d %H:%M:%S'
+                dt_naive = datetime.strptime(t_str, time_format)
+                dt_local = tz_obj.localize(dt_naive)
+                t_val = dt_local.astimezone(pytz.UTC).strftime(time_format)
+
+            if not a_val:
+                a_val = now_utc
+
+            processed.append((t_val, a_val, m_name, tag, val))
+            
+        return processed
+
     @http.route('/mes/api/import_historical', type='json', auth='user', methods=['POST'], csrf=False)
     def import_historical_data(self, events=None, counts=None, processes=None, **kwargs):
-        events = events or []
-        counts = counts or []
-        processes = processes or []
+        events = self._process_telemetry_batch(events or [])
+        counts = self._process_telemetry_batch(counts or [])
+        processes = self._process_telemetry_batch(processes or [])
         
         ts_manager = request.env['mes.timescale.base']
         
         try:
             with ts_manager._connection() as conn:
                 with conn.cursor() as cur:
-                    
                     if events:
                         query_events = """
                             INSERT INTO telemetry_event (time, arrived_time, machine_name, tag_name, value) 

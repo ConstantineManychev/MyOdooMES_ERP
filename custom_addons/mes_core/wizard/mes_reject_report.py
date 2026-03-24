@@ -5,6 +5,12 @@ class MesRejectReportWizard(models.TransientModel):
     _inherit = 'mes.report.base.wizard'
     _description = 'Reject Report Matrix Wizard'
 
+    period_grouping = fields.Selection([
+        ('shift', 'Day + Shift'),
+        ('day', 'Day'),
+        ('month', 'Month')
+    ], string="Period Format", default='shift', required=True)
+
     cnt_filter_type = fields.Selection([
         ('in', 'In List'),
         ('not_in', 'Not in List')
@@ -32,6 +38,7 @@ class MesRejectReportWizard(models.TransientModel):
     col_by_mod = fields.Boolean("Module Number", default=False)
 
     show_qty = fields.Boolean("Total Quantity (pcs)", default=True)
+    show_qty_per_hour = fields.Boolean("Qty per Hour (pcs/h)", default=True)
 
     limit_by = fields.Selection(
         selection='_get_limit_by_options',
@@ -42,7 +49,8 @@ class MesRejectReportWizard(models.TransientModel):
     @api.model
     def _get_limit_by_options(self):
         return [
-            ('qty', 'Quantity')
+            ('qty', 'Quantity'),
+            ('qty_per_hour', 'Qty per Hour')
         ]
 
     def _resolve_path(self, path_str):
@@ -57,20 +65,28 @@ class MesRejectReportWizard(models.TransientModel):
         self.env['mes.reject.report.line'].search([('user_id', '=', self.env.user.id)]).unlink()
 
         machines = self._get_filtered_machines()
-        shifts = self.env['mes.shift'].search([], order='start_hour asc')
-        periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts)
+        if not machines:
+            return
 
         ts_mgr = self.env['mes.timescale.base']
         aggregated = {}
-
-        if not machines:
-            return
+        period_runtimes = {}
 
         with ts_mgr._connection() as conn:
             with conn.cursor() as cur:
                 for machine in machines:
                     workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
-                    
+                    if not workcenter:
+                        continue
+                        
+                    tz_name = workcenter.company_id.tz or 'UTC'
+                    shifts = self.env['mes.shift'].search([('company_id', '=', workcenter.company_id.id)], order='start_hour asc')
+                    periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts, tz_name)
+
+                    state_sig = machine.event_tag_ids.filtered(lambda x: x.event_id == workcenter.runtime_event_id) if workcenter else None
+                    state_tag = state_sig[0].tag_name if state_sig else 'OEE.nMachineState'
+                    state_val = str(state_sig[0].plc_value) if state_sig else '1'
+
                     signals = machine.count_tag_ids
                     if self.cnt_ids:
                         if self.cnt_filter_type == 'in':
@@ -84,48 +100,74 @@ class MesRejectReportWizard(models.TransientModel):
                     valid_tags = list(signals.mapped('tag_name'))
 
                     for p_name, time_blocks in periods_dict.items():
+                        if not time_blocks:
+                            continue
+                            
+                        p_start = min(t[0] for t in time_blocks)
+                        p_end = max(t[1] for t in time_blocks)
+
                         all_active_intervals = []
                         for t_s, t_e in time_blocks:
                             act_int, _ = machine._get_planned_working_intervals(t_s, t_e, workcenter)
                             all_active_intervals.extend(act_int)
                             
                         all_active_intervals = self._merge_intervals(all_active_intervals)
-                        if not all_active_intervals: 
-                            continue
-
-                        for a_s, a_e in all_active_intervals:
-                            cur.execute("""
-                                SELECT tag_name, 
-                                       COALESCE(SUM(value), 0) as sum_val, 
-                                       COALESCE(MAX(value) - MIN(value), 0) as cum_val
-                                FROM telemetry_count 
-                                WHERE machine_name = %s AND tag_name = ANY(%s) AND time >= %s AND time <= %s
-                                GROUP BY tag_name
-                            """, (machine.name, valid_tags, a_s, a_e))
+                        
+                        if all_active_intervals:
+                            try:
+                                r_sec = machine._fetch_interval_stats(
+                                    cur, all_active_intervals, [state_tag], 
+                                    mode='runtime', state_tag=state_tag, state_val=state_val
+                                )
+                            except Exception:
+                                r_sec = 0.0
+                        else:
+                            r_sec = 0.0
                             
-                            for row in cur.fetchall():
-                                t_name, sum_val, cum_val = row
-                                
-                                sig = signals.filtered(lambda s: s.tag_name == t_name)
-                                if not sig:
-                                    continue
-                                sig = sig[0]
-                                
-                                qty = cum_val if sig.is_cumulative else sum_val
-                                if qty <= 0: 
-                                    continue
-                                
-                                cnt = sig.count_id
-                                key = (machine.id, machine.name, p_name, cnt.id, cnt.name, cnt.parent_path, cnt.is_module_count, cnt.wheel, cnt.module)
-                                
-                                if key not in aggregated:
-                                    aggregated[key] = 0.0
-                                aggregated[key] += float(qty)
+                        period_runtimes[(machine.id, p_name)] = r_sec / 3600.0 if r_sec else 0.0
+
+                        cur.execute("""
+                            SELECT tag_name, 
+                                   COALESCE(SUM(value), 0) as sum_val, 
+                                   COALESCE(MAX(value) - MIN(value), 0) as cum_val
+                            FROM telemetry_count 
+                            WHERE machine_name = %s AND tag_name = ANY(%s) 
+                              AND time >= %s::timestamp AT TIME ZONE 'UTC' 
+                              AND time < %s::timestamp AT TIME ZONE 'UTC'
+                            GROUP BY tag_name
+                        """, (
+                            machine.name, 
+                            valid_tags, 
+                            p_start.strftime('%Y-%m-%d %H:%M:%S'), 
+                            p_end.strftime('%Y-%m-%d %H:%M:%S')
+                        ))
+                        
+                        for row in cur.fetchall():
+                            t_name, sum_val, cum_val = row
+                            
+                            sig = signals.filtered(lambda s: s.tag_name == t_name)
+                            if not sig:
+                                continue
+                            sig = sig[0]
+                            
+                            qty = cum_val if sig.is_cumulative else sum_val
+                            if qty <= 0: 
+                                continue
+                            
+                            cnt = sig.count_id
+                            key = (machine.id, machine.name, p_name, cnt.id, cnt.name, cnt.parent_path, cnt.is_module_count, cnt.wheel, cnt.module)
+                            
+                            if key not in aggregated:
+                                aggregated[key] = 0.0
+                            aggregated[key] += float(qty)
 
         lines = []
         for key, qty in aggregated.items():
             m_id, m_name, p_name, cnt_id, cnt_name, parent_path, is_mod, wheel, mod = key
             
+            runtime_h = period_runtimes.get((m_id, p_name), 0.0)
+            qty_per_h = qty / runtime_h if runtime_h > 0 else 0.0
+
             hierarchy = self._resolve_path(parent_path or str(cnt_id))
             if not hierarchy: 
                 hierarchy = [cnt_name]
@@ -156,7 +198,8 @@ class MesRejectReportWizard(models.TransientModel):
                 'count_name': cnt_name,
                 'row_group_label': r_label,
                 'col_group_label': c_label,
-                'qty': qty
+                'qty': qty,
+                'qty_per_hour': round(qty_per_h, 2)
             })
 
         if lines:
@@ -165,7 +208,13 @@ class MesRejectReportWizard(models.TransientModel):
                 lines = lines[:self.record_limit]
             self.env['mes.reject.report.line'].create(lines)
 
-        measures = ['qty']
+        measures = []
+        if self.show_qty: measures.append('qty')
+        if self.show_qty_per_hour: measures.append('qty_per_hour')
+        
+        if not measures:
+            measures = ['qty']
+
         ctx = self._build_skd_context(measures)
 
         return {
@@ -190,3 +239,4 @@ class MesRejectReportLine(models.Model):
     col_group_label = fields.Char(string="Columns Level")
 
     qty = fields.Float(string="Quantity", group_operator="sum")
+    qty_per_hour = fields.Float(string="Qty per Hour", group_operator="avg")

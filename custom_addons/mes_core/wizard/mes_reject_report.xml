@@ -9,6 +9,7 @@
                 <field name="row_group_label"/>
                 <field name="col_group_label"/>
                 <field name="qty" sum="Total Quantity"/>
+                <field name="qty_per_hour" avg="Avg per Hour"/>
             </tree>
         </field>
     </record>
@@ -21,6 +22,7 @@
                 <field name="row_group_label" type="row"/>
                 <field name="col_group_label" type="col"/>
                 <field name="qty" type="measure"/>
+                <field name="qty_per_hour" type="measure"/>
             </pivot>
         </field>
     </record>
@@ -57,6 +59,7 @@
             <xpath expr="//page[@name='measures_page']" position="inside">
                 <group>
                     <field name="show_qty"/>
+                    <field name="show_qty_per_hour"/>
                 </group>
             </xpath>
 

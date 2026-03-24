@@ -1,15 +1,61 @@
 <odoo>
+    <record id="view_company_form_inherit_tz" model="ir.ui.view">
+        <field name="name">res.company.form.inherit.tz</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='email']" position="after">
+                <field name="tz"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mes_shift_search" model="ir.ui.view">
+        <field name="name">mes.shift.search</field>
+        <field name="model">mes.shift</field>
+        <field name="arch" type="xml">
+            <search string="Search Shifts">
+                <field name="name"/>
+                <field name="company_id"/>
+                <group expand="0" string="Group By">
+                    <filter string="Company" name="group_by_company" context="{'group_by': 'company_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
     <record id="view_mes_shift_tree" model="ir.ui.view">
         <field name="name">mes.shift.tree</field>
         <field name="model">mes.shift</field>
         <field name="arch" type="xml">
-            <tree editable="bottom">
+            <tree string="Shifts" editable="bottom">
+                <field name="sequence" widget="handle"/>
                 <field name="name"/>
-                <field name="code"/>
+                <field name="company_id" groups="base.group_multi_company" options="{'no_create': True}"/>
                 <field name="start_hour" widget="float_time"/>
                 <field name="end_hour" widget="float_time"/>
-                <field name="duration" widget="float_time"/>
             </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_shift_form" model="ir.ui.view">
+        <field name="name">mes.shift.form</field>
+        <field name="model">mes.shift</field>
+        <field name="arch" type="xml">
+            <form string="Shift">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="company_id" groups="base.group_multi_company" options="{'no_create': True}"/>
+                        </group>
+                        <group>
+                            <field name="start_hour" widget="float_time"/>
+                            <field name="end_hour" widget="float_time"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
         </field>
     </record>
 

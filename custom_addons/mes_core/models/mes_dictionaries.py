@@ -12,6 +12,9 @@ _logger = logging.getLogger(__name__)
 class MesShifts(models.Model):
     _name = 'mes.shift'
     _description = 'Work Shifts'
+
+    _order = 'sequence, start_hour'
+    sequence = fields.Integer(string="Sequence", default=10)
     
     name = fields.Char(string='Shift Name', required=True)
     code = fields.Char(string='Code', help="Code for external integration")
@@ -23,6 +26,8 @@ class MesShifts(models.Model):
         store=True, 
         readonly=True
     )
+
+    company_id = fields.Many2one('res.company', string='Company', required=True, default=lambda self: self.env.company)
 
     @api.depends('start_hour', 'end_hour')
     def _compute_duration(self):
@@ -328,6 +333,8 @@ class MesWorkcenter(models.Model):
         string='All Allowed PC IPs',
         help='Specify the IP addresses of allowed computers, separated by commas (e.g., 192.168.1.50, 192.168.1.51)'
     )
+
+    company_id = fields.Many2one('res.company', string='Company', required=True, default=lambda self: self.env.company)
     
     _sql_constraints = [
         ('code_imatec_uniq', 'unique(code_imatec)', 'Imatec Code must be unique!')
@@ -692,3 +699,8 @@ class MesEmployee(models.Model):
     _inherit = 'hr.employee'
 
     maintainx_id = fields.Char(string='MaintainX ID', help="User ID from MaintainX system")
+
+class ResCompany(models.Model):
+    _inherit = 'res.company'
+    
+    tz = fields.Selection(related='partner_id.tz', readonly=False, string='Timezone', required=True)

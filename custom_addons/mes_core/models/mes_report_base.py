@@ -38,24 +38,31 @@ class MesReportBaseWizard(models.TransientModel):
     @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
-        tz = pytz.timezone(self.env.user.tz or 'UTC')
-        today = datetime.now(tz).date()
+        tz_name = self.env.company.tz or self.env.user.tz or 'UTC'
+        tz_obj = pytz.timezone(tz_name)
+        
+        now_loc = datetime.now(pytz.UTC).astimezone(tz_obj)
+        today_loc = now_loc.date()
 
-        shifts = self.env['mes.shift'].search([], order='start_hour asc')
+        shifts = self.env['mes.shift'].search([('company_id', '=', self.env.company.id)], order='start_hour asc')
         if shifts:
-            h_s = int(shifts[0].start_hour)
-            m_s = int((shifts[0].start_hour - h_s) * 60)
-            res['start_datetime'] = tz.localize(datetime.combine(today, time(h_s, m_s))).astimezone(pytz.UTC).replace(tzinfo=None)
+            m_shift = shifts[0]
+            n_shift = shifts[-1]
 
-            h_e = int(shifts[-1].end_hour)
-            m_e = int((shifts[-1].end_hour - h_e) * 60)
-            end_local = tz.localize(datetime.combine(today, time(h_e, m_e)))
-            if shifts[-1].end_hour <= shifts[-1].start_hour:
-                end_local += timedelta(days=1)
-            res['end_datetime'] = end_local.astimezone(pytz.UTC).replace(tzinfo=None)
-        else:
-            res['start_datetime'] = datetime.now().replace(hour=0, minute=0, second=0)
-            res['end_datetime'] = datetime.now().replace(hour=23, minute=59, second=59)
+            s_hr = int(m_shift.start_hour)
+            s_min = int(round((m_shift.start_hour - s_hr) * 60))
+            s_dt_loc = tz_obj.localize(datetime.combine(today_loc, time(s_hr, s_min)))
+            res['start_datetime'] = s_dt_loc.astimezone(pytz.UTC).replace(tzinfo=None)
+
+            e_hr = int(n_shift.end_hour)
+            e_min = int(round((n_shift.end_hour - e_hr) * 60))
+            e_dt_loc = tz_obj.localize(datetime.combine(today_loc, time(e_hr, e_min)))
+
+            if n_shift.end_hour <= m_shift.start_hour:
+                e_dt_loc += timedelta(days=1)
+                
+            res['end_datetime'] = e_dt_loc.astimezone(pytz.UTC).replace(tzinfo=None)
+            
         return res
 
     @api.model
@@ -79,46 +86,52 @@ class MesReportBaseWizard(models.TransientModel):
         else:
             return item_id not in filter_ids
 
-    def _get_logical_periods(self, start_dt_utc, end_dt_utc, shifts):
-        tz = pytz.timezone(self.env.user.tz or 'UTC')
-        start_dt_local = pytz.UTC.localize(start_dt_utc).astimezone(tz)
-        end_dt_local = pytz.UTC.localize(end_dt_utc).astimezone(tz)
-
-        current_date = (start_dt_local - timedelta(days=1)).date()
-        end_date = (end_dt_local + timedelta(days=1)).date()
+    def _get_logical_periods(self, start_dt, end_dt, shifts, tz_name):
+        tz_obj = pytz.timezone(tz_name)
+        s_utc = pytz.UTC.localize(start_dt)
+        e_utc = pytz.UTC.localize(end_dt)
         
-        periods_dict = {}
-        while current_date <= end_date:
+        s_loc = s_utc.astimezone(tz_obj)
+        e_loc = e_utc.astimezone(tz_obj)
+        
+        cur_date = s_loc.date()
+        end_date = e_loc.date()
+        
+        periods = {}
+        
+        while cur_date <= end_date:
             for shift in shifts:
-                h_s = int(shift.start_hour)
-                m_s = int((shift.start_hour - h_s) * 60)
-                shift_s_loc = tz.localize(datetime.combine(current_date, time(h_s, m_s)))
-
-                h_e = int(shift.end_hour)
-                m_e = int((shift.end_hour - h_e) * 60)
-                shift_e_loc = tz.localize(datetime.combine(current_date, time(h_e, m_e)))
-
+                s_hr = int(shift.start_hour)
+                s_min = int(round((shift.start_hour - s_hr) * 60))
+                shift_s = tz_obj.localize(datetime.combine(cur_date, time(s_hr, s_min)))
+                
+                e_hr = int(shift.end_hour)
+                e_min = int(round((shift.end_hour - e_hr) * 60))
+                shift_e = tz_obj.localize(datetime.combine(cur_date, time(e_hr, e_min)))
+                
                 if shift.end_hour <= shift.start_hour:
-                    shift_e_loc += timedelta(days=1)
-
-                if shift_s_loc < end_dt_local and shift_e_loc > start_dt_local:
-                    actual_s = max(shift_s_loc, start_dt_local).astimezone(pytz.UTC).replace(tzinfo=None)
-                    actual_e = min(shift_e_loc, end_dt_local).astimezone(pytz.UTC).replace(tzinfo=None)
+                    shift_e += timedelta(days=1)
                     
-                    if self.time_scale == 'shift': 
-                        p_name = f"{current_date.strftime('%Y-%m-%d')} {h_s:02d}:{m_s:02d} [{shift.name}]"
-                    elif self.time_scale == 'day': 
-                        p_name = current_date.strftime('%Y-%m-%d')
-                    elif self.time_scale == 'month': 
-                        p_name = current_date.strftime('%Y-%B')
-                    else: 
-                        p_name = f"Total Period"
+                if shift_s < e_utc and shift_e > s_utc:
+                    act_s = max(shift_s, s_utc).astimezone(pytz.UTC).replace(tzinfo=None)
+                    act_e = min(shift_e, e_utc).astimezone(pytz.UTC).replace(tzinfo=None)
+                    
+                    if self.period_grouping == 'shift':
+                        p_name = f"{shift_s.strftime('%Y-%m-%d')} [{shift.name}]"
+                    elif self.period_grouping == 'day':
+                        p_name = shift_s.strftime('%Y-%m-%d')
+                    elif self.period_grouping == 'month':
+                        p_name = shift_s.strftime('%Y-%m')
+                    else:
+                        p_name = "All Period"
                         
-                    if p_name not in periods_dict:
-                        periods_dict[p_name] = []
-                    periods_dict[p_name].append((actual_s, actual_e))
-            current_date += timedelta(days=1)
-        return periods_dict
+                    if p_name not in periods:
+                        periods[p_name] = []
+                    periods[p_name].append((act_s, act_e))
+                    
+            cur_date += timedelta(days=1)
+            
+        return periods
 
     def _merge_intervals(self, intervals):
         if not intervals: return []

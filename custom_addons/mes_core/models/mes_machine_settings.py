@@ -105,7 +105,7 @@ class MesMachineSettings(models.Model):
                 SELECT GREATEST(time, %s) as time, tag_name, value FROM boundary 
                 UNION ALL
                 SELECT time, tag_name, value FROM telemetry_event
-                WHERE machine_name = %s AND time >= %s AND time <= %s
+                WHERE machine_name = %s AND time >= %s AND time < %s
             ),
             state_durations AS (
                 SELECT tag_name, value as alarm_code, time as state_start,
@@ -214,7 +214,7 @@ class MesMachineSettings(models.Model):
                 SELECT GREATEST(time, %s) as time, value, tag_name, id FROM boundary 
                 UNION ALL
                 SELECT time, value, tag_name, id FROM telemetry_event
-                WHERE machine_name = %s AND time >= %s AND time <= %s
+                WHERE machine_name = %s AND time >= %s AND time < %s
             ),
             state_durations AS (
                 SELECT id, tag_name, value, time as state_start,
@@ -275,7 +275,7 @@ class MesMachineSettings(models.Model):
                    COALESCE(SUM(value), 0) as sum_val, 
                    COALESCE(MAX(value) - MIN(value), 0) as cum_val
             FROM telemetry_count 
-            WHERE machine_name = %s AND time >= %s AND time <= %s
+            WHERE machine_name = %s AND time >= %s AND time < %s
             GROUP BY tag_name
         """
         cursor.execute(query, (self.name, start_time, end_time))
@@ -295,7 +295,7 @@ class MesMachineSettings(models.Model):
                 SELECT GREATEST(time, %s) as time, value, tag_name, id FROM boundary 
                 UNION ALL
                 SELECT time, value, tag_name, id FROM telemetry_event
-                WHERE machine_name = %s AND time >= %s AND time <= %s
+                WHERE machine_name = %s AND time >= %s AND time < %s
             ),
             intervals AS (
                 SELECT time as start_time, 
@@ -321,7 +321,7 @@ class MesMachineSettings(models.Model):
                    COALESCE(SUM(value), 0) as sum_val,
                    COALESCE(MAX(value) - MIN(value), 0) as cum_val
             FROM telemetry_count
-            WHERE machine_name = %s AND tag_name = ANY(%s) AND time >= %s AND time <= %s
+            WHERE machine_name = %s AND tag_name = ANY(%s) AND time >= %s AND time < %s
             GROUP BY tag_name, bucket ORDER BY bucket
         """
         cursor.execute(query, (self.name, tag_names, start_time, end_time))
@@ -388,9 +388,9 @@ class MesMachineSettings(models.Model):
                 
                 total_produced = 0
                 if is_cumulative:
-                    cur.execute("SELECT COALESCE(MAX(value) - MIN(value), 0) FROM telemetry_count WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s", (self.name, good_count_tag, start_time, end_time))
+                    cur.execute("SELECT COALESCE(MAX(value) - MIN(value), 0) FROM telemetry_count WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time < %s", (self.name, good_count_tag, start_time, end_time))
                 else:
-                    cur.execute("SELECT COALESCE(SUM(value), 0) FROM telemetry_count WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s", (self.name, good_count_tag, start_time, end_time))
+                    cur.execute("SELECT COALESCE(SUM(value), 0) FROM telemetry_count WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time < %s", (self.name, good_count_tag, start_time, end_time))
                 res = cur.fetchone()
                 if res and res[0]:
                     total_produced += float(res[0])
@@ -501,7 +501,7 @@ class MesMachineSettings(models.Model):
                            COALESCE(SUM(value), 0) as sum_val, 
                            COALESCE(MAX(value) - MIN(value), 0) as cum_val
                     FROM telemetry_count 
-                    WHERE machine_name = ANY(%s) AND time >= %s AND time <= %s
+                    WHERE machine_name = ANY(%s) AND time >= %s AND time < %s
                     GROUP BY machine_name, tag_name
                 """
                 cur.execute(query_counts, (machine_names, start_time, calc_end_time))

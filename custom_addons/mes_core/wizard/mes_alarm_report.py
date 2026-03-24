@@ -40,10 +40,24 @@ class MesAlarmReportWizard(models.TransientModel):
 
         lines = []
         for machine in machines:
+            wc = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
+            if not wc:
+                continue
+                
+            tz_name = wc.company_id.tz or 'UTC'
+            shifts = self.env['mes.shift'].search([('company_id', '=', wc.company_id.id)], order='start_hour asc')
+            periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts, tz_name)
+
             workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
-            if not workcenter: continue
+            if not workcenter:
+                continue
+
+            tz_name = workcenter.company_id.tz or 'UTC'
+            shifts = self.env['mes.shift'].search([('company_id', '=', workcenter.company_id.id)], order='start_hour asc')
+            periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts, tz_name)
+
+            state_sig = machine.event_tag_ids.filtered(lambda x: x.event_id == workcenter.runtime_event_id) if workcenter else None
             
-            state_sig = machine.event_tag_ids.filtered(lambda x: x.event_id == workcenter.runtime_event_id)
             state_tag = state_sig[0].tag_name if state_sig else None
             running_plc_val = state_sig[0].plc_value if state_sig else 0
             alarm_tag = machine.get_alarm_tag_name('OEE.nStopRootReason').replace('%', '')

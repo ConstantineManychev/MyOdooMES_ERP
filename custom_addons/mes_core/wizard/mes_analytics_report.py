@@ -1,126 +1,143 @@
 from odoo import models, fields, api
-from datetime import datetime, time, timedelta
 import pytz
 
 class MesAnalyticsWizard(models.TransientModel):
     _name = 'mes.analytics.wizard'
-    _description = 'Shift Analytics Wizard'
+    _inherit = 'mes.report.base.wizard'
+    _description = 'Shift Analytics Matrix Wizard'
+
+    show_oee = fields.Boolean("OEE (%)", default=True)
+    show_availability = fields.Boolean("Availability (%)", default=True)
+    show_performance = fields.Boolean("Performance (%)", default=True)
+    show_quality = fields.Boolean("Quality (%)", default=True)
+    show_produced = fields.Boolean("Produced Qty", default=True)
+    show_waste = fields.Boolean("Waste Loss (%)", default=True)
+    show_downtime = fields.Boolean("Downtime Loss (%)", default=True)
+
+    limit_by = fields.Selection(
+        selection='_get_limit_by_options',
+        default='oee',
+        required=True
+    )
 
     @api.model
-    def default_get(self, fields_list):
-        res = super().default_get(fields_list)
-        tz = pytz.timezone(self.env.user.tz or 'UTC')
-        now = datetime.now(tz)
-        today = now.date()
-
-        shifts = self.env['mes.shift'].search([], order='start_hour asc')
-        if shifts:
-            morning_shift = shifts[0]
-            night_shift = shifts[-1]
-
-            h_s = int(morning_shift.start_hour)
-            m_s = int((morning_shift.start_hour - h_s) * 60)
-            start_local = tz.localize(datetime.combine(today, time(h_s, m_s)))
-            res['start_datetime'] = start_local.astimezone(pytz.UTC).replace(tzinfo=None)
-
-            h_e = int(night_shift.end_hour)
-            m_e = int((night_shift.end_hour - h_e) * 60)
-            end_local = tz.localize(datetime.combine(today, time(h_e, m_e)))
-            
-            if night_shift.end_hour <= night_shift.start_hour:
-                end_local += timedelta(days=1)
-                
-            res['end_datetime'] = end_local.astimezone(pytz.UTC).replace(tzinfo=None)
-        else:
-            res['start_datetime'] = datetime.now().replace(hour=0, minute=0, second=0)
-            res['end_datetime'] = datetime.now().replace(hour=23, minute=59, second=59)
-            
-        return res
-
-    start_datetime = fields.Datetime(string="Start Date & Time", required=True)
-    end_datetime = fields.Datetime(string="End Date & Time", required=True)
+    def _get_limit_by_options(self):
+        return [
+            ('oee', 'OEE (%)'),
+            ('produced', 'Produced Qty'),
+            ('availability', 'Availability (%)'),
+            ('performance', 'Performance (%)'),
+            ('quality', 'Quality (%)')
+        ]
 
     def action_generate_report(self):
         self.env['mes.analytics.report.line'].search([('user_id', '=', self.env.user.id)]).unlink()
 
-        workcenters = self.env['mrp.workcenter'].search([('machine_settings_id', '!=', False)])
+        machines = self._get_filtered_machines()
+        if not machines:
+            return
+
         shifts = self.env['mes.shift'].search([], order='start_hour asc')
-
-        tz = pytz.timezone(self.env.user.tz or 'UTC')
-        start_dt = pytz.UTC.localize(self.start_datetime).astimezone(tz)
-        end_dt = pytz.UTC.localize(self.end_datetime).astimezone(tz)
-
-        current_date = start_dt.date()
-        end_date = end_dt.date()
+        periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts)
 
         lines_to_create = []
 
-        while current_date <= end_date:
-            for shift in shifts:
-                h_s = int(shift.start_hour)
-                m_s = int((shift.start_hour - h_s) * 60)
-                shift_start_local = tz.localize(datetime.combine(current_date, time(h_s, m_s)))
+        for machine in machines:
+            wc = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
+            if not wc:
+                continue
+                
+            tz_name = wc.company_id.tz or 'UTC'
+            shifts = self.env['mes.shift'].search([('company_id', '=', wc.company_id.id)], order='start_hour asc')
+            periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts, tz_name)
+            
+            workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
+            if not workcenter:
+                continue
+            
+            tz_name = workcenter.company_id.tz or 'UTC'
+            shifts = self.env['mes.shift'].search([('company_id', '=', workcenter.company_id.id)], order='start_hour asc')
+            periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts, tz_name)
 
-                h_e = int(shift.end_hour)
-                m_e = int((shift.end_hour - h_e) * 60)
-                shift_end_local = tz.localize(datetime.combine(current_date, time(h_e, m_e)))
+            state_sig = machine.event_tag_ids.filtered(lambda x: x.event_id == workcenter.runtime_event_id) if workcenter else None
 
-                if shift.end_hour <= shift.start_hour:
-                    shift_end_local += timedelta(days=1)
+            for p_name, time_blocks in periods_dict.items():
+                if not time_blocks:
+                    continue
+                
+                p_start = min(t[0] for t in time_blocks)
+                p_end = max(t[1] for t in time_blocks)
 
-                if shift_start_local < end_dt and shift_end_local > start_dt:
-                    actual_start_utc = max(shift_start_local, start_dt).astimezone(pytz.UTC).replace(tzinfo=None)
-                    actual_end_utc = min(shift_end_local, end_dt).astimezone(pytz.UTC).replace(tzinfo=None)
+                kpi = machine._calculate_kpi_for_window(workcenter, p_start, p_end)
+                
+                if kpi and (kpi.get('oee') or kpi.get('produced')):
+                    
+                    def build_label(by_mac, by_per):
+                        parts = []
+                        if by_mac: parts.append(machine.name)
+                        if by_per: parts.append(p_name)
+                        return " | ".join(parts) if parts else "All Data"
 
-                    shift_date_name = f"{shift_start_local.strftime('%Y-%m-%d %H:%M')} [{shift.name}]"
+                    r_label = build_label(self.row_by_machine, self.row_by_period)
+                    c_label = build_label(self.col_by_machine, self.col_by_period)
 
-                    for wc in workcenters:
-                        kpi = wc.machine_settings_id._calculate_kpi_for_window(wc, actual_start_utc, actual_end_utc)
-                        if kpi:
-                            lines_to_create.append({
-                                'user_id': self.env.user.id,
-                                'workcenter_id': wc.id,
-                                'date': current_date,
-                                'shift_id': shift.id,
-                                'shift_date_name': shift_date_name,
-                                'first_running_time': kpi.get('first_running_time', False),
-                                'oee': kpi.get('oee', 0),
-                                'availability': kpi.get('availability', 0),
-                                'performance': kpi.get('performance', 0),
-                                'quality': kpi.get('quality', 0),
-                                'produced': kpi.get('produced', 0),
-                                'waste_losses': kpi.get('waste_losses', 0),
-                                'downtime_losses': kpi.get('downtime_losses', 0),
-                            })
-            current_date += timedelta(days=1)
+                    lines_to_create.append({
+                        'user_id': self.env.user.id,
+                        'machine_id': machine.id,
+                        'period_name': p_name,
+                        'row_group_label': r_label,
+                        'col_group_label': c_label,
+                        'first_running_time': kpi.get('first_running_time', False),
+                        'oee': kpi.get('oee', 0),
+                        'availability': kpi.get('availability', 0),
+                        'performance': kpi.get('performance', 0),
+                        'quality': kpi.get('quality', 0),
+                        'produced': kpi.get('produced', 0),
+                        'waste_losses': kpi.get('waste_losses', 0),
+                        'downtime_losses': kpi.get('downtime_losses', 0),
+                    })
 
         if lines_to_create:
+            lines_to_create.sort(key=lambda x: x.get(self.limit_by, 0), reverse=True)
+            if self.record_limit > 0:
+                lines_to_create = lines_to_create[:self.record_limit]
             self.env['mes.analytics.report.line'].create(lines_to_create)
 
+        measures = []
+        if self.show_oee: measures.append('oee')
+        if self.show_availability: measures.append('availability')
+        if self.show_performance: measures.append('performance')
+        if self.show_quality: measures.append('quality')
+        if self.show_produced: measures.append('produced')
+        if self.show_waste: measures.append('waste_losses')
+        if self.show_downtime: measures.append('downtime_losses')
+        
+        if not measures:
+            measures = ['oee']
+
+        ctx = self._build_skd_context(measures)
+
         return {
-            'name': 'Shift Analytics Report',
+            'name': 'Shift Analytics Matrix',
             'type': 'ir.actions.act_window',
             'res_model': 'mes.analytics.report.line',
-            'view_mode': 'tree,pivot',
+            'view_mode': 'pivot,tree',
             'domain': [('user_id', '=', self.env.user.id)],
-            'context': {
-                'search_default_group_by_machine': 1,
-                'search_default_group_by_shift_date': 1,
-            }
+            'context': ctx
         }
-
 
 class MesAnalyticsReportLine(models.Model):
     _name = 'mes.analytics.report.line'
-    _description = 'Analytics Report Line'
+    _description = 'Analytics Report Matrix Line'
 
     user_id = fields.Many2one('res.users', string="User")
-    workcenter_id = fields.Many2one('mrp.workcenter', string="Machine")
-    date = fields.Date(string="Date")
-    shift_id = fields.Many2one('mes.shift', string="Shift")
-    shift_date_name = fields.Char(string="Date / Shift")
-    first_running_time = fields.Datetime(string="First Start")
+    machine_id = fields.Many2one('mes.machine.settings', string="Machine")
+    period_name = fields.Char(string="Period")
 
+    row_group_label = fields.Char(string="Rows Level")
+    col_group_label = fields.Char(string="Columns Level")
+
+    first_running_time = fields.Datetime(string="First Start")
     oee = fields.Float("OEE (%)", group_operator="avg")
     availability = fields.Float("Availability (%)", group_operator="avg")
     performance = fields.Float("Performance (%)", group_operator="avg")
