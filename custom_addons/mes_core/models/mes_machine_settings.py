@@ -444,125 +444,123 @@ class MesMachineSettings(models.Model):
         }
 
     @api.model
-    def get_realtime_oee_batch(self, workcenters):
-        if not workcenters:
+    def get_realtime_oee_batch(self, wcs):
+        if not wcs:
             return {}
 
-        dummy_setting = self.search([], limit=1)
-        if not dummy_setting:
-            return {wc.id: {'error': 'No machine settings found'} for wc in workcenters}
+        res = {}
+        cfgs = {}
 
-        start_time, shift_end = dummy_setting.env['mes.shift'].get_current_shift_window()
-        if not start_time or not shift_end:
-            return {wc.id: {'error': 'No active shift'} for wc in workcenters}
-
-        calc_end_time = min(fields.Datetime.now(), shift_end)
-        
-        results = {}
-        configs = {}
-        machine_names = []
-
-        for wc in workcenters:
-            machine = wc.machine_settings_id
-            if not machine:
+        for wc in wcs:
+            mac = wc.machine_settings_id
+            if not mac:
                 continue
 
-            state_tag, running_plc_value = wc.runtime_event_id.get_mapping_for_machine(machine) if wc.runtime_event_id else (None, None)
-            good_count_tag, is_cumulative = wc.production_count_id.get_count_config_for_machine(machine) if wc.production_count_id else (None, False)
-
-            if not state_tag or not good_count_tag:
-                results[wc.id] = {'error': 'Configuration error: Missing state or count tag'}
+            s_time, e_time = self.env['mes.shift'].get_current_shift_window(wc)
+            
+            if not s_time or not e_time:
+                res[wc.id] = {'error': 'No active shift'}
                 continue
-
-            active_intervals, total_planned_runtime_sec = machine._get_planned_working_intervals(start_time, shift_end, wc)
-
-            configs[wc.id] = {
-                'machine': machine,
-                'state_tag': state_tag,
-                'running_plc_value': running_plc_value,
-                'good_count_tag': good_count_tag,
-                'is_cumulative': is_cumulative,
-                'active_intervals': active_intervals,
-                'total_planned_sec': total_planned_runtime_sec,
-                'prod_count_id': wc.production_count_id.id
-            }
-            if machine.name not in machine_names:
-                machine_names.append(machine.name)
-
-        if not configs:
-            return results
-
-        ts_manager = self.env['mes.timescale.base']
-        
-        with ts_manager._connection() as conn:
-            with conn.cursor() as cur:
-                query_counts = """
-                    SELECT machine_name, tag_name, 
-                           COALESCE(SUM(value), 0) as sum_val, 
-                           COALESCE(MAX(value) - MIN(value), 0) as cum_val
-                    FROM telemetry_count 
-                    WHERE machine_name = ANY(%s) AND time >= %s AND time < %s
-                    GROUP BY machine_name, tag_name
-                """
-                cur.execute(query_counts, (machine_names, start_time, calc_end_time))
                 
-                count_data = {}
-                for m_name, t_name, s_val, c_val in cur.fetchall():
-                    count_data.setdefault(m_name, {})[t_name] = {'sum': float(s_val), 'cum': float(c_val)}
+            calc_e_time = min(fields.Datetime.now(), e_time)
 
-                all_reject_counts = self.env['mes.counts'].search([])
+            state_tag, run_val = wc.runtime_event_id.get_mapping_for_machine(mac) if wc.runtime_event_id else (None, None)
+            count_tag, is_cumul = wc.production_count_id.get_count_config_for_machine(mac) if wc.production_count_id else (None, False)
 
-                for wc_id, cfg in configs.items():
-                    machine = cfg['machine']
-                    m_name = machine.name
+            if not state_tag or not count_tag:
+                res[wc.id] = {'error': 'Configuration error: Missing state or count tag'}
+                continue
+
+            act_ints, plan_sec = mac._get_planned_working_intervals(s_time, e_time, wc)
+
+            cfgs[wc.id] = {
+                'mac': mac,
+                'state_tag': state_tag,
+                'run_val': run_val,
+                'count_tag': count_tag,
+                'is_cumul': is_cumul,
+                'act_ints': act_ints,
+                'plan_sec': plan_sec,
+                'count_id': wc.production_count_id.id,
+                's_time': s_time,
+                'calc_e_time': calc_e_time
+            }
+
+        if not cfgs:
+            return res
+
+        ts_base = self.env['mes.timescale.base']
+        
+        with ts_base._connection() as conn:
+            with conn.cursor() as cur:
+                c_data = {}
+                
+                for wc_id, cfg in cfgs.items():
+                    m_name = cfg['mac'].name
+                    if m_name not in c_data:
+                        q_counts = """
+                            SELECT tag_name, 
+                                   COALESCE(SUM(value), 0) as sum_val, 
+                                   COALESCE(MAX(value) - MIN(value), 0) as cum_val
+                            FROM telemetry_count 
+                            WHERE machine_name = %s AND time >= %s AND time < %s
+                            GROUP BY tag_name
+                        """
+                        cur.execute(q_counts, (m_name, cfg['s_time'], cfg['calc_e_time']))
+                        c_data[m_name] = {}
+                        for t_name, s_val, c_val in cur.fetchall():
+                            c_data[m_name][t_name] = {'sum': float(s_val), 'cum': float(c_val)}
+
+                all_rej = self.env['mes.counts'].search([])
+
+                for wc_id, cfg in cfgs.items():
+                    mac = cfg['mac']
+                    m_name = mac.name
                     
-                    t_data = count_data.get(m_name, {}).get(cfg['good_count_tag'], {})
-                    total_produced = t_data.get('cum' if cfg['is_cumulative'] else 'sum', 0)
+                    t_data = c_data.get(m_name, {}).get(cfg['count_tag'], {})
+                    tot_prod = t_data.get('cum' if cfg['is_cumul'] else 'sum', 0)
 
-                    top_rej_count = 0
+                    top_rej_cnt = 0
                     top_rej_name = "None"
                     
-                    for r_count in all_reject_counts:
-                        if r_count.id == cfg['prod_count_id']:
+                    for r_cnt in all_rej:
+                        if r_cnt.id == cfg['count_id']:
                             continue
-                        r_tag, r_is_cum = r_count.get_count_config_for_machine(machine)
+                        r_tag, r_is_cum = r_cnt.get_count_config_for_machine(mac)
                         if not r_tag: 
                             continue
                             
-                        r_val = count_data.get(m_name, {}).get(r_tag, {})
-                        r_amount = r_val.get('cum' if r_is_cum else 'sum', 0)
+                        r_val = c_data.get(m_name, {}).get(r_tag, {})
+                        r_amt = r_val.get('cum' if r_is_cum else 'sum', 0)
                         
-                        if r_amount > top_rej_count:
-                            top_rej_count = r_amount
-                            top_rej_name = r_count.name
+                        if r_amt > top_rej_cnt:
+                            top_rej_cnt = r_amt
+                            top_rej_name = r_cnt.name
 
-                    top_rejection_str = f"{top_rej_name} ({int(top_rej_count)})" if top_rej_count > 0 else "None"
-
-                    top_alarm_str = machine.get_top_alarm_str(cur, cfg['active_intervals'])
+                    top_rej_str = f"{top_rej_name} ({int(top_rej_cnt)})" if top_rej_cnt > 0 else "None"
+                    top_al_str = mac.get_top_alarm_str(cur, cfg['act_ints'])
                     
-                    total_running_sec = machine._fetch_interval_stats(
-                        cur, cfg['active_intervals'], [cfg['state_tag']], mode='runtime', 
-                        state_tag=cfg['state_tag'], state_val=cfg['running_plc_value']
+                    run_sec = mac._fetch_interval_stats(
+                        cur, cfg['act_ints'], [cfg['state_tag']], mode='runtime', 
+                        state_tag=cfg['state_tag'], state_val=cfg['run_val']
                     )
-                    first_running_time = machine._fetch_interval_stats(
-                        cur, cfg['active_intervals'], [cfg['state_tag']], mode='first_start', 
-                        state_tag=cfg['state_tag'], state_val=cfg['running_plc_value']
+                    first_run = mac._fetch_interval_stats(
+                        cur, cfg['act_ints'], [cfg['state_tag']], mode='first_start', 
+                        state_tag=cfg['state_tag'], state_val=cfg['run_val']
                     )
 
-                    wc = workcenters.browse(wc_id)
-                    kpi = machine._calculate_kpi(
-                        total_running_sec, total_produced, cfg['total_planned_sec'], wc
-                    )
+                    wc = wcs.browse(wc_id)
+                    kpi = mac._calculate_kpi(run_sec, tot_prod, cfg['plan_sec'], wc)
                     
                     kpi.update({
-                        'first_running_time': first_running_time,
-                        'top_alarm': top_alarm_str,
-                        'top_rejection': top_rejection_str
+                        'first_running_time': first_run,
+                        'top_alarm': top_al_str,
+                        'top_rejection': top_rej_str
                     })
                     
-                    results[wc_id] = kpi
+                    res[wc_id] = kpi
 
-        return results
+        return res
 
     def action_import_machine_counts(self):
         self.ensure_one()
@@ -709,12 +707,14 @@ class MesWasteLossStat(models.TransientModel):
 
     @api.model
     def _generate_stats(self, machine_id):
-        machine = self.env['mes.machine.settings'].browse(machine_id)
-        if not machine.exists(): return
+        mac = self.env['mes.machine.settings'].browse(machine_id)
+        if not mac.exists(): return
         
-        start_time, shift_end = self.env['mes.shift'].get_current_shift_window()
-        if not start_time: return
-        calc_end_time = min(fields.Datetime.now(), shift_end)
+        wc = self.env['mrp.workcenter'].search([('machine_settings_id', '=', mac.id)], limit=1)
+        
+        s_time, e_time = self.env['mes.shift'].get_current_shift_window(wc)
+        if not s_time: return
+        calc_e_time = min(fields.Datetime.now(), e_time)
         
         workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
         active_intervals, _ = machine._get_planned_working_intervals(start_time, shift_end, workcenter)
@@ -772,12 +772,14 @@ class MesDowntimeLossStat(models.TransientModel):
 
     @api.model
     def _generate_stats(self, machine_id):
-        machine = self.env['mes.machine.settings'].browse(machine_id)
-        if not machine.exists(): return
+        mac = self.env['mes.machine.settings'].browse(machine_id)
+        if not mac.exists(): return
         
-        start_time, shift_end = self.env['mes.shift'].get_current_shift_window()
-        if not start_time: return
-        calc_end_time = min(fields.Datetime.now(), shift_end)
+        wc = self.env['mrp.workcenter'].search([('machine_settings_id', '=', mac.id)], limit=1)
+        
+        s_time, e_time = self.env['mes.shift'].get_current_shift_window(wc)
+        if not s_time: return
+        calc_e_time = min(fields.Datetime.now(), e_time)
         
         workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
         active_intervals, _ = machine._get_planned_working_intervals(start_time, shift_end, workcenter)

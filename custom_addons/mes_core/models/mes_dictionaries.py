@@ -17,7 +17,7 @@ class MesShifts(models.Model):
     sequence = fields.Integer(string="Sequence", default=10)
     
     name = fields.Char(string='Shift Name', required=True)
-    code = fields.Char(string='Code', help="Code for external integration")
+    code = fields.Char(string='Code')
     start_hour = fields.Float(string='Start Hour')
     end_hour = fields.Float(string='End Hour')
     duration = fields.Float(
@@ -28,49 +28,57 @@ class MesShifts(models.Model):
     )
 
     company_id = fields.Many2one('res.company', string='Company', required=True, default=lambda self: self.env.company)
+    
+    workcenter_ids = fields.Many2many(
+        'mrp.workcenter',
+        string='Machines',
+        domain="[('company_id', '=', company_id)]"
+    )
 
     @api.depends('start_hour', 'end_hour')
     def _compute_duration(self):
-        for shift in self:
-            if shift.end_hour >= shift.start_hour:
-                shift.duration = shift.end_hour - shift.start_hour
+        for s in self:
+            if s.end_hour >= s.start_hour:
+                s.duration = s.end_hour - s.start_hour
             else:
-                shift.duration = 24.0 - shift.start_hour + shift.end_hour
+                s.duration = 24.0 - s.start_hour + s.end_hour
 
     @api.model
-    def get_current_shift_window(self):
+    def get_current_shift_window(self, wc=None):
         now = fields.Datetime.now()
-        current_hour = now.hour + now.minute / 60.0 + now.second / 3600.0
+        curr_h = now.hour + now.minute / 60.0 + now.second / 3600.0
         
-        shifts = self.search([])
-        current_shift = None
+        domain = [('company_id', '=', wc.company_id.id)] if wc else []
+        shifts = self.search(domain)
         
-        for shift in shifts:
-            if shift.start_hour < shift.end_hour:
-                if shift.start_hour <= current_hour < shift.end_hour:
-                    current_shift = shift
+        valid_shifts = [s for s in shifts if not (wc and s.workcenter_ids and wc.id not in s.workcenter_ids.ids)]
+        curr_shift = None
+        
+        for s in valid_shifts:
+            if s.start_hour < s.end_hour:
+                if s.start_hour <= curr_h < s.end_hour:
+                    curr_shift = s
                     break
             else:
-                if current_hour >= shift.start_hour or current_hour < shift.end_hour:
-                    current_shift = shift
+                if curr_h >= s.start_hour or curr_h < s.end_hour:
+                    curr_shift = s
                     break
         
-        if not current_shift:
+        if not curr_shift:
             return None, None
 
-        start_date = now
-        if current_shift.start_hour > current_shift.end_hour and current_hour < current_shift.end_hour:
-            start_date = now - timedelta(days=1)
+        start_dt = now
+        if curr_shift.start_hour > curr_shift.end_hour and curr_h < curr_shift.end_hour:
+            start_dt = now - timedelta(days=1)
             
-        start_time = start_date.replace(
-            hour=int(current_shift.start_hour), 
-            minute=int((current_shift.start_hour % 1) * 60), 
+        s_time = start_dt.replace(
+            hour=int(curr_shift.start_hour), 
+            minute=int((curr_shift.start_hour % 1) * 60), 
             second=0, 
             microsecond=0
         )
         
-        end_time = start_time + timedelta(hours=current_shift.duration)
-        return start_time, end_time
+        return s_time, s_time + timedelta(hours=curr_shift.duration)
 
 class MesDefects(models.Model):
     _name = 'mes.defect'
@@ -466,7 +474,7 @@ class MesWorkcenter(models.Model):
             return {'error': 'Machine not configured'}
 
         machine = wc.machine_settings_id
-        start_time, shift_end = self.env['mes.shift'].get_current_shift_window()
+        start_time, shift_end = self.env['mes.shift'].get_current_shift_window(wc)
         
         if not start_time: 
             return {'error': 'No active shift'}
