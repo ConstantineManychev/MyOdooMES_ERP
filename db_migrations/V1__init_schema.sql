@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS telemetry_count (
     machine_name TEXT NOT NULL,
     tag_name TEXT NOT NULL,
     value BIGINT,
-    CONSTRAINT uniq_count_time_machine_tag UNIQUE (time, machine_name, tag_name)
+    evt_id VARCHAR(64)
 );
 SELECT create_hypertable('telemetry_count', 'time', if_not_exists => TRUE);
 
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS telemetry_event (
     machine_name TEXT NOT NULL,
     tag_name TEXT NOT NULL,
     value INTEGER,
-    CONSTRAINT uniq_event_time_machine_tag UNIQUE (time, machine_name, tag_name)
+    evt_id VARCHAR(64)
 );
 SELECT create_hypertable('telemetry_event', 'time', if_not_exists => TRUE);
 
@@ -47,9 +47,13 @@ CREATE TABLE IF NOT EXISTS telemetry_process (
     tag_name TEXT NOT NULL,
     value DOUBLE PRECISION,
     value_str TEXT,
-    CONSTRAINT uniq_process_time_machine_tag UNIQUE (time, machine_name, tag_name)
+    evt_id VARCHAR(64)
 );
 SELECT create_hypertable('telemetry_process', 'time', if_not_exists => TRUE);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tel_evt_uniq ON telemetry_event (time, machine_name, tag_name, evt_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tel_cnt_uniq ON telemetry_count (time, machine_name, tag_name, evt_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tel_prc_uniq ON telemetry_process (time, machine_name, tag_name, evt_id);
 
 CREATE INDEX IF NOT EXISTS idx_telemetry_process_machine_tag ON telemetry_process (machine_name, tag_name, time DESC);
 CREATE INDEX IF NOT EXISTS idx_telemetry_event_machine_tag ON telemetry_event (machine_name, tag_name, time DESC);
@@ -93,3 +97,39 @@ SELECT
     END as status
 FROM last_hour lh
 LEFT JOIN monthly_avg ma ON lh.machine_name = ma.machine_name;
+
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM timescaledb_information.compression_settings WHERE hypertable_name = 'telemetry_count') THEN
+        ALTER TABLE telemetry_count SET (
+            timescaledb.compress,
+            timescaledb.compress_segmentby = 'machine_name, tag_name',
+            timescaledb.compress_orderby = 'time DESC'
+        );
+    END IF;
+END $$;
+SELECT add_compression_policy('telemetry_count', INTERVAL '30 days', if_not_exists => TRUE);
+
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM timescaledb_information.compression_settings WHERE hypertable_name = 'telemetry_event') THEN
+        ALTER TABLE telemetry_event SET (
+            timescaledb.compress,
+            timescaledb.compress_segmentby = 'machine_name, tag_name',
+            timescaledb.compress_orderby = 'time DESC'
+        );
+    END IF;
+END $$;
+SELECT add_compression_policy('telemetry_event', INTERVAL '30 days', if_not_exists => TRUE);
+
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM timescaledb_information.compression_settings WHERE hypertable_name = 'telemetry_process') THEN
+        ALTER TABLE telemetry_process SET (
+            timescaledb.compress,
+            timescaledb.compress_segmentby = 'machine_name, tag_name',
+            timescaledb.compress_orderby = 'time DESC'
+        );
+    END IF;
+END $$;
+SELECT add_compression_policy('telemetry_process', INTERVAL '30 days', if_not_exists => TRUE);
