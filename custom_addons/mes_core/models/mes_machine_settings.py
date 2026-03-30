@@ -707,16 +707,15 @@ class MesWasteLossStat(models.TransientModel):
 
     @api.model
     def _generate_stats(self, machine_id):
-        mac = self.env['mes.machine.settings'].browse(machine_id)
-        if not mac.exists(): return
-        
-        wc = self.env['mrp.workcenter'].search([('machine_settings_id', '=', mac.id)], limit=1)
-        
-        s_time, e_time = self.env['mes.shift'].get_current_shift_window(wc)
-        if not s_time: return
-        calc_e_time = min(fields.Datetime.now(), e_time)
+        machine = self.env['mes.machine.settings'].browse(machine_id)
+        if not machine.exists(): return
         
         workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
+        
+        start_time, shift_end = self.env['mes.shift'].get_current_shift_window(workcenter)
+        if not start_time: return
+        calc_end_time = min(fields.Datetime.now(), shift_end)
+        
         active_intervals, _ = machine._get_planned_working_intervals(start_time, shift_end, workcenter)
         
         state_sig = machine.event_tag_ids.filtered(lambda x: x.event_id == workcenter.runtime_event_id)
@@ -772,23 +771,21 @@ class MesDowntimeLossStat(models.TransientModel):
 
     @api.model
     def _generate_stats(self, machine_id):
-        mac = self.env['mes.machine.settings'].browse(machine_id)
-        if not mac.exists(): return
-        
-        wc = self.env['mrp.workcenter'].search([('machine_settings_id', '=', mac.id)], limit=1)
-        
-        s_time, e_time = self.env['mes.shift'].get_current_shift_window(wc)
-        if not s_time: return
-        calc_e_time = min(fields.Datetime.now(), e_time)
+        machine = self.env['mes.machine.settings'].browse(machine_id)
+        if not machine.exists(): return
         
         workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
+        
+        start_time, shift_end = self.env['mes.shift'].get_current_shift_window(workcenter)
+        if not start_time: return
+        calc_end_time = min(fields.Datetime.now(), shift_end)
+        
         active_intervals, _ = machine._get_planned_working_intervals(start_time, shift_end, workcenter)
         
         state_sig = machine.event_tag_ids.filtered(lambda x: x.event_id == workcenter.runtime_event_id)
         state_tag = state_sig[0].tag_name if state_sig else None
         running_plc_value = state_sig[0].plc_value if state_sig else 0
 
-        #all_event_tags = list(set(machine.event_tag_ids.mapped('tag_name')))
         alarm_tag = machine.get_alarm_tag_name('OEE.nStopRootReason').replace('%', '')
         
         vals_list = []
