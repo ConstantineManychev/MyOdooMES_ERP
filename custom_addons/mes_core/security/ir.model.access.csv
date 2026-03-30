@@ -41,6 +41,8 @@ access_mes_ingred_admin,mes.ingred.admin,model_mes_production_ingredient,mes_cor
 
 access_mes_flat_dt_admin,mes.flat.dt.admin,model_mes_flat_downtime,mes_core.group_mes_administrator,1,1,1,1
 
+access_mes_hist_dashboard_wiz,mes.hist.dashboard.wiz,model_mes_hist_dashboard_wiz,group_mes_administrator,1,1,1,1
+
 access_mes_waste_loss_stat_user,mes.waste.loss.stat.user,model_mes_waste_loss_stat,mes_core.group_mes_administrator,1,1,1,1
 access_mes_downtime_loss_stat_user,mes.downtime.loss.stat.user,model_mes_downtime_loss_stat,mes_core.group_mes_administrator,1,1,1,1
 
@@ -97,6 +99,9 @@ access_mes_ingred_manager,mes.ingred.manager,model_mes_production_ingredient,mes
 
 
 access_mes_flat_dt_manager,mes.flat.dt.manager,model_mes_flat_downtime,mes_core.group_mes_manager,1,1,1,1
+
+
+access_mes_hist_dashboard_wiz,mes.hist.dashboard.wiz,model_mes_hist_dashboard_wiz,group_mes_manager,1,1,1,1
 
 access_mes_waste_loss_stat_user,mes.waste.loss.stat.user,model_mes_waste_loss_stat,mes_core.group_mes_manager,1,1,1,1
 access_mes_downtime_loss_stat_user,mes.downtime.loss.stat.user,model_mes_downtime_loss_stat,mes_core.group_mes_manager,1,1,1,1

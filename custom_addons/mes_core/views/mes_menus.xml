@@ -165,6 +165,13 @@
               parent="menu_mes_tools" 
               action="action_mes_supervisor_dashboard" 
               sequence="15"/>
+    
+    
+    <menuitem id="menu_mes_hist_dashboard" 
+            name="Historical Dashboard"
+            parent="menu_mes_tools"
+            action="action_mes_hist_dashboard" 
+            sequence="20"/>
 
 <!--
     <menuitem id="menu_mes_init_db"

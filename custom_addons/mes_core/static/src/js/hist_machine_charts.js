@@ -5,7 +5,7 @@ import { Component, onWillUnmount, onMounted, useRef, useState } from "@odoo/owl
 import { useService } from "@web/core/utils/hooks";
 import { loadJS } from "@web/core/assets";
 
-export class MachineLiveCharts extends Component {
+export class HistMachineCharts extends Component {
     setup() {
         this.orm = useService("orm");
         this.canvasRef = useRef("chartCanvas"); 
@@ -38,6 +38,7 @@ export class MachineLiveCharts extends Component {
         }
     }
 
+    // Жестко блокируем часовой пояс браузера
     parseIsolatedMs(val) {
         if (!val) return NaN;
         if (typeof val === 'number') return val;
@@ -51,6 +52,7 @@ export class MachineLiveCharts extends Component {
     }
 
     async fetchData() {
+        // Ждем пока у TransientModel появится resId (после нажатия кнопки Show)
         if (!this.props.record.resId) return;
 
         const res = await this.orm.call(
@@ -192,6 +194,7 @@ export class MachineLiveCharts extends Component {
 
         const isV3 = typeof window.Chart.defaults.plugins !== 'undefined';
         
+        // Форматируем время жестко как ДД.ММ.ГГГГ ЧЧ:ММ
         const formatIsolatedTime = (sec) => {
             if (isNaN(sec)) return '';
             const d = new Date(this.baseEpochMs + sec * 1000);
@@ -336,5 +339,5 @@ export class MachineLiveCharts extends Component {
     }
 }
 
-MachineLiveCharts.template = "mes_core.MachineLiveChartsTmpl";
-registry.category("view_widgets").add("machine_live_charts", { component: MachineLiveCharts });
+HistMachineCharts.template = "mes_core.HistMachineChartsTmpl";
+registry.category("view_widgets").add("hist_machine_charts", { component: HistMachineCharts });

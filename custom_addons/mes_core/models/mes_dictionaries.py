@@ -13,28 +13,16 @@ _logger = logging.getLogger(__name__)
 class MesShifts(models.Model):
     _name = 'mes.shift'
     _description = 'Work Shifts'
-
     _order = 'sequence, start_hour'
-    sequence = fields.Integer(string="Sequence", default=10)
     
+    sequence = fields.Integer(string="Sequence", default=10)
     name = fields.Char(string='Shift Name', required=True)
     code = fields.Char(string='Code')
     start_hour = fields.Float(string='Start Hour')
     end_hour = fields.Float(string='End Hour')
-    duration = fields.Float(
-        string='Duration (Hours)', 
-        compute='_compute_duration', 
-        store=True, 
-        readonly=True
-    )
-
+    duration = fields.Float(string='Duration (Hours)', compute='_compute_duration', store=True, readonly=True)
     company_id = fields.Many2one('res.company', string='Company', required=True, default=lambda self: self.env.company)
-    
-    workcenter_ids = fields.Many2many(
-        'mrp.workcenter',
-        string='Machines',
-        domain="[('company_id', '=', company_id)]"
-    )
+    workcenter_ids = fields.Many2many('mrp.workcenter', string='Machines', domain="[('company_id', '=', company_id)]")
 
     @api.depends('start_hour', 'end_hour')
     def _compute_duration(self):
@@ -46,10 +34,10 @@ class MesShifts(models.Model):
 
     @api.model
     def get_current_shift_window(self, wc=None):
-        now_utc = pytz.utc.localize(fields.Datetime.now())
+        now_utc = fields.Datetime.now()
         tz_name = wc.company_id.tz if wc and wc.company_id.tz else 'UTC'
         mac_tz = pytz.timezone(tz_name)
-        now_mac = now_utc.astimezone(mac_tz)
+        now_mac = pytz.utc.localize(now_utc).astimezone(mac_tz).replace(tzinfo=None)
         
         curr_h = now_mac.hour + now_mac.minute / 60.0 + now_mac.second / 3600.0
         
@@ -74,15 +62,14 @@ class MesShifts(models.Model):
         if curr_s.start_hour > curr_s.end_hour and curr_h < curr_s.end_hour:
             start_d -= timedelta(days=1)
             
-        s_time_mac = mac_tz.localize(datetime.combine(
+        s_time = datetime.combine(
             start_d,
             time(hour=int(curr_s.start_hour), minute=int((curr_s.start_hour % 1) * 60))
-        ))
+        )
         
-        s_utc = s_time_mac.astimezone(pytz.utc).replace(tzinfo=None)
-        e_utc = s_utc + timedelta(hours=curr_s.duration)
+        e_time = s_time + timedelta(hours=curr_s.duration)
         
-        return s_utc, e_utc
+        return s_time, e_time
 
 class MesDefects(models.Model):
     _name = 'mes.defect'
@@ -141,7 +128,6 @@ class MesHierarchyMixin(models.AbstractModel):
                     with self.env.cr.savepoint():
                         rec.write(vals)
                 except Exception as e:
-                    _logger.warning(f"Skipping parent for '{name}' to avoid recursion loop.")
                     vals.pop('parent_id', None)
                     rec.write(vals)
 
@@ -169,19 +155,16 @@ class MesCounts(models.Model):
 
     name = fields.Char(string='Event', required=True)
     code = fields.Char(string='Code')
-
     parent_id = fields.Many2one('mes.counts', string='Parent Group', index=True, ondelete='cascade')
     child_ids = fields.One2many('mes.counts', 'parent_id', string='Children')
     parent_path = fields.Char(index=True, unaccent=False)
-
     complete_name = fields.Char('Complete Name', compute='_compute_complete_name', store=True)
 
-    default_OPCTag = fields.Char(string='Default OPC Tag', help="Default tag for OPC integration")
-    is_cumulative = fields.Boolean(string='Cumulative (MAX-MIN)', default=False, 
-                                   help="If true, OEE calculation will use MAX-MIN difference for this count instead of summing up values")
-    is_module_count = fields.Boolean(string='Is Module Count', help="Indicates if this count is related to module production")
-    wheel = fields.Integer(string='Wheel', help="Number of the wheel associated with this count")
-    module = fields.Integer(string='Module', help="Number of the module associated with this count")
+    default_OPCTag = fields.Char(string='Default OPC Tag')
+    is_cumulative = fields.Boolean(string='Cumulative (MAX-MIN)', default=False)
+    is_module_count = fields.Boolean(string='Is Module Count')
+    wheel = fields.Integer(string='Wheel')
+    module = fields.Integer(string='Module')
 
     @api.depends('name', 'parent_id.complete_name')
     def _compute_complete_name(self):
@@ -212,11 +195,9 @@ class MesCounts(models.Model):
             ('count_id', '=', self.id),
             ('machine_id', '=', machine_id.id if isinstance(machine_id, models.Model) else machine_id)
         ], limit=1)
-        
         if override:
             return override.tag_name, override.is_cumulative
         return self.default_OPCTag, self.is_cumulative
-
 
 class MesEvents(models.Model):
     _name = 'mes.event'
@@ -229,20 +210,17 @@ class MesEvents(models.Model):
 
     name = fields.Char(string='Event Name', required=True)
     code = fields.Char(string='Code')
-    
     parent_id = fields.Many2one('mes.event', string='Parent Group', index=True, ondelete='cascade')
     child_ids = fields.One2many('mes.event', 'parent_id', string='Children')
     parent_path = fields.Char(index=True, unaccent=False)
-    
     complete_name = fields.Char('Complete Name', compute='_compute_complete_name', store=True)
 
-    color = fields.Char(string='Color', default='#808080', help="Color for the timeline dashboard")
-
+    color = fields.Char(string='Color', default='#808080')
     default_event_tag_type = fields.Selection([
         ('OEE.nMachineState', 'Machine State (OEE.nMachineState)'),
         ('OEE.nStopRootReason', 'Stop Reason (OEE.nStopRootReason)')
-    ], string='Default Tag Type', help="Base tag source for this event")
-    default_plc_value = fields.Integer(string='Default PLC Value', help="Value that triggers this event")
+    ], string='Default Tag Type')
+    default_plc_value = fields.Integer(string='Default PLC Value')
 
     @api.depends('name', 'parent_id.complete_name')
     def _compute_complete_name(self):
@@ -267,7 +245,6 @@ class MesEvents(models.Model):
             return override.tag_name, override.plc_value
         return self.default_event_tag_type, self.default_plc_value
 
-
 class MesProcess(models.Model):
     _name = 'mes.process'
     _inherit = ['mes.hierarchy.mixin']
@@ -279,21 +256,12 @@ class MesProcess(models.Model):
 
     name = fields.Char(string='Process Name', required=True)
     code = fields.Char(string='Code')
-    
     parent_id = fields.Many2one('mes.process', string='Parent Group', index=True, ondelete='cascade')
     child_ids = fields.One2many('mes.process', 'parent_id', string='Children')
     parent_path = fields.Char(index=True, unaccent=False)
-    
     complete_name = fields.Char('Complete Name', compute='_compute_complete_name', store=True)
-    default_OPCTag = fields.Char(string='Default OPC Tag', help="Default tag for OPC integration")
-
-    related_process_ids = fields.Many2many(
-        'mes.process', 
-        'mes_process_related_rel', 
-        'process_id', 
-        'related_id', 
-        string='Related Processes'
-    )
+    default_OPCTag = fields.Char(string='Default OPC Tag')
+    related_process_ids = fields.Many2many('mes.process', 'mes_process_related_rel', 'process_id', 'related_id', string='Related Processes')
 
     @api.depends('name', 'parent_id.complete_name')
     def _compute_complete_name(self):
@@ -317,14 +285,12 @@ class MesWorkcenter(models.Model):
     _inherit = 'mrp.workcenter'
 
     machine_number = fields.Integer(string='Machine Number')
-    maintainx_id = fields.Integer(string='MaintainX ID', help="ID used in MaintainX system")
-    code_imatec = fields.Char(string='Imatec Name', help="Name used in external DB (e.g. IMA3)")
-
+    maintainx_id = fields.Integer(string='MaintainX ID')
+    code_imatec = fields.Char(string='Imatec Name')
     machine_settings_id = fields.Many2one('mes.machine.settings', string='Telemetry Settings')
-
-    runtime_event_id = fields.Many2one('mes.event', string='Runtime Event', help="Runtime event used for OEE calculation")
-    production_count_id = fields.Many2one('mes.counts', string='Production Count', help="Good parts count used for OEE calculation")
-    refresh_frequency = fields.Integer(string='Refresh Frequency (sec)', default=60, help="Frequency of OEE dashboard refresh in seconds")
+    runtime_event_id = fields.Many2one('mes.event', string='Runtime Event')
+    production_count_id = fields.Many2one('mes.counts', string='Production Count')
+    refresh_frequency = fields.Integer(string='Refresh Frequency (sec)', default=60)
     ideal_capacity_per_min = fields.Float(string='Ideal Capacity (Parts/Min)', default=200.0)
 
     current_oee = fields.Float(string="OEE (%)", readonly=True, default=0.0)
@@ -338,14 +304,8 @@ class MesWorkcenter(models.Model):
     current_runtime_formatted = fields.Char(string="Runtime", readonly=True, default='00:00:00')
     current_top_rejection = fields.Char(string="Top Rejection", readonly=True, default='None')
     current_top_alarm = fields.Char(string="Top Alarm", readonly=True, default='None')
-
-    chart_bucket_minutes = fields.Integer(string='Chart Bucket (Min)', default=15, help="Time grouping for production chart")
-
-    allowed_pc_ips = fields.Char(
-        string='All Allowed PC IPs',
-        help='Specify the IP addresses of allowed computers, separated by commas (e.g., 192.168.1.50, 192.168.1.51)'
-    )
-
+    chart_bucket_minutes = fields.Integer(string='Chart Bucket (Min)', default=15)
+    allowed_pc_ips = fields.Char(string='All Allowed PC IPs')
     company_id = fields.Many2one('res.company', string='Company', required=True, default=lambda self: self.env.company)
     
     _sql_constraints = [
@@ -356,7 +316,6 @@ class MesWorkcenter(models.Model):
     def _search(self, domain, offset=0, limit=None, order=None, **kwargs):
         if not self.env.context.get('skip_ip_filter'):
             domain = self._apply_operator_ip_filter(domain)
-            
         return super()._search(domain, offset=offset, limit=limit, order=order, **kwargs)
     
     @api.model
@@ -366,7 +325,6 @@ class MesWorkcenter(models.Model):
             ('runtime_event_id', '!=', False),
             ('production_count_id', '!=', False)
         ])
-        
         if not workcenters:
             return
 
@@ -379,29 +337,17 @@ class MesWorkcenter(models.Model):
                 continue
 
             vals = {}
-            if wc.current_oee != data.get('oee', 0.0): 
-                vals['current_oee'] = data.get('oee', 0.0)
-            if wc.current_availability != data.get('availability', 0.0): 
-                vals['current_availability'] = data.get('availability', 0.0)
-            if wc.current_performance != data.get('performance', 0.0): 
-                vals['current_performance'] = data.get('performance', 0.0)
-            if wc.current_quality != data.get('quality', 0.0): 
-                vals['current_quality'] = data.get('quality', 0.0)
-            if wc.current_produced != data.get('total_produced', 0): 
-                vals['current_produced'] = data.get('total_produced', 0)
-            if wc.current_waste_losses != data.get('waste_losses', 0.0): 
-                vals['current_waste_losses'] = data.get('waste_losses', 0.0)
-            if wc.current_downtime_losses != data.get('downtime_losses', 0.0): 
-                vals['current_downtime_losses'] = data.get('downtime_losses', 0.0)
-            if wc.current_first_running_time != data.get('first_running_time'): 
-                vals['current_first_running_time'] = data.get('first_running_time')
-            if wc.current_runtime_formatted != data.get('runtime_formatted', '00:00:00'): 
-                vals['current_runtime_formatted'] = data.get('runtime_formatted', '00:00:00')
-            if wc.current_top_rejection != data.get('top_rejection', 'None'): 
-                vals['current_top_rejection'] = data.get('top_rejection', 'None')
-            if wc.current_top_alarm != data.get('top_alarm', 'None'): 
-                vals['current_top_alarm'] = data.get('top_alarm', 'None')
-
+            if wc.current_oee != data.get('oee', 0.0): vals['current_oee'] = data.get('oee', 0.0)
+            if wc.current_availability != data.get('availability', 0.0): vals['current_availability'] = data.get('availability', 0.0)
+            if wc.current_performance != data.get('performance', 0.0): vals['current_performance'] = data.get('performance', 0.0)
+            if wc.current_quality != data.get('quality', 0.0): vals['current_quality'] = data.get('quality', 0.0)
+            if wc.current_produced != data.get('total_produced', 0): vals['current_produced'] = data.get('total_produced', 0)
+            if wc.current_waste_losses != data.get('waste_losses', 0.0): vals['current_waste_losses'] = data.get('waste_losses', 0.0)
+            if wc.current_downtime_losses != data.get('downtime_losses', 0.0): vals['current_downtime_losses'] = data.get('downtime_losses', 0.0)
+            if wc.current_first_running_time != data.get('first_running_time'): vals['current_first_running_time'] = data.get('first_running_time')
+            if wc.current_runtime_formatted != data.get('runtime_formatted', '00:00:00'): vals['current_runtime_formatted'] = data.get('runtime_formatted', '00:00:00')
+            if wc.current_top_rejection != data.get('top_rejection', 'None'): vals['current_top_rejection'] = data.get('top_rejection', 'None')
+            if wc.current_top_alarm != data.get('top_alarm', 'None'): vals['current_top_alarm'] = data.get('top_alarm', 'None')
             if vals:
                 wc.write(vals)
 
@@ -448,8 +394,6 @@ class MesWorkcenter(models.Model):
             else:
                 client_ip = 'UNKNOWN'
                 
-            _logger.info(f"MES Security: Operator opened the dashboard from IP address: {client_ip}")
-            
             all_restricted_wcs = self.env['mrp.workcenter'].with_context(skip_ip_filter=True).sudo().search([('allowed_pc_ips', '!=', False)])
             allowed_wc_ids = []
             
@@ -467,28 +411,14 @@ class MesWorkcenter(models.Model):
         for wc in self:
             if wc.refresh_frequency < 10:
                 raise ValidationError('Configuration error: Refresh frequency cannot be less than 10 seconds.')
-            
+
     @api.model
-    def get_live_chart_data(self, workcenter_id, selected_count_id=False, selected_process_id=False):
-        wc = self.browse(workcenter_id)
-        if not wc.exists() or not wc.machine_settings_id:
-            return {'error': 'Machine not configured'}
-
+    def _build_chart_payload(self, wc, s_time, calc_e_time, b_min, count_id=False, proc_id=False):
         mac = wc.machine_settings_id
-        tz_name = wc.company_id.tz or 'UTC'
-        mac_tz = pytz.timezone(tz_name)
-        
-        s_utc, e_utc = self.env['mes.shift'].get_current_shift_window(wc)
-        if not s_utc: 
-            return {'error': 'No active shift'}
 
-        calc_e_utc = min(fields.Datetime.now(), e_utc)
-        
-        def to_mac_iso(dt):
+        def to_iso(dt):
             if not dt: return None
-            if not dt.tzinfo:
-                dt = pytz.utc.localize(dt)
-            return dt.astimezone(mac_tz).strftime('%Y-%m-%dT%H:%M:%S')
+            return dt.replace(tzinfo=None).strftime('%Y-%m-%dT%H:%M:%S')
 
         available_counts = []
         seen_c_ids = set()
@@ -497,7 +427,7 @@ class MesWorkcenter(models.Model):
                 available_counts.append({'id': ct.count_id.id, 'name': ct.count_id.name})
                 seen_c_ids.add(ct.count_id.id)
 
-        tgt_c = self.env['mes.counts'].browse(int(selected_count_id)) if selected_count_id else wc.production_count_id
+        tgt_c = self.env['mes.counts'].browse(int(count_id)) if count_id else wc.production_count_id
         is_ideal_shown = bool(wc.production_count_id and tgt_c and tgt_c.id == wc.production_count_id.id)
 
         c_sigs = mac.count_tag_ids.filtered(lambda t: t.count_id == tgt_c)
@@ -513,12 +443,11 @@ class MesWorkcenter(models.Model):
             if p.get_tag_for_machine(mac):
                 available_procs.append({'id': p.id, 'name': p.complete_name or p.name})
 
-        tgt_p = self.env['mes.process'].browse(int(selected_process_id)) if selected_process_id else self.env['mes.process']
+        tgt_p = self.env['mes.process'].browse(int(proc_id)) if proc_id else self.env['mes.process']
         p_to_fetch = tgt_p | tgt_p.related_process_ids
 
-        b_min = max(1, wc.chart_bucket_minutes)
         b_sec = b_min * 60
-        tot_s = (calc_e_utc - s_utc).total_seconds()
+        tot_s = (calc_e_time - s_time).total_seconds()
         n_ints = math.ceil(tot_s / b_sec) if tot_s > 0 else 1
 
         labels = []
@@ -527,14 +456,15 @@ class MesWorkcenter(models.Model):
         b_idx_map = {}
         ideal_per_b = (wc.ideal_capacity_per_min or 0.0) * b_min
 
-        s_mac = pytz.utc.localize(s_utc).astimezone(mac_tz)
+        s_local_naive = s_time
         for i in range(n_ints + 1):
-            b_mac = s_mac + timedelta(seconds=i * b_sec)
-            iso = b_mac.strftime('%Y-%m-%dT%H:%M:%S')
+            b_local_naive = s_local_naive + timedelta(seconds=i * b_sec)
+            iso = b_local_naive.strftime('%Y-%m-%dT%H:%M:%S')
             labels.append(iso)
             prod_data.append(0.0)
             ideal_data.append(ideal_per_b if i > 0 else 0.0)
-            b_idx_map[b_mac.replace(tzinfo=None)] = i
+            key = b_local_naive.strftime('%Y-%m-%dT%H:%M')
+            b_idx_map[key] = i
 
         tl_data = []
         all_p_data = []
@@ -543,22 +473,22 @@ class MesWorkcenter(models.Model):
         with self.env['mes.timescale.base']._connection() as conn:
             with conn.cursor() as cur:
                 if e_tags:
-                    raw_tl = mac._fetch_timeline_raw(cur, s_utc, calc_e_utc, e_tags)
+                    raw_tl = mac._fetch_timeline_raw(cur, s_time, calc_e_time, e_tags)
                     raw_tl_colored = self._process_timeline_colors(mac, raw_tl, st_cfgs)
                     for entry in raw_tl_colored:
-                        entry['start'] = to_mac_iso(datetime.fromisoformat(entry['start']))
-                        entry['end'] = to_mac_iso(datetime.fromisoformat(entry['end']))
+                        entry['start'] = to_iso(datetime.fromisoformat(entry['start']))
+                        entry['end'] = to_iso(datetime.fromisoformat(entry['end']))
                     tl_data = raw_tl_colored
 
                 if c_tags:
-                    raw_prod = mac._fetch_production_chart_raw(cur, c_tags, s_utc, calc_e_utc, b_min)
+                    raw_prod = mac._fetch_production_chart_raw(cur, c_tags, s_time, calc_e_time, b_min)
                     for row in raw_prod:
                         t_name = row[0]
-                        b_utc = row[1]
+                        b_time = row[1].replace(tzinfo=None)
                         qty = float(row[3]) if is_cum_map.get(t_name) else float(row[2])
-                        b_mac_naive = b_utc.astimezone(mac_tz).replace(tzinfo=None)
-                        if b_mac_naive in b_idx_map:
-                            idx = b_idx_map[b_mac_naive] + 1
+                        key = b_time.strftime('%Y-%m-%dT%H:%M')
+                        if key in b_idx_map:
+                            idx = b_idx_map[key] + 1
                             if idx < len(prod_data): prod_data[idx] += qty
 
                 for p in p_to_fetch:
@@ -574,11 +504,11 @@ class MesWorkcenter(models.Model):
                             WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
                             ORDER BY time ASC)
                         ) sub ORDER BY time ASC
-                    """, (mac.name, p_tag, s_utc, mac.name, p_tag, s_utc, calc_e_utc))
+                    """, (mac.name, p_tag, s_time, mac.name, p_tag, s_time, calc_e_time))
                     
                     p_series = []
                     for row in cur.fetchall():
-                        p_series.append({'x': to_mac_iso(row[0]), 'y': float(row[1])})
+                        p_series.append({'x': to_iso(row[0]), 'y': float(row[1])})
                     if tgt_p and p.id == tgt_p.id: main_p_data = p_series
                     all_p_data.append({'name': p.complete_name or p.name, 'data': p_series})
 
@@ -602,6 +532,24 @@ class MesWorkcenter(models.Model):
                 'show_ideal': is_ideal_shown
             }
         }
+
+    @api.model
+    def get_live_chart_data(self, workcenter_id, selected_count_id=False, selected_process_id=False):
+        wc = self.browse(workcenter_id)
+        if not wc.exists() or not wc.machine_settings_id:
+            return {'error': 'Machine not configured'}
+
+        s_time, e_time = self.env['mes.shift'].get_current_shift_window(wc)
+        if not s_time: 
+            return {'error': 'No active shift'}
+
+        now_utc = fields.Datetime.now()
+        mac_tz = pytz.timezone(wc.company_id.tz or 'UTC')
+        now_mac = pytz.utc.localize(now_utc).astimezone(mac_tz).replace(tzinfo=None)
+        calc_e_time = min(now_mac, e_time)
+        b_min = max(1, wc.chart_bucket_minutes)
+        
+        return self._build_chart_payload(wc, s_time, calc_e_time, b_min, selected_count_id, selected_process_id)
 
     def _process_timeline_colors(self, machine, raw_timeline, state_configs):
         name_map = {}
@@ -641,13 +589,81 @@ class MesWorkcenter(models.Model):
                     evt_color = '#dc3545' if is_state_tag else '#ffc107'
 
             result.append({
-                'start': row[0].isoformat(),
-                'end': row[1].isoformat(),
+                'start': row[0].strftime('%Y-%m-%dT%H:%M:%S'),
+                'end': row[1].strftime('%Y-%m-%dT%H:%M:%S'),
                 'duration': (row[1] - row[0]).total_seconds(),
                 'color': evt_color,
                 'name': evt_name
             })
         return result
+
+class MesHistDashboardWiz(models.TransientModel):
+    _name = 'mes.hist.dashboard.wiz'
+    _description = 'Historical Chart Wizard'
+
+    wc_id = fields.Many2one('mrp.workcenter', string='Machine', required=True)
+    s_time = fields.Datetime(string='Start Time', required=True)
+    e_time = fields.Datetime(string='End Time', required=True)
+    b_min = fields.Integer(string='Bucket (Min)', default=15, required=True)
+    
+    count_id = fields.Many2one('mes.counts', string='Production Count')
+    proc_id = fields.Many2one('mes.process', string='Process Variable')
+
+    available_count_ids = fields.Many2many('mes.counts', compute='_compute_available_tags')
+    available_proc_ids = fields.Many2many('mes.process', compute='_compute_available_tags')
+
+    @api.depends('wc_id')
+    def _compute_available_tags(self):
+        for wiz in self:
+            if wiz.wc_id and wiz.wc_id.machine_settings_id:
+                mac = wiz.wc_id.machine_settings_id
+                c_ids = mac.count_tag_ids.mapped('count_id').ids
+                wiz.available_count_ids = [(6, 0, c_ids)]
+                
+                valid_p = [p.id for p in self.env['mes.process'].search([]) if p.get_tag_for_machine(mac)]
+                wiz.available_proc_ids = [(6, 0, valid_p)]
+            else:
+                wiz.available_count_ids = [(6, 0, [])]
+                wiz.available_proc_ids = [(6, 0, [])]
+
+    def action_update_chart(self):
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'mes.hist.dashboard.wiz',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
+
+    @api.model
+    def get_chart_data(self, wiz_id):
+        wiz = self.browse(wiz_id)
+        if not wiz.exists() or not wiz.wc_id or not wiz.s_time or not wiz.e_time:
+            return {'error': 'Please provide Machine, Start Time, and End Time.'}
+
+        s_time_wall = fields.Datetime.context_timestamp(wiz, wiz.s_time).replace(tzinfo=None)
+        e_time_wall = fields.Datetime.context_timestamp(wiz, wiz.e_time).replace(tzinfo=None)
+
+        return self.env['mrp.workcenter']._build_chart_payload(
+            wiz.wc_id, s_time_wall, e_time_wall, wiz.b_min, 
+            wiz.count_id.id if wiz.count_id else False, 
+            wiz.proc_id.id if wiz.proc_id else False
+        )
+        wiz = self.browse(wiz_id)
+        if not wiz.exists() or not wiz.wc_id or not wiz.s_time or not wiz.e_time:
+            return {'error': 'Please provide Machine, Start Time, and End Time.'}
+
+        # Odoo Datetime widget sends UTC to backend. 
+        # Convert it back to user's exact input wall-clock time for Timescale query
+        user_tz = pytz.timezone(self.env.user.tz or 'UTC')
+        s_time_wall = pytz.utc.localize(wiz.s_time).astimezone(user_tz).replace(tzinfo=None)
+        e_time_wall = pytz.utc.localize(wiz.e_time).astimezone(user_tz).replace(tzinfo=None)
+
+        return self.env['mrp.workcenter']._build_chart_payload(
+            wiz.wc_id, s_time_wall, e_time_wall, wiz.b_min, 
+            wiz.count_id.id if wiz.count_id else False, 
+            wiz.proc_id.id if wiz.proc_id else False
+        )
 
 class MesStreams(models.Model):
     _name = 'mes.stream'
@@ -668,14 +684,14 @@ class MesWheels(models.Model):
     _description = 'Wheel'
 
     wheel_number = fields.Integer(string='Wheel Number')
-    maintainx_id = fields.Integer(string='MaintainX ID', help="ID used in MaintainX system")
+    maintainx_id = fields.Integer(string='MaintainX ID')
     stream_id = fields.Many2one('mes.stream', string='Parent Stream')
     modules_amount = fields.Integer(string='Number of Modules')
 
 class MesEmployee(models.Model):
     _inherit = 'hr.employee'
 
-    maintainx_id = fields.Char(string='MaintainX ID', help="User ID from MaintainX system")
+    maintainx_id = fields.Char(string='MaintainX ID')
 
 class ResCompany(models.Model):
     _inherit = 'res.company'

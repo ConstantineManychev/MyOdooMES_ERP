@@ -1,4 +1,5 @@
 import re
+import pytz
 import logging
 from datetime import datetime, timedelta
 from odoo import models, fields, api
@@ -89,7 +90,7 @@ class MesMachineSettings(models.Model):
         start_time = active_intervals[0][0]
         end_time = active_intervals[-1][1]
 
-        val_list = [f"('{a_s} UTC'::timestamptz, '{a_e} UTC'::timestamptz)" for a_s, a_e in active_intervals]
+        val_list = [f"('{a_s.isoformat()}'::timestamptz, '{a_e.isoformat()}'::timestamptz)" for a_s, a_e in active_intervals]
         active_cte = "SELECT * FROM (VALUES " + ", ".join(val_list) + ") AS ai(ai_start, ai_end)"
 
         alarm_tag = self.get_alarm_tag_name('OEE.nStopRootReason')
@@ -140,10 +141,14 @@ class MesMachineSettings(models.Model):
             
         return "None"
 
-
     def _get_planned_working_intervals(self, start_time, end_time, workcenter):
-        now = fields.Datetime.now()
-        calc_end_time = min(now, end_time)
+        now_utc = fields.Datetime.now()
+        if workcenter:
+            mac_tz = pytz.timezone(workcenter.company_id.tz or 'UTC')
+            now_mac = pytz.utc.localize(now_utc).astimezone(mac_tz).replace(tzinfo=None)
+        else:
+            now_mac = now_utc
+        calc_end_time = min(now_mac, end_time)
 
         if start_time >= calc_end_time:
             return [], 0.0
@@ -159,8 +164,11 @@ class MesMachineSettings(models.Model):
 
         intervals = []
         for dt in downtimes:
-            dt_s = max(dt.start_time, start_time)
-            dt_e = min(dt.end_time, calc_end_time)
+            dt_start = dt.start_time
+            dt_end = dt.end_time
+
+            dt_s = max(dt_start, start_time)
+            dt_e = min(dt_end, calc_end_time)
 
             if dt_s < dt_e:
                 intervals.append([dt_s, dt_e])
@@ -199,7 +207,7 @@ class MesMachineSettings(models.Model):
         start_time = active_intervals[0][0]
         end_time = active_intervals[-1][1]
 
-        val_list = [f"('{a_s} UTC'::timestamptz, '{a_e} UTC'::timestamptz)" for a_s, a_e in active_intervals]
+        val_list = [f"('{a_s.isoformat()}'::timestamptz, '{a_e.isoformat()}'::timestamptz)" for a_s, a_e in active_intervals]
         active_cte = "SELECT * FROM (VALUES " + ", ".join(val_list) + ") AS ai(ai_start, ai_end)"
 
         query = f"""
@@ -328,7 +336,6 @@ class MesMachineSettings(models.Model):
         return cursor.fetchall()
 
     def _calculate_kpi(self, total_running_sec, total_produced, total_planned_runtime_sec, workcenter):
-        
         total_running_sec = max(0.0, total_running_sec)
         
         h, m, s = int(total_running_sec // 3600), int((total_running_sec % 3600) // 60), int(total_running_sec % 60)
@@ -348,7 +355,6 @@ class MesMachineSettings(models.Model):
         downtime_losses = max(0.0, 1.0 - raw_availability) if total_planned_runtime_sec > 0 else 0.0
         perfect_amount_for_runtime = total_running_sec * ideal_rate_per_sec
 
-
         waste_losses = 1 - (total_produced / perfect_amount_for_runtime) if (total_planned_runtime_sec > 0 and perfect_amount_for_runtime > 0) else 0.0
         waste_losses = max(0.0, waste_losses)
 
@@ -364,7 +370,6 @@ class MesMachineSettings(models.Model):
         }
 
     def _calculate_kpi_for_window(self, workcenter, start_time, end_time):
-        
         if not workcenter:
             return None
         
@@ -462,7 +467,10 @@ class MesMachineSettings(models.Model):
                 res[wc.id] = {'error': 'No active shift'}
                 continue
                 
-            calc_e_time = min(fields.Datetime.now(), e_time)
+            now_utc = fields.Datetime.now()
+            mac_tz = pytz.timezone(wc.company_id.tz or 'UTC')
+            now_mac = pytz.utc.localize(now_utc).astimezone(mac_tz).replace(tzinfo=None)
+            calc_e_time = min(now_mac, e_time)
 
             state_tag, run_val = wc.runtime_event_id.get_mapping_for_machine(mac) if wc.runtime_event_id else (None, None)
             count_tag, is_cumul = wc.production_count_id.get_count_config_for_machine(mac) if wc.production_count_id else (None, False)
@@ -623,7 +631,6 @@ class MesSignalBase(models.AbstractModel):
             rec.poll_type, rec.poll_frequency, rec.param_type, self._signal_type
         ))
 
-
 class MesSignalCount(models.Model):
     _name = 'mes.signal.count'
     _inherit = 'mes.signal.base'
@@ -648,7 +655,6 @@ class MesSignalCount(models.Model):
     def _onchange_count_id(self):
         if self.count_id:
             self.is_cumulative = self.count_id.is_cumulative
-
 
 class MesSignalEvent(models.Model):
     _name = 'mes.signal.event'
@@ -676,7 +682,6 @@ class MesSignalEvent(models.Model):
             if remaining == 0:
                 self._execute_from_file('delete_signal.sql', (rec.machine_id.name, rec.tag_name))
         return super().unlink()
-
 
 class MesSignalProcess(models.Model):
     _name = 'mes.signal.process'
@@ -714,7 +719,11 @@ class MesWasteLossStat(models.TransientModel):
         
         start_time, shift_end = self.env['mes.shift'].get_current_shift_window(workcenter)
         if not start_time: return
-        calc_end_time = min(fields.Datetime.now(), shift_end)
+        
+        now_utc = fields.Datetime.now()
+        mac_tz = pytz.timezone(workcenter.company_id.tz or 'UTC')
+        now_mac = pytz.utc.localize(now_utc).astimezone(mac_tz).replace(tzinfo=None)
+        calc_end_time = min(now_mac, shift_end)
         
         active_intervals, _ = machine._get_planned_working_intervals(start_time, shift_end, workcenter)
         
@@ -756,7 +765,6 @@ class MesWasteLossStat(models.TransientModel):
         if vals_list:
             self.with_context(skip_generation=True).create(vals_list)
 
-
 class MesDowntimeLossStat(models.TransientModel):
     _name = 'mes.downtime.loss.stat'
     _description = 'Downtime Losses Statistics'
@@ -768,7 +776,6 @@ class MesDowntimeLossStat(models.TransientModel):
     total_time = fields.Float(string='Total Time (min)')
     time_per_hour = fields.Float(string='Time per Hour (min/h)')
 
-
     @api.model
     def _generate_stats(self, machine_id):
         machine = self.env['mes.machine.settings'].browse(machine_id)
@@ -778,7 +785,6 @@ class MesDowntimeLossStat(models.TransientModel):
         
         start_time, shift_end = self.env['mes.shift'].get_current_shift_window(workcenter)
         if not start_time: return
-        calc_end_time = min(fields.Datetime.now(), shift_end)
         
         active_intervals, _ = machine._get_planned_working_intervals(start_time, shift_end, workcenter)
         
@@ -793,8 +799,6 @@ class MesDowntimeLossStat(models.TransientModel):
             with conn.cursor() as cur:
                 active_intervals = machine._get_planned_working_intervals(start_time, shift_end, workcenter)[0]
 
-                _logger.info(f"Machine: {machine.id} - Active intervals for downtime {alarm_tag} stats: {active_intervals}")
-                
                 total_running_sec = machine._fetch_interval_stats(
                     cur, active_intervals, [state_tag], mode='runtime', state_tag=state_tag, state_val=running_plc_value
                 ) if state_tag else 0.0

@@ -44,7 +44,9 @@
             'mes_core/static/src/js/auto_refresh.js',
             'mes_core/static/src/js/list_auto_refresh.js',
             'mes_core/static/src/js/machine_live_charts.js',
+            'mes_core/static/src/js/hist_machine_charts.js',
             'mes_core/static/src/xml/machine_live_charts.xml',
+            'mes_core/static/src/xml/hist_machine_charts.xml',
         ],
     },
     
