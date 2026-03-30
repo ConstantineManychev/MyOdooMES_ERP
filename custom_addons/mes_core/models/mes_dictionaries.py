@@ -1,6 +1,7 @@
 import operator
+import pytz
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import math
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
@@ -45,40 +46,43 @@ class MesShifts(models.Model):
 
     @api.model
     def get_current_shift_window(self, wc=None):
-        now = fields.Datetime.now()
-        curr_h = now.hour + now.minute / 60.0 + now.second / 3600.0
+        now_utc = pytz.utc.localize(fields.Datetime.now())
+        tz_name = wc.company_id.tz if wc and wc.company_id.tz else 'UTC'
+        mac_tz = pytz.timezone(tz_name)
+        now_mac = now_utc.astimezone(mac_tz)
         
-        domain = [('company_id', '=', wc.company_id.id)] if wc else []
-        shifts = self.search(domain)
+        curr_h = now_mac.hour + now_mac.minute / 60.0 + now_mac.second / 3600.0
         
+        shifts = self.search([('company_id', '=', wc.company_id.id)])
         valid_shifts = [s for s in shifts if not (wc and s.workcenter_ids and wc.id not in s.workcenter_ids.ids)]
-        curr_shift = None
         
+        curr_s = None
         for s in valid_shifts:
             if s.start_hour < s.end_hour:
                 if s.start_hour <= curr_h < s.end_hour:
-                    curr_shift = s
+                    curr_s = s
                     break
             else:
                 if curr_h >= s.start_hour or curr_h < s.end_hour:
-                    curr_shift = s
+                    curr_s = s
                     break
         
-        if not curr_shift:
+        if not curr_s:
             return None, None
 
-        start_dt = now
-        if curr_shift.start_hour > curr_shift.end_hour and curr_h < curr_shift.end_hour:
-            start_dt = now - timedelta(days=1)
+        start_d = now_mac.date()
+        if curr_s.start_hour > curr_s.end_hour and curr_h < curr_s.end_hour:
+            start_d -= timedelta(days=1)
             
-        s_time = start_dt.replace(
-            hour=int(curr_shift.start_hour), 
-            minute=int((curr_shift.start_hour % 1) * 60), 
-            second=0, 
-            microsecond=0
-        )
+        s_time_mac = mac_tz.localize(datetime.combine(
+            start_d,
+            time(hour=int(curr_s.start_hour), minute=int((curr_s.start_hour % 1) * 60))
+        ))
         
-        return s_time, s_time + timedelta(hours=curr_shift.duration)
+        s_utc = s_time_mac.astimezone(pytz.utc).replace(tzinfo=None)
+        e_utc = s_utc + timedelta(hours=curr_s.duration)
+        
+        return s_utc, e_utc
 
 class MesDefects(models.Model):
     _name = 'mes.defect'
@@ -466,171 +470,136 @@ class MesWorkcenter(models.Model):
             
     @api.model
     def get_live_chart_data(self, workcenter_id, selected_count_id=False, selected_process_id=False):
-        import math
-        from datetime import timedelta
-
         wc = self.browse(workcenter_id)
         if not wc.exists() or not wc.machine_settings_id:
             return {'error': 'Machine not configured'}
 
-        machine = wc.machine_settings_id
-        start_time, shift_end = self.env['mes.shift'].get_current_shift_window(wc)
+        mac = wc.machine_settings_id
+        tz_name = wc.company_id.tz or 'UTC'
+        mac_tz = pytz.timezone(tz_name)
         
-        if not start_time: 
+        s_utc, e_utc = self.env['mes.shift'].get_current_shift_window(wc)
+        if not s_utc: 
             return {'error': 'No active shift'}
 
-        calc_end_time = min(fields.Datetime.now(), shift_end)
+        calc_e_utc = min(fields.Datetime.now(), e_utc)
         
+        def to_mac_iso(dt):
+            if not dt: return None
+            if not dt.tzinfo:
+                dt = pytz.utc.localize(dt)
+            return dt.astimezone(mac_tz).strftime('%Y-%m-%dT%H:%M:%S')
+
         available_counts = []
-        seen_count_ids = set()
-        for ct_tag in machine.count_tag_ids:
-            if ct_tag.count_id and ct_tag.count_id.id not in seen_count_ids:
-                available_counts.append({
-                    'id': ct_tag.count_id.id,
-                    'name': ct_tag.count_id.name
-                })
-                seen_count_ids.add(ct_tag.count_id.id)
+        seen_c_ids = set()
+        for ct in mac.count_tag_ids:
+            if ct.count_id and ct.count_id.id not in seen_c_ids:
+                available_counts.append({'id': ct.count_id.id, 'name': ct.count_id.name})
+                seen_c_ids.add(ct.count_id.id)
 
-        target_count = self.env['mes.counts'].browse(int(selected_count_id)) if selected_count_id else wc.production_count_id
-        show_ideal_line = bool(wc.production_count_id and target_count and target_count.id == wc.production_count_id.id)
+        tgt_c = self.env['mes.counts'].browse(int(selected_count_id)) if selected_count_id else wc.production_count_id
+        is_ideal_shown = bool(wc.production_count_id and tgt_c and tgt_c.id == wc.production_count_id.id)
 
-        good_signals = machine.count_tag_ids.filtered(lambda tag: tag.count_id == target_count)
-        good_tags = list(set(good_signals.mapped('tag_name')))
-        tag_is_cumulative = {sig.tag_name: sig.is_cumulative for sig in good_signals}
+        c_sigs = mac.count_tag_ids.filtered(lambda t: t.count_id == tgt_c)
+        c_tags = list(set(c_sigs.mapped('tag_name')))
+        is_cum_map = {s.tag_name: s.is_cumulative for s in c_sigs}
 
-        if not good_tags and target_count and target_count.default_OPCTag:
-            default_opc_tag = target_count.default_OPCTag
-            good_tags = [default_opc_tag]
-            tag_is_cumulative = {default_opc_tag: target_count.is_cumulative}
+        e_sigs = mac.event_tag_ids
+        e_tags = list(set(e_sigs.mapped('tag_name')))
+        st_cfgs = [{'tag': s.tag_name, 'val': s.plc_value} for s in e_sigs.filtered(lambda t: t.event_id == wc.runtime_event_id)]
 
-        event_signals = machine.event_tag_ids
-        all_event_tags = list(set(event_signals.mapped('tag_name')))
+        available_procs = []
+        for p in self.env['mes.process'].search([]):
+            if p.get_tag_for_machine(mac):
+                available_procs.append({'id': p.id, 'name': p.complete_name or p.name})
 
-        state_signals = event_signals.filtered(lambda tag: tag.event_id == wc.runtime_event_id)
-        state_configs = [{'tag': sig.tag_name, 'val': sig.plc_value} for sig in state_signals]
+        tgt_p = self.env['mes.process'].browse(int(selected_process_id)) if selected_process_id else self.env['mes.process']
+        p_to_fetch = tgt_p | tgt_p.related_process_ids
 
-        if not state_configs and wc.runtime_event_id and wc.runtime_event_id.default_event_tag_type:
-            default_event_tag = wc.runtime_event_id.default_event_tag_type
-            state_configs = [{'tag': default_event_tag, 'val': wc.runtime_event_id.default_plc_value}]
-
-        for config in state_configs:
-            if config['tag'] not in all_event_tags:
-                all_event_tags.append(config['tag'])
-
-        available_processes = []
-        for proc in self.env['mes.process'].search([]):
-            if proc.get_tag_for_machine(machine):
-                available_processes.append({'id': proc.id, 'name': proc.complete_name or proc.name})
-
-        target_process = self.env['mes.process'].browse(int(selected_process_id)) if selected_process_id else self.env['mes.process']
-        
-        processes_to_fetch = self.env['mes.process']
-        if target_process:
-            processes_to_fetch |= target_process
-            processes_to_fetch |= target_process.related_process_ids
-
-        bucket_min = max(1, wc.chart_bucket_minutes)
-        bucket_sec = bucket_min * 60
-        total_shift_sec = (calc_end_time - start_time).total_seconds()
-        num_intervals = math.ceil(total_shift_sec / bucket_sec) if total_shift_sec > 0 else 1
-
-        def format_utc_iso(dt_obj):
-            return dt_obj.isoformat() + 'Z' if not dt_obj.tzinfo else dt_obj.isoformat()
+        b_min = max(1, wc.chart_bucket_minutes)
+        b_sec = b_min * 60
+        tot_s = (calc_e_utc - s_utc).total_seconds()
+        n_ints = math.ceil(tot_s / b_sec) if tot_s > 0 else 1
 
         labels = []
-        production_data = []
+        prod_data = []
         ideal_data = []
-        bucket_indices = {}
-        ideal_per_bucket = (wc.ideal_capacity_per_min or 0.0) * bucket_min
+        b_idx_map = {}
+        ideal_per_b = (wc.ideal_capacity_per_min or 0.0) * b_min
 
-        for interval_idx in range(num_intervals + 1):
-            bucket_time = start_time + timedelta(seconds=interval_idx * bucket_sec)
-            labels.append(format_utc_iso(bucket_time))
-            production_data.append(0.0)
-            ideal_data.append(ideal_per_bucket if interval_idx > 0 else 0.0)
-            bucket_indices[bucket_time] = interval_idx
+        s_mac = pytz.utc.localize(s_utc).astimezone(mac_tz)
+        for i in range(n_ints + 1):
+            b_mac = s_mac + timedelta(seconds=i * b_sec)
+            iso = b_mac.strftime('%Y-%m-%dT%H:%M:%S')
+            labels.append(iso)
+            prod_data.append(0.0)
+            ideal_data.append(ideal_per_b if i > 0 else 0.0)
+            b_idx_map[b_mac.replace(tzinfo=None)] = i
 
-        timeline_data = []
-        all_processes_data = []
-        primary_process_data = []
+        tl_data = []
+        all_p_data = []
+        main_p_data = []
 
         with self.env['mes.timescale.base']._connection() as conn:
             with conn.cursor() as cur:
-                if all_event_tags:
-                    raw_timeline = machine._fetch_timeline_raw(cur, start_time, calc_end_time, all_event_tags)
-                    timeline_data = self._process_timeline_colors(machine, raw_timeline, state_configs)
+                if e_tags:
+                    raw_tl = mac._fetch_timeline_raw(cur, s_utc, calc_e_utc, e_tags)
+                    raw_tl_colored = self._process_timeline_colors(mac, raw_tl, st_cfgs)
+                    for entry in raw_tl_colored:
+                        entry['start'] = to_mac_iso(datetime.fromisoformat(entry['start']))
+                        entry['end'] = to_mac_iso(datetime.fromisoformat(entry['end']))
+                    tl_data = raw_tl_colored
 
-                if good_tags:
-                    raw_production = machine._fetch_production_chart_raw(cur, good_tags, start_time, calc_end_time, bucket_min)
-                    for row in raw_production:
-                        tag_name = row[0]
-                        bucket_ts = row[1].replace(tzinfo=None) if row[1].tzinfo else row[1]
-                        produced_qty = float(row[3]) if tag_is_cumulative.get(tag_name) else float(row[2])
+                if c_tags:
+                    raw_prod = mac._fetch_production_chart_raw(cur, c_tags, s_utc, calc_e_utc, b_min)
+                    for row in raw_prod:
+                        t_name = row[0]
+                        b_utc = row[1]
+                        qty = float(row[3]) if is_cum_map.get(t_name) else float(row[2])
+                        b_mac_naive = b_utc.astimezone(mac_tz).replace(tzinfo=None)
+                        if b_mac_naive in b_idx_map:
+                            idx = b_idx_map[b_mac_naive] + 1
+                            if idx < len(prod_data): prod_data[idx] += qty
 
-                        if bucket_ts in bucket_indices:
-                            plot_idx = bucket_indices[bucket_ts] + 1
-                            if plot_idx < len(production_data):
-                                production_data[plot_idx] += produced_qty
-
-                start_iso = format_utc_iso(start_time)
-                
-                for proc in processes_to_fetch:
-                    proc_tag = proc.get_tag_for_machine(machine)
-                    if not proc_tag:
-                        continue
-
-                    telemetry_query = """
+                for p in p_to_fetch:
+                    p_tag = p.get_tag_for_machine(mac)
+                    if not p_tag: continue
+                    cur.execute("""
                         SELECT time, value FROM (
-                            (SELECT time, value
-                            FROM telemetry_process
+                            (SELECT time, value FROM telemetry_process
                             WHERE machine_name = %s AND tag_name = %s AND time < %s
                             ORDER BY time DESC LIMIT 1)
                             UNION ALL
-                            (SELECT time, value
-                            FROM telemetry_process
+                            (SELECT time, value FROM telemetry_process
                             WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time <= %s
                             ORDER BY time ASC)
-                        ) sub_query ORDER BY time ASC
-                    """
-                    cur.execute(telemetry_query, (
-                        machine.name, proc_tag, start_time,
-                        machine.name, proc_tag, start_time, calc_end_time
-                    ))
-
-                    proc_series = []
+                        ) sub ORDER BY time ASC
+                    """, (mac.name, p_tag, s_utc, mac.name, p_tag, s_utc, calc_e_utc))
+                    
+                    p_series = []
                     for row in cur.fetchall():
-                        pt_x = format_utc_iso(row[0])
-                        proc_series.append({
-                            'x': start_iso if pt_x < start_iso else pt_x,
-                            'y': float(row[1])
-                        })
-
-                    if target_process and proc.id == target_process.id:
-                        primary_process_data = proc_series
-
-                    all_processes_data.append({
-                        'name': proc.complete_name or proc.name,
-                        'data': proc_series
-                    })
+                        p_series.append({'x': to_mac_iso(row[0]), 'y': float(row[1])})
+                    if tgt_p and p.id == tgt_p.id: main_p_data = p_series
+                    all_p_data.append({'name': p.complete_name or p.name, 'data': p_series})
 
         return {
-            'timeline': timeline_data,
-            'chart_duration_sec': num_intervals * bucket_sec,
-            'shift_start': format_utc_iso(start_time),
+            'timeline': tl_data,
+            'chart_duration_sec': n_ints * b_sec,
+            'shift_start': labels[0],
             'available_counts': available_counts,
-            'selected_count_id': target_count.id if target_count else False,
-            'selected_count_name': target_count.name if target_count else 'Data',
-            'available_processes': available_processes,
-            'selected_process_id': target_process.id if target_process else False,
-            'selected_process_name': target_process.complete_name if target_process else '',
+            'selected_count_id': tgt_c.id if tgt_c else False,
+            'selected_count_name': tgt_c.name if tgt_c else 'Data',
+            'available_processes': available_procs,
+            'selected_process_id': tgt_p.id if tgt_p else False,
+            'selected_process_name': tgt_p.complete_name if tgt_p else '',
             'chart': {
                 'labels': labels,
-                'production': production_data,
+                'production': prod_data,
                 'ideal': ideal_data,
-                'process': primary_process_data,
-                'processes': all_processes_data,
-                'bucket_sec': bucket_sec,
-                'show_ideal': show_ideal_line
+                'process': main_p_data,
+                'processes': all_p_data,
+                'bucket_sec': b_sec,
+                'show_ideal': is_ideal_shown
             }
         }
 
