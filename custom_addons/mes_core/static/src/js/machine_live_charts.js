@@ -51,12 +51,24 @@ export class MachineLiveCharts extends Component {
     }
 
     async fetchData() {
-        if (!this.props.record.resId) return;
+        if (!this.props.record.resId) {
+            this.state.error = "Please save the machine to view live charts.";
+            return;
+        }
+
+        await this.orm.call("mrp.workcenter", "action_force_metrics_update", [[this.props.record.resId]]);
+        if (this.props.record.load) {
+            await this.props.record.load();
+        }
 
         const res = await this.orm.call(
-            "mes.hist.dashboard.wiz", 
-            "get_chart_data", 
-            [[this.props.record.resId]]
+            "mrp.workcenter", 
+            "get_live_chart_data", 
+            [
+                this.props.record.resId, 
+                this.state.selectedCountId || false,
+                this.state.selectedProcessId || false
+            ]
         );
 
         if (res.error) {
@@ -69,8 +81,28 @@ export class MachineLiveCharts extends Component {
         
         const rawStart = this.rawMetric?.shift_start || "1970-01-01T00:00:00";
         this.baseEpochMs = this.parseIsolatedMs(rawStart);
+        
+        this.state.availableCounts = res.available_counts || [];
+        this.state.selectedCountId = res.selected_count_id;
+        this.state.selectedCountName = res.selected_count_name;
 
+        this.state.availableProcesses = res.available_processes || [];
+        this.state.selectedProcessId = res.selected_process_id;
+        this.state.selectedProcessName = res.selected_process_name;
+        
         this.applyZoomAndPan(); 
+    }
+
+    async onCountChange(ev) {
+        this.state.selectedCountId = parseInt(ev.target.value);
+        await this.fetchData();
+    }
+
+    async onProcessChange(ev) {
+        const val = ev.target.value;
+        this.state.selectedProcessId = val ? parseInt(val) : false;
+        this.state.selectedProcessName = val ? ev.target.options[ev.target.selectedIndex].text : '';
+        await this.fetchData();
     }
 
     onWheelZoom(ev) {
