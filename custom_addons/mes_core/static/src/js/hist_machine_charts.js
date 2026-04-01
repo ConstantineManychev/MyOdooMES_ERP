@@ -38,12 +38,32 @@ export class HistMachineCharts extends Component {
         }
     }
 
-    // Жестко блокируем часовой пояс браузера
     parseIsolatedMs(val) {
         if (!val) return NaN;
         if (typeof val === 'number') return val;
-        const str = String(val).replace(' ', 'T') + "Z";
-        return new Date(str).getTime();
+
+        if (val.isLuxonDateTime || (val.toUTC && typeof val.toUTC === 'function')) {
+            const rawUtcStr = val.toUTC().toFormat("yyyy-MM-dd HH:mm:ss");
+            return new Date(rawUtcStr.replace(' ', 'T') + "Z").getTime();
+        }
+
+        if (val._isAMomentObject || (val.utc && typeof val.utc === 'function')) {
+            const rawUtcStr = val.utc().format("YYYY-MM-DD HH:mm:ss");
+            return new Date(rawUtcStr.replace(' ', 'T') + "Z").getTime();
+        }
+
+        if (val instanceof Date) {
+            const isoStr = val.toISOString().substring(0, 19);
+            return new Date(isoStr.replace(' ', 'T') + "Z").getTime();
+        }
+
+        let cleanStr = String(val).trim();
+        if (cleanStr.length > 19) {
+            cleanStr = cleanStr.substring(0, 19);
+        }
+        cleanStr = cleanStr.replace(' ', 'T') + "Z";
+        
+        return new Date(cleanStr).getTime();
     }
 
     getLineColor(idx) {
@@ -52,7 +72,6 @@ export class HistMachineCharts extends Component {
     }
 
     async fetchData() {
-        // Ждем пока у TransientModel появится resId (после нажатия кнопки Show)
         if (!this.props.record.resId) return;
 
         const res = await this.orm.call(
@@ -69,23 +88,25 @@ export class HistMachineCharts extends Component {
         this.state.error = false;
         this.rawMetric = res;
         
-        const rawStart = this.rawMetric?.shift_start || "1970-01-01T00:00:00";
+        const rawStart = this.rawMetric?.shift_start || "1970-01-01 00:00:00";
         this.baseEpochMs = this.parseIsolatedMs(rawStart);
 
-        this.applyZoomAndPan(); 
+        await this.applyZoomAndPan(); 
     }
 
-    onWheelZoom(ev) {
+    async onWheelZoom(ev) {
         ev.preventDefault(); 
         const step = 0.5;
         let scale = parseFloat(this.state.zoomLevel);
         scale = ev.deltaY < 0 ? Math.min(20, scale + step) : Math.max(1, scale - step);
         this.state.zoomLevel = scale;
-        this.applyZoomAndPan();
+        await this.applyZoomAndPan();
     }
 
-    applyZoomAndPan() {
-        if (!this.rawMetric || !this.rawMetric.chart) return;
+    async applyZoomAndPan() {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
+        if (!this.rawMetric || !this.rawMetric.chart || !this.canvasRef.el) return;
         
         const scale = parseFloat(this.state.zoomLevel) || 1;
         const pan = parseFloat(this.state.panOffset) || 0;
@@ -194,7 +215,6 @@ export class HistMachineCharts extends Component {
 
         const isV3 = typeof window.Chart.defaults.plugins !== 'undefined';
         
-        // Форматируем время жестко как ДД.ММ.ГГГГ ЧЧ:ММ
         const formatIsolatedTime = (sec) => {
             if (isNaN(sec)) return '';
             const d = new Date(this.baseEpochMs + sec * 1000);

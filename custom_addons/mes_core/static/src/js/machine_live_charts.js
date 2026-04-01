@@ -18,7 +18,13 @@ export class MachineLiveCharts extends Component {
             error: false,
             visibleTimeline: [],
             zoomLevel: 1,
-            panOffset: 0
+            panOffset: 0,
+            availableCounts: [],
+            selectedCountId: false,
+            selectedCountName: '',
+            availableProcesses: [],
+            selectedProcessId: false,
+            selectedProcessName: ''
         });
 
         onMounted(async () => {
@@ -90,7 +96,7 @@ export class MachineLiveCharts extends Component {
         this.state.selectedProcessId = res.selected_process_id;
         this.state.selectedProcessName = res.selected_process_name;
         
-        this.applyZoomAndPan(); 
+        await this.applyZoomAndPan(); 
     }
 
     async onCountChange(ev) {
@@ -105,17 +111,19 @@ export class MachineLiveCharts extends Component {
         await this.fetchData();
     }
 
-    onWheelZoom(ev) {
+    async onWheelZoom(ev) {
         ev.preventDefault(); 
         const step = 0.5;
         let scale = parseFloat(this.state.zoomLevel);
         scale = ev.deltaY < 0 ? Math.min(20, scale + step) : Math.max(1, scale - step);
         this.state.zoomLevel = scale;
-        this.applyZoomAndPan();
+        await this.applyZoomAndPan();
     }
 
-    applyZoomAndPan() {
-        if (!this.rawMetric || !this.rawMetric.chart) return;
+    async applyZoomAndPan() {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
+        if (!this.rawMetric || !this.rawMetric.chart || !this.canvasRef.el) return;
         
         const scale = parseFloat(this.state.zoomLevel) || 1;
         const pan = parseFloat(this.state.panOffset) || 0;

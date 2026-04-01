@@ -464,7 +464,8 @@
                       decoration-danger="current_oee &lt; 67">
                     
                     <field name="name" string="Machine name" class="text-center"/>
-                    <field name="current_first_running_time" string="Start Time" widget="datetime" class="text-center"/>
+                    <field name="current_first_running_time" column_invisible="True"/>
+                    <field name="current_first_running_time_disp" string="Start Time" class="text-center"/>
                     
                     <field name="current_produced" string="Produced" sum="Total Produced" class="text-center"/>
                     

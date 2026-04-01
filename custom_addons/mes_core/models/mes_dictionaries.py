@@ -308,6 +308,19 @@ class MesWorkcenter(models.Model):
     allowed_pc_ips = fields.Char(string='All Allowed PC IPs')
     company_id = fields.Many2one('res.company', string='Company', required=True, default=lambda self: self.env.company)
     
+    current_first_running_time_disp = fields.Char(
+        compute='_compute_current_first_running_time_disp',
+        store=False
+    )
+
+    @api.depends('current_first_running_time')
+    def _compute_current_first_running_time_disp(self):
+        for rec in self:
+            if rec.current_first_running_time:
+                rec.current_first_running_time_disp = rec.current_first_running_time.strftime('%d.%m.%Y %H:%M:%S')
+            else:
+                rec.current_first_running_time_disp = False
+
     _sql_constraints = [
         ('code_imatec_uniq', 'unique(code_imatec)', 'Imatec Code must be unique!')
     ]
@@ -597,6 +610,10 @@ class MesWorkcenter(models.Model):
             })
         return result
 
+from odoo import models, fields, api
+
+from odoo import models, fields, api
+
 class MesHistDashboardWiz(models.TransientModel):
     _name = 'mes.hist.dashboard.wiz'
     _description = 'Historical Chart Wizard'
@@ -637,33 +654,30 @@ class MesHistDashboardWiz(models.TransientModel):
 
     @api.model
     def get_chart_data(self, wiz_id):
-        wiz = self.browse(wiz_id)
+        r_id = wiz_id[0] if isinstance(wiz_id, list) else wiz_id
+        wiz = self.browse(r_id)
+        
         if not wiz.exists() or not wiz.wc_id or not wiz.s_time or not wiz.e_time:
             return {'error': 'Please provide Machine, Start Time, and End Time.'}
 
-        s_time_wall = fields.Datetime.context_timestamp(wiz, wiz.s_time).replace(tzinfo=None)
-        e_time_wall = fields.Datetime.context_timestamp(wiz, wiz.e_time).replace(tzinfo=None)
+        tz_name = wiz.wc_id.company_id.tz or 'Europe/Dublin'
+        local_tz = pytz.timezone(tz_name)
 
-        return self.env['mrp.workcenter']._build_chart_payload(
+        s_utc = pytz.utc.localize(wiz.s_time)
+        e_utc = pytz.utc.localize(wiz.e_time)
+
+        s_time_wall = s_utc.astimezone(local_tz).replace(tzinfo=None)
+        e_time_wall = e_utc.astimezone(local_tz).replace(tzinfo=None)
+
+        res = self.env['mrp.workcenter']._build_chart_payload(
             wiz.wc_id, s_time_wall, e_time_wall, wiz.b_min, 
             wiz.count_id.id if wiz.count_id else False, 
             wiz.proc_id.id if wiz.proc_id else False
         )
-        wiz = self.browse(wiz_id)
-        if not wiz.exists() or not wiz.wc_id or not wiz.s_time or not wiz.e_time:
-            return {'error': 'Please provide Machine, Start Time, and End Time.'}
-
-        # Odoo Datetime widget sends UTC to backend. 
-        # Convert it back to user's exact input wall-clock time for Timescale query
-        user_tz = pytz.timezone(self.env.user.tz or 'UTC')
-        s_time_wall = pytz.utc.localize(wiz.s_time).astimezone(user_tz).replace(tzinfo=None)
-        e_time_wall = pytz.utc.localize(wiz.e_time).astimezone(user_tz).replace(tzinfo=None)
-
-        return self.env['mrp.workcenter']._build_chart_payload(
-            wiz.wc_id, s_time_wall, e_time_wall, wiz.b_min, 
-            wiz.count_id.id if wiz.count_id else False, 
-            wiz.proc_id.id if wiz.proc_id else False
-        )
+        
+        res['shift_start'] = s_time_wall.strftime('%Y-%m-%d %H:%M:%S')
+        
+        return res
 
 class MesStreams(models.Model):
     _name = 'mes.stream'

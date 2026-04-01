@@ -133,15 +133,3 @@ BEGIN
     END IF;
 END $$;
 SELECT add_compression_policy('telemetry_process', INTERVAL '30 days', if_not_exists => TRUE);
-
--- Для telemetry_event
-DROP INDEX IF EXISTS uniq_event_time_machine_tag CASCADE;
-ALTER TABLE telemetry_event DROP CONSTRAINT IF EXISTS uniq_event_time_machine_tag CASCADE;
-
--- Для telemetry_count (скорее всего он там тоже есть)
-DROP INDEX IF EXISTS uniq_count_time_machine_tag CASCADE;
-ALTER TABLE telemetry_count DROP CONSTRAINT IF EXISTS uniq_count_time_machine_tag CASCADE;
-
--- Для telemetry_process
-DROP INDEX IF EXISTS uniq_process_time_machine_tag CASCADE;
-ALTER TABLE telemetry_process DROP CONSTRAINT IF EXISTS uniq_process_time_machine_tag CASCADE;
