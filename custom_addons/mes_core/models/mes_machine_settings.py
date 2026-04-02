@@ -282,21 +282,85 @@ class MesMachineSettings(models.Model):
         return {row[0]: {'sum': float(row[1]), 'cum': float(row[2])} for row in cursor.fetchall()}
 
     def _fetch_timeline_raw(self, start_time, end_time, wc_id):
+        
+        wc = self.env['mrp.workcenter'].browse(wc_id)
+        tz_name = wc.company_id.tz or 'UTC'
+        mac_tz = pytz.timezone(tz_name)
+        
+        s_utc = mac_tz.localize(start_time, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        e_utc = mac_tz.localize(end_time, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        
+        def to_local_str(dt_utc):
+            if not dt_utc:
+                return ''
+            if isinstance(dt_utc, str):
+                dt_utc = fields.Datetime.from_string(dt_utc)
+            local_dt = pytz.utc.localize(dt_utc).astimezone(mac_tz)
+            return local_dt.replace(tzinfo=None).strftime('%Y-%m-%dT%H:%M:%S')
+
         perfs = self.env['mes.machine.performance'].search([
             ('machine_id', '=', wc_id), 
             ('date', '>=', start_time.date() - timedelta(days=1)), 
             ('date', '<=', end_time.date() + timedelta(days=1))
         ])
         
-        runs = self.env['mes.performance.running'].search([('performance_id', 'in', perfs.ids), ('start_time', '<', end_time), '|', ('end_time', '>', start_time), ('end_time', '=', False)])
-        alarms = self.env['mes.performance.alarm'].search([('performance_id', 'in', perfs.ids), ('start_time', '<', end_time), '|', ('end_time', '>', start_time), ('end_time', '=', False)])
-        slows = self.env['mes.performance.slowing'].search([('performance_id', 'in', perfs.ids), ('start_time', '<', end_time), '|', ('end_time', '>', start_time), ('end_time', '=', False)])
+        if not perfs:
+            return []
+            
+        runs = self.env['mes.performance.running'].search([
+            ('performance_id', 'in', perfs.ids), 
+            ('start_time', '<', e_utc), 
+            '|', ('end_time', '>', s_utc), ('end_time', '=', False)
+        ])
+        alarms = self.env['mes.performance.alarm'].search([
+            ('performance_id', 'in', perfs.ids), 
+            ('start_time', '<', e_utc), 
+            '|', ('end_time', '>', s_utc), ('end_time', '=', False)
+        ])
+        slows = self.env['mes.performance.slowing'].search([
+            ('performance_id', 'in', perfs.ids), 
+            ('start_time', '<', e_utc), 
+            '|', ('end_time', '>', s_utc), ('end_time', '=', False)
+        ])
         
         res = []
         now_utc = fields.Datetime.now()
-        for r in runs: res.append((r.start_time, r.end_time or now_utc, r.loss_id.name, 'running'))
-        for a in alarms: res.append((a.start_time, a.end_time or now_utc, a.loss_id.name, 'alarm'))
-        for s in slows: res.append((s.start_time, s.end_time or now_utc, s.loss_id.name, 'slowing'))
+        
+        for r in runs:
+            e_t = r.end_time or now_utc
+            color = r.loss_id.color or '#28a745'
+            res.append({
+                'start': to_local_str(r.start_time),
+                'end': to_local_str(e_t),
+                'name': r.loss_id.name if r.loss_id else 'Running',
+                'status': 'running',
+                'color': color,
+                'duration': (e_t - r.start_time).total_seconds()
+            })
+            
+        for a in alarms:
+            e_t = a.end_time or now_utc
+            color = a.loss_id.color or '#dc3545'
+            res.append({
+                'start': to_local_str(a.start_time),
+                'end': to_local_str(e_t),
+                'name': a.loss_id.name if a.loss_id else 'Alarm',
+                'status': 'alarm',
+                'color': color,
+                'duration': (e_t - a.start_time).total_seconds()
+            })
+            
+        for s in slows:
+            e_t = s.end_time or now_utc
+            color = s.loss_id.color or '#6c757d'
+            res.append({
+                'start': to_local_str(s.start_time),
+                'end': to_local_str(e_t),
+                'name': s.loss_id.name if s.loss_id else 'Slowing',
+                'status': 'slowing',
+                'color': color,
+                'duration': (e_t - s.start_time).total_seconds()
+            })
             
         return res
 

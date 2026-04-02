@@ -107,7 +107,6 @@ class MesTask(models.Model):
 
     @api.model
     def load_tasks_from_maintainx(self):
-        _logger.info(">>> Starting load_tasks_from_maintainx...")
         try:
             client = self._get_api_client()
             workorders_list = client.get_workorders(limit=200)
@@ -141,8 +140,6 @@ class MesTask(models.Model):
             ).action_sync_single_wo_job(wo_id)
             jobs_count += 1
 
-        _logger.info(f"Sync finished. Created {jobs_count} update jobs.")
-
     def action_sync_single_wo_job(self, workorder_id):
         client = self._get_api_client()
         full_wo_data = client.get_workorder(workorder_id)
@@ -169,7 +166,6 @@ class MesTask(models.Model):
         }
 
         if not task:
-            _logger.info(f"Creating Task {wo_id}")
             task = self.create(vals)
             self._create_status_history(task, wo.get('status'))
             
@@ -250,7 +246,6 @@ class MesTask(models.Model):
         if mx_user_id in cache['employees']:
             return cache['employees'][mx_user_id]
 
-        _logger.info(f"Looking for employee with MaintainX ID {mx_user_id}")
         employee = self.env['hr.employee'].search([('maintainx_id', '=', mx_user_id)], limit=1)
         if employee:
             cache['employees'][mx_user_id] = employee
@@ -269,7 +264,6 @@ class MesTask(models.Model):
             employee.write({'maintainx_id': mx_user_id})
         else:
             try:
-                _logger.info(f"Creating employee for MX user {mx_user_id} with name '{full_name}'")
                 employee = self.env['hr.employee'].create({
                     'name': full_name or f"MX User {mx_user_id}",
                     'maintainx_id': mx_user_id,

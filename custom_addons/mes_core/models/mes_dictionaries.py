@@ -431,6 +431,7 @@ class MesWorkcenter(models.Model):
 
         def to_iso(dt):
             if not dt: return None
+            if isinstance(dt, str): return dt
             return dt.replace(tzinfo=None).strftime('%Y-%m-%dT%H:%M:%S')
 
         available_counts = []
@@ -446,10 +447,6 @@ class MesWorkcenter(models.Model):
         c_sigs = mac.count_tag_ids.filtered(lambda t: t.count_id == tgt_c)
         c_tags = list(set(c_sigs.mapped('tag_name')))
         is_cum_map = {s.tag_name: s.is_cumulative for s in c_sigs}
-
-        e_sigs = mac.event_tag_ids
-        e_tags = list(set(e_sigs.mapped('tag_name')))
-        st_cfgs = [{'tag': s.tag_name, 'val': s.plc_value} for s in e_sigs.filtered(lambda t: t.event_id == wc.runtime_event_id)]
 
         available_procs = []
         for p in self.env['mes.process'].search([]):
@@ -483,16 +480,14 @@ class MesWorkcenter(models.Model):
         all_p_data = []
         main_p_data = []
 
+        tl_data = mac._fetch_timeline_raw(s_time, calc_e_time, wc.id)
+        
+        for entry in tl_data:
+            if entry.get('start'): entry['start'] = to_iso(entry['start'])
+            if entry.get('end'): entry['end'] = to_iso(entry['end'])
+
         with self.env['mes.timescale.base']._connection() as conn:
             with conn.cursor() as cur:
-                if e_tags:
-                    raw_tl = mac._fetch_timeline_raw( s_time, calc_e_time, e_tags)
-                    raw_tl_colored = self._process_timeline_colors(mac, raw_tl, st_cfgs)
-                    for entry in raw_tl_colored:
-                        entry['start'] = to_iso(datetime.fromisoformat(entry['start']))
-                        entry['end'] = to_iso(datetime.fromisoformat(entry['end']))
-                    tl_data = raw_tl_colored
-
                 if c_tags:
                     raw_prod = mac._fetch_production_chart_raw(cur, c_tags, s_time, calc_e_time, b_min)
                     for row in raw_prod:

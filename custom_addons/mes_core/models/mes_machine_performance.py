@@ -181,10 +181,18 @@ class MesMachinePerformance(models.Model):
             rsn_tag = mac.get_alarm_tag_name('OEE.nStopRootReason').replace('%', '')
             
             try:
+                import pytz
+                tz_name = wc.company_id.tz or 'UTC'
+                mac_tz = pytz.timezone(tz_name)
+                
+                s_start_loc = pytz.utc.localize(s_start).astimezone(mac_tz).replace(tzinfo=None)
+                ts_loc = pytz.utc.localize(ts).astimezone(mac_tz).replace(tzinfo=None)
+
                 with self.env['mes.timescale.base']._connection() as conn:
                     with conn.cursor() as cur:
-                        s_str = s_start.strftime('%Y-%m-%d %H:%M:%S.%f+00')
-                        e_str = ts.strftime('%Y-%m-%d %H:%M:%S.%f+00')
+                        # Используем локальное время для поиска по телеметрии
+                        s_str = s_start_loc.strftime('%Y-%m-%d %H:%M:%S.%f+00')
+                        e_str = ts_loc.strftime('%Y-%m-%d %H:%M:%S.%f+00')
                         
                         cur.execute("""
                             SELECT value FROM telemetry_event 

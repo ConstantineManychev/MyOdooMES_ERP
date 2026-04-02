@@ -296,20 +296,39 @@ class MesRecalcDowntimeWiz(models.TransientModel):
                     for i in range(len(rows)):
                         ts_cl, tag, val = rows[i]
                         
-                        if tag == reason_tag and val != 0:
-                            end_cl = rows[i+1][0] if i + 1 < len(rows) else calc_e_loc
+                        if tag == reason_tag:
+                            if val is None:
+                                continue
                             
-                            ts_utc = doc._get_utc_time(ts_cl)
-                            end_utc = doc._get_utc_time(end_cl)
-                            
-                            evt = doc._resolve_evt(mac, tag, val)
-                            
-                            alarms_to_create.append({
-                                'performance_id': doc.id,
-                                'loss_id': evt.id,
-                                'start_time': ts_utc,
-                                'end_time': end_utc,
-                            })
+                            val_str = str(val).strip()
+                            if not val_str:
+                                continue
+                                
+                            try:
+                                v_int = int(float(val_str))
+                            except ValueError:
+                                continue
+
+                            if v_int != 0:
+                                end_cl = rows[i+1][0] if i + 1 < len(rows) else calc_e_loc
+                                
+                                if hasattr(ts_cl, 'replace') and ts_cl.tzinfo:
+                                    ts_cl = ts_cl.replace(tzinfo=None)
+                                if hasattr(end_cl, 'replace') and end_cl.tzinfo:
+                                    end_cl = end_cl.replace(tzinfo=None)
+                                
+                                ts_utc = doc._get_utc_time(ts_cl)
+                                end_utc = doc._get_utc_time(end_cl)
+                                
+                                evt = doc._resolve_evt(mac, tag, v_int)
+                                
+                                if evt:
+                                    alarms_to_create.append({
+                                        'performance_id': doc.id,
+                                        'loss_id': evt.id,
+                                        'start_time': ts_utc,
+                                        'end_time': end_utc,
+                                    })
                             
                     if alarms_to_create:
                         env['mes.performance.alarm'].create(alarms_to_create)
@@ -317,8 +336,7 @@ class MesRecalcDowntimeWiz(models.TransientModel):
                     cr.commit()
                     env.clear()
                     
-                _logger.info("Downtime recalculation completed successfully.")
                 
             except Exception as e:
                 cr.rollback()
-                _logger.error(f"Failed to recalculate downtimes: {str(e)}")
+                _logger.error(f"!!! FATAL ERROR in _run_in_background: {str(e)}", exc_info=True)
