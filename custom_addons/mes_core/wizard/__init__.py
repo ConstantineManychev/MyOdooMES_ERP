@@ -6,3 +6,4 @@ from . import mes_alarm_report
 from . import mes_downtime_planner
 from . import mes_reject_report
 from . import mes_operation_wizards
+from . import mes_hist_performance_wiz

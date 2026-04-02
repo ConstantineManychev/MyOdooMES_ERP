@@ -26,6 +26,9 @@ access_mes_fdw_anom_admin,mes.fdw.anom.admin,model_mes_anomaly_fdw,mes_core.grou
 access_mes_mach_op_admin,mes.mach.op.admin,model_mes_machine_operation,mes_core.group_mes_administrator,1,1,1,1
 
 access_mes_mach_perf_admin,mes.mach.perf.admin,model_mes_machine_performance,mes_core.group_mes_administrator,1,1,1,1
+access_mes_perf_run_admin,mes.perf.run.admin,model_mes_performance_running,mes_core.group_mes_administrator,1,1,1,1
+access_mes_perf_slow_admin,mes.perf.slow.admin,model_mes_performance_slowing,mes_core.group_mes_administrator,1,1,1,1
+access_mes_perf_prod_admin,mes.perf.prod.admin,model_mes_performance_production,mes_core.group_mes_administrator,1,1,1,1
 access_mes_perf_alarm_admin,mes.perf.alarm.admin,model_mes_performance_alarm,mes_core.group_mes_administrator,1,1,1,1
 access_mes_perf_rej_admin,mes.perf.rej.admin,model_mes_performance_rejection,mes_core.group_mes_administrator,1,1,1,1
 access_mes_prod_rep_admin,mes.prod.rep.admin,model_mes_production_report,mes_core.group_mes_administrator,1,1,1,1
@@ -56,6 +59,7 @@ access_mes_reject_report_line,access.mes.reject.report.line,model_mes_reject_rep
 
 
 access_mes_downtime_planner_wizard_adm,mes.downtime.planner.wizard.adm,model_mes_downtime_planner_wizard,mes_core.group_mes_administrator,1,1,1,1
+access_mes_hist_performance_wiz,mes.hist.performance.wiz.access,model_mes_hist_performance_wiz,mes_core.group_mes_administrator,1,1,1,1
 
 
 
@@ -84,6 +88,9 @@ access_mes_fdw_anom_manager,mes.fdw.anom.manager,model_mes_anomaly_fdw,mes_core.
 access_mes_mach_op_admin,mes.mach.op.admin,model_mes_machine_operation,mes_core.group_mes_manager,1,0,0,0
 
 access_mes_mach_perf_manager,mes.mach.perf.manager,model_mes_machine_performance,mes_core.group_mes_manager,1,0,0,0
+access_mes_perf_run_manager,mes.perf.run.manager,model_mes_performance_running,mes_core.group_mes_manager,1,0,0,0
+access_mes_perf_slow_manager,mes.perf.slow.manager,model_mes_performance_slowing,mes_core.group_mes_manager,1,0,0,0
+access_mes_perf_prod_manager,mes.perf.prod.manager,model_mes_performance_production,mes_core.group_mes_manager,1,0,0,0
 access_mes_perf_alarm_manager,mes.perf.alarm.manager,model_mes_performance_alarm,mes_core.group_mes_manager,1,0,0,0
 access_mes_perf_rej_manager,mes.perf.rej.manager,model_mes_performance_rejection,mes_core.group_mes_manager,1,0,0,0
 access_mes_prod_rep_manager,mes.prod.rep.manager,model_mes_production_report,mes_core.group_mes_manager,1,0,0,0
@@ -137,6 +144,9 @@ access_mes_fdw_hour_operator,mes.fdw.hour.operator,model_mes_telemetry_hourly_fd
 access_mes_fdw_anom_operator,mes.fdw.anom.operator,model_mes_anomaly_fdw,mes_core.group_mes_operator,1,0,0,0
 
 access_mes_mach_perf_operator,mes.mach.perf.operator,model_mes_machine_performance,mes_core.group_mes_operator,1,1,1,0
+access_mes_perf_run_operator,mes.perf.run.operator,model_mes_performance_running,mes_core.group_mes_operator,1,1,1,0
+access_mes_perf_slow_operator,mes.perf.slow.operator,model_mes_performance_slowing,mes_core.group_mes_operator,1,1,1,0
+access_mes_perf_prod_operator,mes.perf.prod.operator,model_mes_performance_production,mes_core.group_mes_operator,1,1,1,0
 access_mes_perf_alarm_operator,mes.perf.alarm.operator,model_mes_performance_alarm,mes_core.group_mes_operator,1,1,1,0
 access_mes_perf_rej_operator,mes.perf.rej.operator,model_mes_performance_rejection,mes_core.group_mes_operator,1,1,1,0
 access_mes_prod_rep_operator,mes.prod.rep.operator,model_mes_production_report,mes_core.group_mes_operator,1,1,1,0

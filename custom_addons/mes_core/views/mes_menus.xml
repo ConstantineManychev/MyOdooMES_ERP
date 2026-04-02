@@ -173,6 +173,12 @@
             action="action_mes_hist_dashboard" 
             sequence="20"/>
 
+    <menuitem id="menu_mes_hist_performance" 
+              name="Historical Shift Generator" 
+              parent="menu_mes_tools" 
+              action="action_mes_hist_performance_wiz" 
+              sequence="25"/>
+
 <!--
     <menuitem id="menu_mes_init_db"
               name="Initialize Database"

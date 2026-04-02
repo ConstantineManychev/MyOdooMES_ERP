@@ -16,6 +16,8 @@
 
         'wizard/mes_downtime_planner.xml',
         
+        'wizard/mes_hist_performance_wiz.xml',
+
         'views/mes_dictionaries_views.xml',
         'views/mes_machine_performance_view.xml',
         'views/mes_production_report_view.xml',

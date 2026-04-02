@@ -1,7 +1,7 @@
 /** @odoo-module **/
 
 import { registry } from "@web/core/registry";
-import { Component, onWillUnmount, onMounted, useRef, useState } from "@odoo/owl";
+import { Component, onWillUnmount, onMounted, useRef, useState, onWillUpdateProps } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { loadJS } from "@web/core/assets";
 
@@ -32,6 +32,12 @@ export class MachineLiveCharts extends Component {
             await this.fetchData();
         });
 
+        onWillUpdateProps(async (nextProps) => {
+            if (!nextProps.record.isDirty && !nextProps.record.isSaving) {
+                await this.fetchData(true); 
+            }
+        });
+
         onWillUnmount(() => {
             this.destroyChart();
         });
@@ -56,14 +62,15 @@ export class MachineLiveCharts extends Component {
         return colors[idx % colors.length];
     }
 
-    async fetchData() {
+    async fetchData(skipLoad = false) {
         if (!this.props.record.resId) {
             this.state.error = "Please save the machine to view live charts.";
             return;
         }
 
         await this.orm.call("mrp.workcenter", "action_force_metrics_update", [[this.props.record.resId]]);
-        if (this.props.record.load) {
+        
+        if (!skipLoad && this.props.record.load) {
             await this.props.record.load();
         }
 
@@ -101,14 +108,14 @@ export class MachineLiveCharts extends Component {
 
     async onCountChange(ev) {
         this.state.selectedCountId = parseInt(ev.target.value);
-        await this.fetchData();
+        await this.fetchData(true);
     }
 
     async onProcessChange(ev) {
         const val = ev.target.value;
         this.state.selectedProcessId = val ? parseInt(val) : false;
         this.state.selectedProcessName = val ? ev.target.options[ev.target.selectedIndex].text : '';
-        await this.fetchData();
+        await this.fetchData(true);
     }
 
     async onWheelZoom(ev) {
