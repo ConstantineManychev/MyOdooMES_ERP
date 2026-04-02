@@ -179,6 +179,12 @@
               action="action_mes_hist_performance_wiz" 
               sequence="25"/>
 
+    <menuitem id="menu_mes_recalc_downtime" 
+              name="Recalculate Downtime" 
+              parent="menu_mes_tools" 
+              action="action_mes_recalc_downtime" 
+              sequence="30"/>
+
 <!--
     <menuitem id="menu_mes_init_db"
               name="Initialize Database"

@@ -486,7 +486,7 @@ class MesWorkcenter(models.Model):
         with self.env['mes.timescale.base']._connection() as conn:
             with conn.cursor() as cur:
                 if e_tags:
-                    raw_tl = mac._fetch_timeline_raw(cur, s_time, calc_e_time, e_tags)
+                    raw_tl = mac._fetch_timeline_raw( s_time, calc_e_time, e_tags)
                     raw_tl_colored = self._process_timeline_colors(mac, raw_tl, st_cfgs)
                     for entry in raw_tl_colored:
                         entry['start'] = to_iso(datetime.fromisoformat(entry['start']))

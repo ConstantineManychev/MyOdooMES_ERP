@@ -56,7 +56,7 @@ class MesMachinePerformance(models.Model):
         self._close_expired_shifts(now_utc)
 
     @api.model
-    def register_chain_event(self, mac_name, tag, val, ts_utc):
+    def register_chain_event(self, mac_name, tag, val, ts_loc):
         mac = self.env['mes.machine.settings'].search([('name', '=', mac_name)], limit=1)
         if not mac:
             return
@@ -65,19 +65,20 @@ class MesMachinePerformance(models.Model):
         if not wc:
             return
             
-        doc = self._get_or_create_doc(wc, ts_utc)
+        doc = self._get_or_create_doc(wc, ts_loc)
         if not doc:
             return
+            
+        tz_name = wc.company_id.tz or 'UTC'
+        mac_tz = pytz.timezone(tz_name)
+        local_dt = mac_tz.localize(ts_loc, is_dst=False)
+        ts_utc = local_dt.astimezone(pytz.utc).replace(tzinfo=None)
             
         evt = self._resolve_evt(mac, tag, val)
         doc._append_evt(wc, evt, tag, val, ts_utc)
 
-    def _get_or_create_doc(self, wc, ts_utc):
-        tz_name = wc.company_id.tz or 'UTC'
-        mac_tz = pytz.timezone(tz_name)
-        ts_mac = pytz.utc.localize(ts_utc).astimezone(mac_tz).replace(tzinfo=None)
-        
-        curr_h = ts_mac.hour + ts_mac.minute / 60.0 + ts_mac.second / 3600.0
+    def _get_or_create_doc(self, wc, ts_loc):
+        curr_h = ts_loc.hour + ts_loc.minute / 60.0 + ts_loc.second / 3600.0
         shifts = self.env['mes.shift'].search([('company_id', '=', wc.company_id.id)])
         val_s = [s for s in shifts if not (s.workcenter_ids and wc.id not in s.workcenter_ids.ids)]
         
@@ -85,7 +86,7 @@ class MesMachinePerformance(models.Model):
         if not cur_s:
             return None
             
-        st_d = ts_mac.date()
+        st_d = ts_loc.date()
         if cur_s.start_hour > cur_s.end_hour and curr_h < cur_s.end_hour:
             st_d -= timedelta(days=1)
             
@@ -135,35 +136,75 @@ class MesMachinePerformance(models.Model):
         opn = self._get_open_log()
         tgt_mod = False
         
-        if self._is_run(wc, tag, val):
+        is_run = self._is_run(wc, tag, val)
+        
+        if is_run:
             tgt_mod = 'mes.performance.running'
-        elif (tag == 'OEE.nStopRootReason' and val != 0) or (tag == 'OEE.nMachineState' and val == 1):
+        elif tag == 'OEE.nMachineState' and val == 1:
             tgt_mod = 'mes.performance.alarm'
         elif tag == 'OEE.nMachineState':
             tgt_mod = 'mes.performance.slowing'
 
-        if not tgt_mod:
-            if tag == 'OEE.nStopRootReason' and val == 0:
-                if opn and opn._name == 'mes.performance.alarm' and opn.loss_id.default_event_tag_type == 'OEE.nMachineState' and opn.loss_id.default_plc_value == 1:
-                    tgt_mod = 'mes.performance.slowing'
+        if tag == 'OEE.nStopRootReason':
+            if val != 0:
+                if opn and opn._name == 'mes.performance.alarm':
+                    is_generic = (opn.loss_id.default_event_tag_type == 'OEE.nMachineState' and opn.loss_id.default_plc_value == 1)
+                    if is_generic:
+                        opn.write({'loss_id': evt.id})
+                return
+            else:
+                if opn and opn._name == 'mes.performance.alarm':
+                    is_generic = (opn.loss_id.default_event_tag_type == 'OEE.nMachineState' and opn.loss_id.default_plc_value == 1)
+                    if is_generic:
+                        tgt_mod = 'mes.performance.slowing'
+                    else:
+                        return
                 else:
                     return
-            else:
-                return
 
-        if tgt_mod == 'mes.performance.alarm' and opn and opn._name == 'mes.performance.alarm':
-            opn_s1 = (opn.loss_id.default_event_tag_type == 'OEE.nMachineState' and opn.loss_id.default_plc_value == 1)
-            new_s1 = (tag == 'OEE.nMachineState' and val == 1)
-            opn_rs = (opn.loss_id.default_event_tag_type == 'OEE.nStopRootReason')
-            new_rs = (tag == 'OEE.nStopRootReason' and val != 0)
+        if not tgt_mod:
+            return
 
-            if new_s1 and opn_rs:
-                opn.write({'start_time': ts})
-                return
+        if tgt_mod == 'mes.performance.alarm' and tag == 'OEE.nMachineState' and val == 1:
+            evt_to_use = evt
+            
+            from datetime import timedelta
+            last_run = self.env['mes.performance.running'].search([('performance_id', '=', self.id)], order='start_time desc', limit=1)
+            search_start = last_run.start_time if last_run else (ts - timedelta(hours=12))
+            
+            mac = wc.machine_settings_id
+            reason_tag = mac.get_alarm_tag_name('OEE.nStopRootReason').replace('%', '')
+            
+            try:
+                with self.env['mes.timescale.base']._connection() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("""
+                            SELECT value FROM telemetry_event 
+                            WHERE machine_name = %s 
+                              AND tag_name = %s 
+                              AND time >= %s AND time <= %s
+                            ORDER BY time DESC LIMIT 1
+                        """, (mac.name, reason_tag, search_start.strftime('%Y-%m-%d %H:%M:%S'), ts.strftime('%Y-%m-%d %H:%M:%S')))
+                        row = cur.fetchone()
+                        
+                        if row and row[0] != 0:
+                            reason_evt = self._resolve_evt(mac, reason_tag, int(row[0]))
+                            if reason_evt:
+                                evt_to_use = reason_evt
+            except Exception as e:
+                pass 
+
+            if opn:
+                if opn._name == tgt_mod and opn.loss_id.id == evt_to_use.id:
+                    return
+                opn.write({'end_time': ts})
                 
-            if new_rs and opn_s1:
-                opn.write({'loss_id': evt.id})
-                return
+            self.env[tgt_mod].create({
+                'performance_id': self.id,
+                'loss_id': evt_to_use.id,
+                'start_time': ts
+            })
+            return
 
         if opn:
             if opn._name == tgt_mod and opn.loss_id.id == evt.id:
@@ -224,7 +265,7 @@ class MesMachinePerformance(models.Model):
             })
             s_loc, _ = doc._get_local_shift_times()
             s_utc = doc._get_utc_time(s_loc)
-            doc._init_initial_state(s_utc)
+            doc._init_initial_state(s_loc, s_utc)
 
     def _find_active_shift(self, shifts, curr_h):
         for s in shifts:
@@ -334,11 +375,17 @@ class MesMachinePerformance(models.Model):
         if rej_vals:
             self.env['mes.performance.rejection'].create(rej_vals)
 
-    def _init_initial_state(self, s_utc):
+    def _init_initial_state(self, s_loc, s_utc=None):
         mac = self.machine_id.machine_settings_id
         if not mac:
             return
             
+        if not s_utc:
+            tz_name = self.company_id.tz or 'UTC'
+            mac_tz = pytz.timezone(tz_name)
+            local_dt = mac_tz.localize(s_loc, is_dst=False)
+            s_utc = local_dt.astimezone(pytz.utc).replace(tzinfo=None)
+
         with self.env['mes.timescale.base']._connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -346,7 +393,7 @@ class MesMachinePerformance(models.Model):
                     FROM telemetry_event 
                     WHERE machine_name = %s AND time <= %s 
                     ORDER BY time DESC LIMIT 1
-                """, (mac.name, s_utc))
+                """, (mac.name, s_loc))
                 row = cur.fetchone()
                 
         if row:
@@ -354,7 +401,7 @@ class MesMachinePerformance(models.Model):
             evt = self._resolve_evt(mac, tag, val)
             self._append_evt(self.machine_id, evt, tag, val, s_utc)
 
-    def _process_historical_events(self, s_utc, e_utc):
+    def _process_historical_events(self, s_loc, e_loc):
         mac = self.machine_id.machine_settings_id
         if not mac:
             return
@@ -366,14 +413,21 @@ class MesMachinePerformance(models.Model):
                     FROM telemetry_event 
                     WHERE machine_name = %s AND time >= %s AND time <= %s 
                     ORDER BY time ASC
-                """, (mac.name, s_utc, e_utc))
+                """, (mac.name, s_loc, e_loc))
                 rows = cur.fetchall()
                 
+        tz_name = self.company_id.tz or 'UTC'
+        mac_tz = pytz.timezone(tz_name)
+        
         for row in rows:
-            ts, tag, val = row
-            ts_cl = ts.replace(tzinfo=None) if hasattr(ts, 'replace') else ts
+            ts_loc, tag, val = row
+            ts_cl = ts_loc.replace(tzinfo=None) if hasattr(ts_loc, 'replace') else ts_loc
+            
+            local_dt = mac_tz.localize(ts_cl, is_dst=False)
+            ts_utc = local_dt.astimezone(pytz.utc).replace(tzinfo=None)
+            
             evt = self._resolve_evt(mac, tag, val)
-            self._append_evt(self.machine_id, evt, tag, val, ts_cl)
+            self._append_evt(self.machine_id, evt, tag, val, ts_utc)
 
     def _is_empty_shift(self):
         self.ensure_one()

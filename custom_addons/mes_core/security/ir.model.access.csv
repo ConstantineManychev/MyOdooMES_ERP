@@ -60,6 +60,7 @@ access_mes_reject_report_line,access.mes.reject.report.line,model_mes_reject_rep
 
 access_mes_downtime_planner_wizard_adm,mes.downtime.planner.wizard.adm,model_mes_downtime_planner_wizard,mes_core.group_mes_administrator,1,1,1,1
 access_mes_hist_performance_wiz,mes.hist.performance.wiz.access,model_mes_hist_performance_wiz,mes_core.group_mes_administrator,1,1,1,1
+access_mes_recalc_downtime_wiz,mes.recalc.downtime.wiz.access,model_mes_recalc_downtime_wiz,mes_core.group_mes_administrator,1,1,1,1
 
 
 

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mes_recalc_downtime_wiz_form" model="ir.ui.view">
+        <field name="name">mes.recalc.downtime.wiz.form</field>
+        <field name="model">mes.recalc.downtime.wiz</field>
+        <field name="arch" type="xml">
+            <form string="Recalculate Downtimes">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                        </group>
+                        <group>
+                            <field name="machine_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                        </group>
+                    </group>
+                    <p class="text-muted">
+                        This action will run in the background. It will find existing Shift Performance documents in the selected period and recalculate their Alarms strictly based on Telemetry root reasons.
+                    </p>
+                </sheet>
+                <footer>
+                    <button name="action_recalc" string="Recalculate" type="object" class="btn-danger"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mes_recalc_downtime_wiz" model="ir.actions.act_window">
+        <field name="name">Recalculate Downtimes</field>
+        <field name="res_model">mes.recalc.downtime.wiz</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_mes_recalc_downtime" 
+              name="Recalculate Downtimes" 
+              parent="mes_core.menu_mes_tools" 
+              action="action_mes_recalc_downtime_wiz" 
+              sequence="20"/>
+</odoo>

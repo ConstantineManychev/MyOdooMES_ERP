@@ -39,83 +39,64 @@ class MesAnalyticsWizard(models.TransientModel):
         self.env['mes.analytics.report.line'].search([('user_id', '=', self.env.user.id)]).unlink()
 
         machines = self._get_filtered_machines()
-        if not machines:
-            return
+        if not machines: return
 
         lines_to_create = []
-        ts_mgr = self.env['mes.timescale.base']
 
-        with ts_mgr._connection() as conn:
-            with conn.cursor() as cur:
-                for machine in machines:
-                    workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
-                    if not workcenter:
-                        continue
+        for machine in machines:
+            workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
+            if not workcenter: continue
+            
+            tz_name = workcenter.company_id.tz or 'UTC'
+            shifts = self.env['mes.shift'].search([('company_id', '=', workcenter.company_id.id)], order='sequence, start_hour asc')
+            periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts, tz_name)
+
+            for p_name, time_blocks in periods_dict.items():
+                if not time_blocks: continue
+                
+                p_start = min(t[0] for t in time_blocks)
+                p_end = max(t[1] for t in time_blocks)
+
+                kpi = machine._calculate_kpi_for_window(workcenter, p_start, p_end)
+                if not kpi or not (kpi.get('oee') or kpi.get('produced')): continue
                     
-                    tz_name = workcenter.company_id.tz or 'UTC'
-                    shifts = self.env['mes.shift'].search([('company_id', '=', workcenter.company_id.id)], order='sequence, start_hour asc')
-                    periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts, tz_name)
+                all_active_intervals = []
+                for t_s, t_e in time_blocks:
+                    act_int, _ = machine._get_planned_working_intervals(t_s, t_e, workcenter)
+                    all_active_intervals.extend(act_int)
+                all_active_intervals = self._merge_intervals(all_active_intervals)
+                
+                runtime_h = 0.0
+                top_alarm_str = "-"
+                top_reject_str = "-"
+                
+                if all_active_intervals:
+                    run_sec = machine._fetch_interval_stats(all_active_intervals, workcenter.id, mode='runtime')
+                    runtime_h = run_sec / 3600.0
 
-                    state_sig = machine.event_tag_ids.filtered(lambda x: x.event_id == workcenter.runtime_event_id) if workcenter else None
-                    state_tag = state_sig[0].tag_name if state_sig else None
-                    running_plc_val = state_sig[0].plc_value if state_sig else 0
-                    
-                    try:
-                        alarm_tag = machine.get_alarm_tag_name('OEE.nStopRootReason').replace('%', '')
-                    except Exception:
-                        alarm_tag = 'OEE.nStopRootReason'
+                    alarm_rows = machine._fetch_interval_stats(all_active_intervals, workcenter.id, mode='downtime')
+                    if alarm_rows:
+                        top_evt = max(alarm_rows, key=lambda x: x[2])
+                        loss_name = self.env['mes.event'].browse(top_evt[0]).name
+                        top_alarm_str = f"{loss_name} ({top_evt[1]} - {top_evt[2]/60.0:.1f}m)"
 
-                    for p_name, time_blocks in periods_dict.items():
-                        if not time_blocks:
-                            continue
-                        
-                        p_start = min(t[0] for t in time_blocks)
-                        p_end = max(t[1] for t in time_blocks)
+                    doc = self.env['mes.machine.performance'].search([
+                        ('machine_id', '=', workcenter.id),
+                        ('state', '=', 'done')
+                    ]).filtered(lambda d: d._get_utc_time(d._get_local_shift_times()[0]) <= p_start and d._get_utc_time(d._get_local_shift_times()[1]) >= p_end)
 
-                        kpi = machine._calculate_kpi_for_window(workcenter, p_start, p_end)
-                        
-                        if kpi and (kpi.get('oee') or kpi.get('produced')):
-                            
-                            all_active_intervals = []
-                            for t_s, t_e in time_blocks:
-                                act_int, _ = machine._get_planned_working_intervals(t_s, t_e, workcenter)
-                                all_active_intervals.extend(act_int)
-                            all_active_intervals = self._merge_intervals(all_active_intervals)
-                            
-                            runtime_h = 0.0
-                            top_alarm_str = "-"
-                            top_reject_str = "-"
-                            
-                            if all_active_intervals:
-                                run_sec = machine._fetch_interval_stats(
-                                    cur, all_active_intervals, [state_tag], mode='runtime', 
-                                    state_tag=state_tag, state_val=running_plc_val
-                                ) if state_tag else 0.0
-                                runtime_h = run_sec / 3600.0
-
-                                rows = machine._fetch_interval_stats(cur, all_active_intervals, [alarm_tag], mode='downtime')
-                                if rows:
-                                    stats_by_evt = {}
-                                    for row in rows:
-                                        t_name, a_code, freq, dur_sec = row[0], row[1], row[2], row[3]
-                                        matched = machine.event_tag_ids.filtered(lambda x: x.tag_name == t_name and x.plc_value == a_code)
-                                        if matched:
-                                            evt_name = matched[0].event_id.name
-                                            if evt_name not in stats_by_evt:
-                                                stats_by_evt[evt_name] = {'freq': 0, 'dur': 0.0}
-                                            stats_by_evt[evt_name]['freq'] += freq
-                                            stats_by_evt[evt_name]['dur'] += dur_sec
-                                            
-                                    if stats_by_evt:
-                                        top_evt = max(stats_by_evt.items(), key=lambda x: x[1]['dur'])
-                                        top_alarm_str = f"{top_evt[0]} ({top_evt[1]['freq']} - {top_evt[1]['dur']/60.0:.1f}m)"
-
-                                valid_count_tags = list(machine.count_tag_ids.mapped('tag_name'))
-                                if valid_count_tags:
+                    rej_stats = {}
+                    if doc:
+                        for rej in doc.rejection_ids:
+                            c_name = rej.reason_id.name
+                            rej_stats[c_name] = rej_stats.get(c_name, 0) + rej.qty
+                    else:
+                        valid_count_tags = list(machine.count_tag_ids.mapped('tag_name'))
+                        if valid_count_tags:
+                            with self.env['mes.timescale.base']._connection() as conn:
+                                with conn.cursor() as cur:
                                     cur.execute("""
-                                        SELECT tag_name, 
-                                               COALESCE(SUM(value), 0) as sum_val, 
-                                               COALESCE(MAX(value) - MIN(value), 0) as cum_val
+                                        SELECT tag_name, COALESCE(SUM(value), 0) as sum_val, COALESCE(MAX(value) - MIN(value), 0) as cum_val
                                         FROM telemetry_count 
                                         WHERE machine_name = %s AND tag_name = ANY(%s) 
                                           AND time >= %s::timestamp AT TIME ZONE 'UTC' 
@@ -123,69 +104,52 @@ class MesAnalyticsWizard(models.TransientModel):
                                         GROUP BY tag_name
                                     """, (machine.name, valid_count_tags, p_start.strftime('%Y-%m-%d %H:%M:%S'), p_end.strftime('%Y-%m-%d %H:%M:%S')))
                                     
-                                    rej_stats = {}
                                     for row in cur.fetchall():
                                         t_name, sum_val, cum_val = row
                                         sig = machine.count_tag_ids.filtered(lambda s: s.tag_name == t_name)
                                         if sig:
                                             qty = cum_val if sig[0].is_cumulative else sum_val
-                                            if qty > 0:
+                                            if qty > 0 and sig[0].count_id != workcenter.production_count_id:
                                                 c_name = sig[0].count_id.name
                                                 rej_stats[c_name] = rej_stats.get(c_name, 0) + float(qty)
-                                    
-                                    if rej_stats:
-                                        top_rej = max(rej_stats.items(), key=lambda x: x[1])
-                                        qty_ph = top_rej[1] / runtime_h if runtime_h > 0 else 0.0
-                                        top_reject_str = f"{top_rej[0]} ({top_rej[1]:.0f} / {qty_ph:.1f}/h)"
+                    
+                    if rej_stats:
+                        top_rej = max(rej_stats.items(), key=lambda x: x[1])
+                        qty_ph = top_rej[1] / runtime_h if runtime_h > 0 else 0.0
+                        top_reject_str = f"{top_rej[0]} ({top_rej[1]:.0f} / {qty_ph:.1f}/h)"
 
-                            def build_label(by_mac, by_per):
-                                parts = []
-                                if by_mac: parts.append(machine.name)
-                                if by_per: parts.append(p_name)
-                                return " | ".join(parts) if parts else "All Data"
+                r_label = " | ".join(filter(None, [machine.name if self.row_by_machine else "", p_name if self.row_by_period else ""])) or "All Data"
+                c_label = " | ".join(filter(None, [machine.name if self.col_by_machine else "", p_name if self.col_by_period else ""])) or "All Data"
 
-                            r_label = build_label(self.row_by_machine, self.row_by_period)
-                            c_label = build_label(self.col_by_machine, self.col_by_period)
-
-                            lines_to_create.append({
-                                'user_id': self.env.user.id,
-                                'machine_id': machine.id,
-                                'period_name': p_name,
-                                'row_group_label': r_label,
-                                'col_group_label': c_label,
-                                'first_running_time': kpi.get('first_running_time', False),
-                                'produced': kpi.get('produced', 0),
-                                'runtime_hours': runtime_h,
-                                'waste_losses': kpi.get('waste_losses', 0),
-                                'downtime_losses': kpi.get('downtime_losses', 0),
-                                'oee': kpi.get('oee', 0),
-                                'top_reject': top_reject_str,
-                                'top_alarm': top_alarm_str,
-                                'availability': kpi.get('availability', 0),
-                                'performance': kpi.get('performance', 0),
-                                'quality': kpi.get('quality', 0),
-                            })
+                lines_to_create.append({
+                    'user_id': self.env.user.id,
+                    'machine_id': machine.id,
+                    'period_name': p_name,
+                    'row_group_label': r_label,
+                    'col_group_label': c_label,
+                    'first_running_time': kpi.get('first_running_time', False),
+                    'produced': kpi.get('produced', 0),
+                    'runtime_hours': runtime_h,
+                    'waste_losses': kpi.get('waste_losses', 0),
+                    'downtime_losses': kpi.get('downtime_losses', 0),
+                    'oee': kpi.get('oee', 0),
+                    'top_reject': top_reject_str,
+                    'top_alarm': top_alarm_str,
+                    'availability': kpi.get('availability', 0),
+                    'performance': kpi.get('performance', 0),
+                    'quality': kpi.get('quality', 0),
+                })
 
         if lines_to_create:
             lines_to_create.sort(key=lambda x: x.get(self.limit_by, 0), reverse=True)
-            if self.record_limit > 0:
-                lines_to_create = lines_to_create[:self.record_limit]
+            if self.record_limit > 0: lines_to_create = lines_to_create[:self.record_limit]
             self.env['mes.analytics.report.line'].create(lines_to_create)
 
-        measures = []
-        if self.show_produced: measures.append('produced')
-        if self.show_runtime: measures.append('runtime_hours')
-        if self.show_waste: measures.append('waste_losses')
-        if self.show_downtime: measures.append('downtime_losses')
-        if self.show_oee: measures.append('oee')
-        if self.show_availability: measures.append('availability')
-        if self.show_performance: measures.append('performance')
-        if self.show_quality: measures.append('quality')
-        
-        if not measures:
-            measures = ['produced']
-
-        ctx = self._build_skd_context(measures)
+        measures = [m for m, show in [
+            ('produced', self.show_produced), ('runtime_hours', self.show_runtime),
+            ('waste_losses', self.show_waste), ('downtime_losses', self.show_downtime), ('oee', self.show_oee),
+            ('availability', self.show_availability), ('performance', self.show_performance), ('quality', self.show_quality)
+        ] if show] or ['produced']
 
         return {
             'name': 'Shift Analytics Matrix',
@@ -193,7 +157,7 @@ class MesAnalyticsWizard(models.TransientModel):
             'res_model': 'mes.analytics.report.line',
             'view_mode': 'tree,pivot', 
             'domain': [('user_id', '=', self.env.user.id)],
-            'context': ctx
+            'context': self._build_skd_context(measures)
         }
 
 class MesAnalyticsReportLine(models.Model):

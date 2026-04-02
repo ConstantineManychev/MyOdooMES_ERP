@@ -62,98 +62,98 @@ class MesRejectReportWizard(models.TransientModel):
         if not machines:
             return
 
-        ts_mgr = self.env['mes.timescale.base']
         aggregated = {}
         period_runtimes = {}
 
-        with ts_mgr._connection() as conn:
-            with conn.cursor() as cur:
-                for machine in machines:
-                    workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
-                    if not workcenter:
-                        continue
-                        
-                    tz_name = workcenter.company_id.tz or 'UTC'
-                    shifts = self.env['mes.shift'].search([('company_id', '=', workcenter.company_id.id)], order='start_hour asc')
-                    periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts, tz_name)
+        for machine in machines:
+            workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
+            if not workcenter:
+                continue
+                
+            tz_name = workcenter.company_id.tz or 'UTC'
+            shifts = self.env['mes.shift'].search([('company_id', '=', workcenter.company_id.id)], order='start_hour asc')
+            periods_dict = self._get_logical_periods(self.start_datetime, self.end_datetime, shifts, tz_name)
 
-                    state_sig = machine.event_tag_ids.filtered(lambda x: x.event_id == workcenter.runtime_event_id) if workcenter else None
-                    state_tag = state_sig[0].tag_name if state_sig else 'OEE.nMachineState'
-                    state_val = str(state_sig[0].plc_value) if state_sig else '1'
+            signals = machine.count_tag_ids
+            if self.cnt_ids:
+                if self.cnt_filter_type == 'in':
+                    signals = signals.filtered(lambda s: s.count_id in self.cnt_ids)
+                else:
+                    signals = signals.filtered(lambda s: s.count_id not in self.cnt_ids)
+            
+            if not signals:
+                continue
 
-                    signals = machine.count_tag_ids
-                    if self.cnt_ids:
-                        if self.cnt_filter_type == 'in':
-                            signals = signals.filtered(lambda s: s.count_id in self.cnt_ids)
-                        else:
-                            signals = signals.filtered(lambda s: s.count_id not in self.cnt_ids)
+            for p_name, time_blocks in periods_dict.items():
+                if not time_blocks:
+                    continue
                     
-                    if not signals:
-                        continue
-                        
-                    valid_tags = list(signals.mapped('tag_name'))
+                p_start = min(t[0] for t in time_blocks)
+                p_end = max(t[1] for t in time_blocks)
 
-                    for p_name, time_blocks in periods_dict.items():
-                        if not time_blocks:
-                            continue
-                            
-                        p_start = min(t[0] for t in time_blocks)
-                        p_end = max(t[1] for t in time_blocks)
-
-                        all_active_intervals = []
-                        for t_s, t_e in time_blocks:
-                            act_int, _ = machine._get_planned_working_intervals(t_s, t_e, workcenter)
-                            all_active_intervals.extend(act_int)
-                            
-                        all_active_intervals = self._merge_intervals(all_active_intervals)
+                all_active_intervals = []
+                for t_s, t_e in time_blocks:
+                    act_int, _ = machine._get_planned_working_intervals(t_s, t_e, workcenter)
+                    all_active_intervals.extend(act_int)
+                    
+                all_active_intervals = self._merge_intervals(all_active_intervals)
+                
+                r_sec = 0.0
+                if all_active_intervals:
+                    try:
+                        r_sec = machine._fetch_interval_stats(all_active_intervals, workcenter.id, mode='runtime')
+                    except Exception:
+                        pass
                         
-                        if all_active_intervals:
-                            try:
-                                r_sec = machine._fetch_interval_stats(
-                                    cur, all_active_intervals, [state_tag], 
-                                    mode='runtime', state_tag=state_tag, state_val=state_val
-                                )
-                            except Exception:
-                                r_sec = 0.0
-                        else:
-                            r_sec = 0.0
-                            
-                        period_runtimes[(machine.id, p_name)] = r_sec / 3600.0 if r_sec else 0.0
+                period_runtimes[(machine.id, p_name)] = r_sec / 3600.0 if r_sec else 0.0
 
-                        cur.execute("""
-                            SELECT tag_name, 
-                                   COALESCE(SUM(value), 0) as sum_val, 
-                                   COALESCE(MAX(value) - MIN(value), 0) as cum_val
-                            FROM telemetry_count 
-                            WHERE machine_name = %s AND tag_name = ANY(%s) 
-                              AND time >= %s::timestamp AT TIME ZONE 'UTC' 
-                              AND time < %s::timestamp AT TIME ZONE 'UTC'
-                            GROUP BY tag_name
-                        """, (
-                            machine.name, 
-                            valid_tags, 
-                            p_start.strftime('%Y-%m-%d %H:%M:%S'), 
-                            p_end.strftime('%Y-%m-%d %H:%M:%S')
-                        ))
-                        
-                        for row in cur.fetchall():
-                            t_name, sum_val, cum_val = row
-                            
-                            sig = signals.filtered(lambda s: s.tag_name == t_name)
-                            if not sig:
-                                continue
-                            sig = sig[0]
-                            
-                            qty = cum_val if sig.is_cumulative else sum_val
-                            if qty <= 0: 
-                                continue
-                            
-                            cnt = sig.count_id
+                doc = self.env['mes.machine.performance'].search([
+                    ('machine_id', '=', workcenter.id),
+                    ('state', '=', 'done')
+                ]).filtered(lambda d: d._get_utc_time(d._get_local_shift_times()[0]) <= p_start and d._get_utc_time(d._get_local_shift_times()[1]) >= p_end)
+
+                if doc:
+                    valid_count_ids = signals.mapped('count_id').ids
+                    for rej in doc.rejection_ids:
+                        if rej.reason_id.id in valid_count_ids:
+                            cnt = rej.reason_id
                             key = (machine.id, machine.name, p_name, cnt.id, cnt.name, cnt.parent_path, cnt.is_module_count, cnt.wheel, cnt.module)
-                            
-                            if key not in aggregated:
-                                aggregated[key] = 0.0
-                            aggregated[key] += float(qty)
+                            aggregated[key] = aggregated.get(key, 0.0) + rej.qty
+                else:
+                    valid_tags = list(signals.mapped('tag_name'))
+                    if valid_tags:
+                        with self.env['mes.timescale.base']._connection() as conn:
+                            with conn.cursor() as cur:
+                                cur.execute("""
+                                    SELECT tag_name, 
+                                           COALESCE(SUM(value), 0) as sum_val, 
+                                           COALESCE(MAX(value) - MIN(value), 0) as cum_val
+                                    FROM telemetry_count 
+                                    WHERE machine_name = %s AND tag_name = ANY(%s) 
+                                      AND time >= %s::timestamp AT TIME ZONE 'UTC' 
+                                      AND time < %s::timestamp AT TIME ZONE 'UTC'
+                                    GROUP BY tag_name
+                                """, (
+                                    machine.name, 
+                                    valid_tags, 
+                                    p_start.strftime('%Y-%m-%d %H:%M:%S'), 
+                                    p_end.strftime('%Y-%m-%d %H:%M:%S')
+                                ))
+                                
+                                for row in cur.fetchall():
+                                    t_name, sum_val, cum_val = row
+                                    
+                                    sig = signals.filtered(lambda s: s.tag_name == t_name)
+                                    if not sig:
+                                        continue
+                                    
+                                    qty = cum_val if sig[0].is_cumulative else sum_val
+                                    if qty <= 0: 
+                                        continue
+                                    
+                                    cnt = sig[0].count_id
+                                    key = (machine.id, machine.name, p_name, cnt.id, cnt.name, cnt.parent_path, cnt.is_module_count, cnt.wheel, cnt.module)
+                                    aggregated[key] = aggregated.get(key, 0.0) + float(qty)
 
         lines = []
         for key, qty in aggregated.items():
@@ -205,9 +205,7 @@ class MesRejectReportWizard(models.TransientModel):
         measures = []
         if self.show_qty: measures.append('qty')
         if self.show_qty_per_hour: measures.append('qty_per_hour')
-        
-        if not measures:
-            measures = ['qty']
+        if not measures: measures = ['qty']
 
         ctx = self._build_skd_context(measures)
 
