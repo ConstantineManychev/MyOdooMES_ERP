@@ -106,7 +106,6 @@ class MesMachinePerformance(models.Model):
         for row in rows:
             ts_raw, tag, val = row
             
-            # STRIP FAKE UTC TZINFO FROM PSYCOPG2
             if isinstance(ts_raw, str):
                 evt_dt = fields.Datetime.to_datetime(ts_raw.replace('T', ' ').replace('Z', '')[:19])
             else:

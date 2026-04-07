@@ -7,7 +7,7 @@ class MesAnalyticsWizard(models.TransientModel):
     _description = 'Shift Analytics Matrix Wizard'
 
     show_produced = fields.Boolean("Produced Qty", default=True)
-    show_runtime = fields.Boolean("Runtime (h)", default=True)
+    show_runtime = fields.Boolean("Runtime", default=True)
     show_waste = fields.Boolean("Waste Loss (%)", default=True)
     show_downtime = fields.Boolean("Downtime Loss (%)", default=True)
     show_oee = fields.Boolean("OEE (%)", default=True)
@@ -29,7 +29,7 @@ class MesAnalyticsWizard(models.TransientModel):
     def _get_limit_by_options(self):
         return [
             ('produced', 'Produced Qty'),
-            ('runtime_hours', 'Runtime (h)'),
+            ('runtime_hours', 'Runtime'),
             ('waste_losses', 'Waste Loss (%)'),
             ('downtime_losses', 'Downtime Loss (%)'),
             ('oee', 'OEE (%)'),
@@ -67,12 +67,19 @@ class MesAnalyticsWizard(models.TransientModel):
                 all_active_intervals = self._merge_intervals(all_active_intervals)
                 
                 runtime_h = 0.0
+                runtime_fmt = "00:00:00"
                 top_alarm_str = "-"
                 top_reject_str = "-"
                 
                 if all_active_intervals:
                     run_sec = machine._fetch_interval_stats(all_active_intervals, workcenter.id, mode='runtime')
+                    
                     runtime_h = run_sec / 3600.0
+                    
+                    h = int(run_sec // 3600)
+                    m = int((run_sec % 3600) // 60)
+                    s = int(run_sec % 60)
+                    runtime_fmt = f"{h:02d}:{m:02d}:{s:02d}"
 
                     alarm_rows = machine._fetch_interval_stats(all_active_intervals, workcenter.id, mode='downtime')
                     if alarm_rows:
@@ -130,6 +137,7 @@ class MesAnalyticsWizard(models.TransientModel):
                     'first_running_time': kpi.get('first_running_time', False),
                     'produced': kpi.get('produced', 0),
                     'runtime_hours': runtime_h,
+                    'runtime_formatted': runtime_fmt,
                     'waste_losses': kpi.get('waste_losses', 0),
                     'downtime_losses': kpi.get('downtime_losses', 0),
                     'oee': kpi.get('oee', 0),
@@ -146,9 +154,14 @@ class MesAnalyticsWizard(models.TransientModel):
             self.env['mes.analytics.report.line'].create(lines_to_create)
 
         measures = [m for m, show in [
-            ('produced', self.show_produced), ('runtime_hours', self.show_runtime),
-            ('waste_losses', self.show_waste), ('downtime_losses', self.show_downtime), ('oee', self.show_oee),
-            ('availability', self.show_availability), ('performance', self.show_performance), ('quality', self.show_quality)
+            ('produced', self.show_produced), 
+            ('runtime_hours', self.show_runtime),
+            ('waste_losses', self.show_waste), 
+            ('downtime_losses', self.show_downtime), 
+            ('oee', self.show_oee),
+            ('availability', self.show_availability), 
+            ('performance', self.show_performance), 
+            ('quality', self.show_quality)
         ] if show] or ['produced']
 
         return {
@@ -174,7 +187,10 @@ class MesAnalyticsReportLine(models.Model):
     first_running_time = fields.Datetime(string="First Start")
     
     produced = fields.Float("Produced Qty", group_operator="sum")
+    
     runtime_hours = fields.Float("Runtime (h)", group_operator="sum")
+    runtime_formatted = fields.Char("Runtime") 
+    
     waste_losses = fields.Float("Waste Loss (%)", group_operator="avg")
     downtime_losses = fields.Float("Downtime Loss (%)", group_operator="avg")
     oee = fields.Float("OEE (%)", group_operator="avg")

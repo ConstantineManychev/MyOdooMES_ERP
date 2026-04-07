@@ -165,7 +165,6 @@ class MesHistPerformanceWiz(models.TransientModel):
         for row in events:
             ts_raw, tag, val = row
             
-            # STRIP FAKE UTC TZINFO FROM PSYCOPG2
             if isinstance(ts_raw, str):
                 ts_dt = fields.Datetime.to_datetime(ts_raw.replace('T', ' ').replace('Z', '')[:19])
             else:
