@@ -18,7 +18,7 @@ export class MachineLiveCharts extends Component {
         this.state = useState({
             error: false,
             visibleTimeline: [],
-            zoomLvl: 1,
+            zoomLevel: 1,
             panOffset: 0,
             availableCounts: [],
             selectedCountId: false,
@@ -138,7 +138,7 @@ export class MachineLiveCharts extends Component {
             this.state.selectedProcessId = chartRes.selected_process_id;
             this.state.selectedProcessName = chartRes.selected_process_name;
             
-            await this.applyZoomPan(); 
+            await this.applyZoomAndPan(); 
 
         } catch (err) {
             this.state.error = "Data fetch synchronization failed.";
@@ -160,18 +160,18 @@ export class MachineLiveCharts extends Component {
     async onWheelZoom(ev) {
         ev.preventDefault(); 
         const step = 0.5;
-        let zoom = parseFloat(this.state.zoomLvl);
+        let zoom = parseFloat(this.state.zoomLevel);
         zoom = ev.deltaY < 0 ? Math.min(20, zoom + step) : Math.max(1, zoom - step);
-        this.state.zoomLvl = zoom;
-        await this.applyZoomPan();
+        this.state.zoomLevel = zoom;
+        await this.applyZoomAndPan();
     }
 
-    async applyZoomPan() {
+    async applyZoomAndPan() {
         await new Promise(res => setTimeout(res, 0));
         
         if (!this.rawMetric || !this.rawMetric.chart || !this.canvasRef.el) return;
         
-        const scale = parseFloat(this.state.zoomLvl) || 1;
+        const scale = parseFloat(this.state.zoomLevel) || 1;
         const pan = parseFloat(this.state.panOffset) || 0;
         const durSec = this.rawMetric.chart_duration_sec || 28800;
         const stepSec = this.rawMetric.chart?.bucket_sec || 900;
