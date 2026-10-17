@@ -76,6 +76,7 @@
         </field>
     </record>
 
+
     <record id="action_mes_analytics_wizard" model="ir.actions.act_window">
         <field name="name">Shift Analytics Dashboard</field>
         <field name="res_model">mes.analytics.wizard</field>

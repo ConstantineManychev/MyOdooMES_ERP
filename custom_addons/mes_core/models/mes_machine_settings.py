@@ -1,7 +1,9 @@
+import json
 import pytz
 import logging
 from datetime import datetime, timedelta
-from odoo import models, fields, api
+from odoo import models, fields, api, _
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -13,6 +15,16 @@ class MesMachineSettings(models.Model):
     name = fields.Char(string='Machine Name', required=True, copy=False, tracking=True)
     ip_connection = fields.Char(string='Connection IP', tracking=True)
     ip_data = fields.Char(string='TwinCAT/Data IP', tracking=True)
+    transitional_state_values = fields.Char(
+        string='Transitional nMachineState Values',
+        default='3,5',
+        tracking=True,
+        help="Comma-separated OEE.nMachineState values treated as transitional "
+             "(e.g. Stopping/Aborting). Flickers of these states between two "
+             "identical stop reasons are filtered out of the timeline. "
+             "PLC behaviour is machine-specific (M1 vs M8). "
+             "Empty = default '3,5'; 'none' = disable the filter."
+    )
     
     count_tag_ids = fields.One2many('mes.signal.count', 'machine_id', string='Counts')
     event_tag_ids = fields.One2many('mes.signal.event', 'machine_id', string='Events')
@@ -21,29 +33,9 @@ class MesMachineSettings(models.Model):
     _sql_constraints = [('name_uniq', 'unique (name)', 'Machine Name must be unique!')]
 
     def init(self):
-        if hasattr(self.env['mes.timescale.db.manager'], '_init_DB'):
-            self.env['mes.timescale.db.manager']._init_DB()
-            self.env['mes.timescale.db.manager']._init_local_fdw()
-
-    @api.model
-    def create(self, vals):
-        rec = super().create(vals)
-        self._sync_fdw(rec)
-        return rec
-
-    def write(self, vals):
-        res = super().write(vals)
-        for rec in self:
-            self._sync_fdw(rec)
-        return res
-
-    def unlink(self):
-        for rec in self:
-            self._execute_from_file('delete_machine.sql', (rec.name,))
-        return super().unlink()
-
-    def _sync_fdw(self, rec):
-        self._execute_from_file('upsert_machine.sql', (rec.name, rec.ip_connection, rec.ip_data))
+        Manager = self.env['mes.timescale.db.manager']
+        if hasattr(Manager, '_init_local_fdw'):
+            Manager._init_local_fdw()
 
     def get_alarm_tag_name(self, default_type='OEE.nStopRootReason'):
         self.ensure_one()
@@ -67,28 +59,34 @@ class MesMachineSettings(models.Model):
         return dict_event.name if dict_event else plc_str
 
     def _build_intersection_sql(self, active_intervals_utc, tbl_name):
-        val_list = [f"('{s.isoformat()}'::timestamp, '{e.isoformat()}'::timestamp)" for s, e in active_intervals_utc]
-        active_cte = "SELECT * FROM (VALUES " + ", ".join(val_list) + ") AS ai(ai_start, ai_end)"
-
+        if tbl_name not in {'mes_performance_running', 'mes_performance_alarm', 'mes_performance_slowing'}:
+            raise UserError(f"Invalid timeline table: {tbl_name}")
+        values_placeholder = ", ".join(["(%s::timestamp, %s::timestamp)"] * len(active_intervals_utc))
         return f"""
-            WITH active_windows AS ( {active_cte} ),
+            WITH active_windows AS (
+                SELECT * FROM (VALUES {values_placeholder}) AS ai(ai_start, ai_end)
+            ),
             target_events AS (
-                SELECT e.id, e.loss_id, e.start_time, COALESCE(e.end_time, %s) as end_time
+                SELECT e.id, e.loss_id, e.start_time, COALESCE(e.end_time, %s) AS end_time
                 FROM {tbl_name} e
                 JOIN mes_machine_performance p ON p.id = e.performance_id
-                WHERE p.machine_id = %s 
+                WHERE p.machine_id = %s
                   AND p.date >= %s
-                  AND e.start_time < %s 
+                  AND e.start_time < %s
                   AND (e.end_time > %s OR e.end_time IS NULL)
             ),
             intersected AS (
                 SELECT e.id, e.loss_id,
-                       GREATEST(e.start_time, aw.ai_start) as eff_start,
-                       LEAST(e.end_time, aw.ai_end) as eff_end
+                       GREATEST(e.start_time, aw.ai_start) AS eff_start,
+                       LEAST(e.end_time, aw.ai_end) AS eff_end
                 FROM target_events e
                 INNER JOIN active_windows aw ON aw.ai_start < e.end_time AND aw.ai_end > e.start_time
             )
         """
+
+    @staticmethod
+    def _flatten_interval_params(active_intervals_utc):
+        return [v for pair in active_intervals_utc for v in pair]
 
     def get_top_alarm_str(self, active_intervals_utc, wc_id):
         if not active_intervals_utc: return "None"
@@ -104,7 +102,8 @@ class MesMachineSettings(models.Model):
             SELECT loss_id, SUM(EXTRACT(EPOCH FROM (eff_end - eff_start))) as total_dur 
             FROM intersected WHERE eff_start < eff_end GROUP BY loss_id ORDER BY total_dur DESC LIMIT 1;
         """
-        self.env.cr.execute(query, (now_utc, wc_id, min_doc_date, end_utc, start_utc))
+        params = self._flatten_interval_params(active_intervals_utc) + [now_utc, wc_id, min_doc_date, end_utc, start_utc]
+        self.env.cr.execute(query, params)
         res = self.env.cr.fetchone()
         
         if res and res[0]:
@@ -132,18 +131,20 @@ class MesMachineSettings(models.Model):
         }
         
         base_query = self._build_intersection_sql(active_intervals_utc, table_map.get(mode))
+        interval_params = self._flatten_interval_params(active_intervals_utc)
+        tail_params = [now_utc, wc_id, min_doc_date, end_utc, start_utc]
 
         if mode == 'runtime':
             query = base_query + "SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (eff_end - eff_start))), 0) FROM intersected WHERE eff_start < eff_end"
-            self.env.cr.execute(query, (now_utc, wc_id, min_doc_date, end_utc, start_utc))
+            self.env.cr.execute(query, interval_params + tail_params)
             return float(self.env.cr.fetchone()[0] or 0.0)
         elif mode == 'downtime':
             query = base_query + "SELECT loss_id, COUNT(DISTINCT id) as freq, COALESCE(SUM(EXTRACT(EPOCH FROM (eff_end - eff_start))), 0) as total_dur FROM intersected WHERE eff_start < eff_end GROUP BY loss_id"
-            self.env.cr.execute(query, (now_utc, wc_id, min_doc_date, end_utc, start_utc))
+            self.env.cr.execute(query, interval_params + tail_params)
             return self.env.cr.fetchall()
         elif mode == 'first_start':
             query = base_query + "SELECT MIN(eff_start) FROM intersected WHERE eff_start < eff_end"
-            self.env.cr.execute(query, (now_utc, wc_id, min_doc_date, end_utc, start_utc))
+            self.env.cr.execute(query, interval_params + tail_params)
             res = self.env.cr.fetchone()
             return res[0] if res else False
 
@@ -198,30 +199,43 @@ class MesMachineSettings(models.Model):
         s_str = start_loc.strftime('%Y-%m-%d %H:%M:%S.%f')
         e_str = end_loc.strftime('%Y-%m-%d %H:%M:%S.%f')
         cursor.execute("""
-            SELECT tag_name, 
-                   COALESCE(SUM(value), 0) as sum_val, 
-                   COALESCE(MAX(value) - MIN(value), 0) as cum_val
-            FROM telemetry_count 
-            WHERE machine_name = %s AND time >= %s AND time < %s
-            GROUP BY tag_name
-        """, (self.name, s_str, e_str))
+            SELECT 
+                t.tag_name, 
+                COALESCE(SUM(t.value), 0) as sum_val, 
+                COALESCE(MAX(t.value), 0) - CASE
+                    WHEN (SELECT value FROM telemetry_count start_t
+                          WHERE start_t.machine_name = %s
+                            AND start_t.tag_name = t.tag_name
+                            AND start_t.time < %s
+                          ORDER BY start_t.time DESC LIMIT 1) <= COALESCE(MIN(t.value), 0)
+                    THEN (SELECT value FROM telemetry_count start_t
+                          WHERE start_t.machine_name = %s
+                            AND start_t.tag_name = t.tag_name
+                            AND start_t.time < %s
+                          ORDER BY start_t.time DESC LIMIT 1)
+                    ELSE COALESCE(MIN(t.value), 0)
+                END as cum_val
+            FROM telemetry_count t
+            WHERE t.machine_name = %s AND t.time >= %s AND t.time < %s
+            GROUP BY t.tag_name
+        """, (self.name, s_str, self.name, s_str, self.name, s_str, e_str))
         return {row[0]: {'sum': float(row[1]), 'cum': float(row[2])} for row in cursor.fetchall()}
 
     def _fetch_timeline_raw(self, start_utc, end_utc, wc_id):
         wc = self.env['mrp.workcenter'].browse(wc_id)
         mac_tz = pytz.timezone(wc.company_id.tz or 'UTC')
-        
+
         def _fmt(dt_utc):
             if not dt_utc: return ''
             if isinstance(dt_utc, str): dt_utc = fields.Datetime.from_string(dt_utc)
             return pytz.utc.localize(dt_utc).astimezone(mac_tz).replace(tzinfo=None).strftime('%Y-%m-%dT%H:%M:%S')
 
         perfs = self.env['mes.machine.performance'].search([
-            ('machine_id', '=', wc_id), 
-            ('date', '>=', start_utc.date() - timedelta(days=2)), 
+            ('machine_id', '=', wc_id),
+            ('date', '>=', start_utc.date() - timedelta(days=2)),
             ('date', '<=', end_utc.date() + timedelta(days=2))
         ])
-        
+
         if not perfs: return []
         now_utc = fields.Datetime.now()
         res = []
@@ -234,25 +248,96 @@ class MesMachineSettings(models.Model):
 
         for model, default_name, default_color, status in mapping:
             logs = self.env[model].search([
-                ('performance_id', 'in', perfs.ids), ('start_time', '<', end_utc), 
+                ('performance_id', 'in', perfs.ids), ('start_time', '<', end_utc),
                 '|', ('end_time', '>', start_utc), ('end_time', '=', False)
             ])
             for log in logs:
                 end_t = log.end_time or now_utc
                 res.append({
-                    'start': _fmt(log.start_time), 'end': _fmt(end_t),
+                    'id': log.id,
+                    'model': model,
+                    'start': _fmt(log.start_time),
+                    'end': _fmt(end_t),
+                    'is_open': not log.end_time,
                     'name': log.loss_id.name if log.loss_id else default_name,
-                    'status': status, 'color': log.loss_id.color or default_color,
-                    'duration': (end_t - log.start_time).total_seconds()
+                    'status': status,
+                    'color': log.loss_id.color or default_color,
+                    'duration': (end_t - log.start_time).total_seconds(),
+                    'comment': log.comment or '',
+                    'is_manual_stop': bool(log.loss_id.is_manual_stop),
                 })
-        return res
+        res.extend(self._fetch_downtime_overlays(wc, start_utc, end_utc, _fmt))
+        return sorted(res, key=lambda block: block['start'])
+
+    def _fetch_downtime_overlays(self, wc, start_utc, end_utc, formatter):
+        overlays = []
+        company = wc.company_id or self.env.company
+
+        planned = self.env['mes.flat.downtime'].sudo().search([
+            ('machine_id', '=', wc.id),
+            ('start_time', '<', end_utc),
+            ('end_time', '>', start_utc),
+        ])
+        for slot in planned:
+            event = slot.event_id or company.mes_planned_downtime_event_id
+            slot_start = max(slot.start_time, start_utc)
+            slot_end = min(slot.end_time, end_utc)
+            overlays.append({
+                'model': 'mes.flat.downtime',
+                'id': slot.id,
+                'start': formatter(slot_start),
+                'end': formatter(slot_end),
+                'color': event.color or '#3b82f6',
+                'name': event.name or 'Planned Downtime',
+                'overlay': 'planned',
+                'duration': (slot_end - slot_start).total_seconds(),
+                'is_open': False,
+                'comment': '',
+                'is_manual_stop': False,
+            })
+
+        overlays.extend(self._fetch_unplanned_overlays(wc, start_utc, end_utc, formatter, company))
+        return overlays
+
+    def _fetch_unplanned_overlays(self, wc, start_utc, end_utc, formatter, company):
+        intervals = self.env['mes.task.work.interval'].sudo().search([
+            ('machine_id', '=', wc.id),
+            ('start_time', '<', end_utc),
+            '|', ('end_time', '=', False), ('end_time', '>', start_utc),
+        ])
+        now_utc = fields.Datetime.now()
+        color = company.mes_unplanned_downtime_color or '#f59e0b'
+
+        overlays = []
+        for interval in intervals:
+            slot_start = max(interval.start_time, start_utc)
+            slot_end = min(interval.end_time or now_utc, end_utc)
+            if slot_end <= slot_start:
+                continue
+            technician = interval.employee_id.name or 'Technician'
+            overlays.append({
+                'model': 'mes.task',
+                'id': interval.task_id.id,
+                'start': formatter(slot_start),
+                'end': formatter(slot_end),
+                'color': color,
+                'name': f"{technician}: {interval.task_id.name}",
+                'overlay': 'unplanned',
+                'duration': (slot_end - slot_start).total_seconds(),
+                'is_open': not interval.end_time,
+                'comment': '',
+                'is_manual_stop': False,
+            })
+        return overlays
 
     def _fetch_production_chart_raw(self, cursor, tag_names, start_time, end_time, bucket_min):
-        if not tag_names: return []
+        if not tag_names:
+            return []
+        bucket = max(1, int(bucket_min))
         s_str = start_time.strftime('%Y-%m-%d %H:%M:%S.%f')
         e_str = end_time.strftime('%Y-%m-%d %H:%M:%S.%f')
         cursor.execute(f"""
-            SELECT tag_name, time_bucket('{bucket_min} minutes', time) AS bucket,
+            SELECT tag_name, time_bucket('{bucket} minutes', time) AS bucket,
                    COALESCE(SUM(value), 0) as sum_val,
                    COALESCE(MAX(value) - MIN(value), 0) as cum_val
             FROM telemetry_count
@@ -280,6 +365,10 @@ class MesMachineSettings(models.Model):
             'downtime_losses': round(max(0.0, 1.0 - avail) * 100, 2) if total_planned_sec > 0 else 0.0,
             'total_produced': total_produced,
             'runtime_formatted': f"{h:02d}:{m:02d}:{s:02d}",
+            'runtime_sec': run_sec,
+            'produced_per_hour': round((total_produced / (run_sec / 3600.0)), 1) if run_sec > 0 else 0.0,
+            'produced_per_planned_hour': round((total_produced / (total_planned_sec / 3600.0)), 1) if total_planned_sec > 0 else 0.0,
+            'planned_sec': total_planned_sec,
         }
 
     def _calculate_kpi_for_window(self, workcenter, start_loc, end_loc):
@@ -314,16 +403,31 @@ class MesMachineSettings(models.Model):
             if count_tag:
                 with self.env['mes.timescale.base']._connection() as conn:
                     with conn.cursor() as cur:
+                        mac_tz = pytz.timezone(workcenter.company_id.tz or 'UTC')
+                        s_wall = pytz.utc.localize(start_loc).astimezone(mac_tz).replace(tzinfo=None)
+                        e_wall = pytz.utc.localize(end_loc).astimezone(mac_tz).replace(tzinfo=None)
+                        
+                        s_str = s_wall.strftime('%Y-%m-%d %H:%M:%S.%f')
+                        e_str = e_wall.strftime('%Y-%m-%d %H:%M:%S.%f')
+                        
                         if is_cumul:
-                            cur.execute("SELECT COALESCE(MAX(value) - MIN(value), 0) FROM telemetry_count WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time < %s", 
-                                        (self.name, count_tag, start_loc.strftime('%Y-%m-%d %H:%M:%S.%f'), end_loc.strftime('%Y-%m-%d %H:%M:%S.%f')))
+                            cur.execute("""
+                                SELECT COALESCE(MAX(value), 0) - COALESCE(
+                                    (SELECT value FROM telemetry_count 
+                                     WHERE machine_name = %s AND tag_name = %s AND time < %s 
+                                     ORDER BY time DESC LIMIT 1), 
+                                    COALESCE(MIN(value), 0)
+                                )
+                                FROM telemetry_count 
+                                WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time < %s
+                            """, (self.name, count_tag, s_str, self.name, count_tag, s_str, e_str))
                         else:
                             cur.execute("SELECT COALESCE(SUM(value), 0) FROM telemetry_count WHERE machine_name = %s AND tag_name = %s AND time >= %s AND time < %s", 
-                                        (self.name, count_tag, start_loc.strftime('%Y-%m-%d %H:%M:%S.%f'), end_loc.strftime('%Y-%m-%d %H:%M:%S.%f')))
+                                        (self.name, count_tag, s_str, e_str))
                         res = cur.fetchone()
                         if res and res[0]:
                             total_produced = float(res[0])
-                
+        
         kpi = self._calculate_kpi(total_running_sec, total_produced, total_planned_sec, workcenter)
         kpi['produced'] = total_produced
         kpi['first_running_time'] = self._fetch_interval_stats(active_intervals_utc, workcenter.id, mode='first_start')
@@ -440,34 +544,228 @@ class MesMachineSettings(models.Model):
             'context': {'default_import_mode': 'machine', 'default_import_type': 'event', 'default_machine_id': self.id}
         }
 
+    def action_open_copy_signals_wizard(self):
+        self.ensure_one()
+        return {
+            'name': 'Copy Signals From Another Machine',
+            'type': 'ir.actions.act_window',
+            'res_model': 'mes.copy.signals.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_target_machine_id': self.id}
+        }
+
+    def action_open_mass_update_cumulative_wizard(self):
+        self.ensure_one()
+        return {
+            'name': 'Mass Update Cumulative',
+            'type': 'ir.actions.act_window',
+            'res_model': 'mes.mass.update.cumulative.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_machine_id': self.id}
+        }
+
+    def _shift_planned_seconds(self, s_loc, e_loc):
+        self.ensure_one()
+        workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', self.id)], limit=1)
+        if not workcenter or not s_loc:
+            return 0.0
+        mac_tz = pytz.timezone(workcenter.company_id.tz or 'UTC')
+        s_utc = mac_tz.localize(s_loc, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        e_utc = mac_tz.localize(e_loc, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        _intervals, planned_sec = self._get_planned_working_intervals(s_utc, e_utc, workcenter)
+        return planned_sec
+
+    def _shift_kpi_summary(self, s_loc, e_loc):
+        self.ensure_one()
+        workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', self.id)], limit=1)
+        if not workcenter or not s_loc:
+            return {}
+        mac_tz = pytz.timezone(workcenter.company_id.tz or 'UTC')
+        now_utc = fields.Datetime.now()
+        s_utc = mac_tz.localize(s_loc, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        e_utc = mac_tz.localize(e_loc, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        calc_end_utc = min(now_utc, e_utc)
+        calc_e_loc = min(pytz.utc.localize(now_utc).astimezone(mac_tz).replace(tzinfo=None), e_loc)
+
+        active_ints, planned_sec = self._get_planned_working_intervals(s_utc, calc_end_utc, workcenter)
+        run_sec = self._fetch_interval_stats(active_ints, workcenter.id, mode='runtime')
+        hours_run = (run_sec / 3600.0) if run_sec > 0 else 0.0
+        hours_planned = (planned_sec / 3600.0) if planned_sec > 0 else 0.0
+
+        produced = 0.0
+        prod_count = workcenter.production_count_id
+        if prod_count:
+            with self.env['mes.timescale.base']._connection() as conn:
+                with conn.cursor() as cur:
+                    raw = self._fetch_waste_stats_raw(cur, s_loc, calc_e_loc)
+            for c_def in self.count_tag_ids:
+                if c_def.count_id == prod_count:
+                    d = raw.get(c_def.tag_name, {'sum': 0.0, 'cum': 0.0})
+                    produced = d.get('cum') if c_def.is_cumulative else d.get('sum')
+                    break
+
+        kpi = self._calculate_kpi_for_window(workcenter, s_loc, e_loc) or {}
+
+        return {
+            'oee': kpi.get('oee', 0.0),
+            'produced': produced,
+            'runtime_hours': hours_run,
+            'planned_hours_elapsed': hours_planned,
+            'produced_per_hour': (produced / hours_run) if hours_run > 0 else 0.0,
+            'produced_per_planned_hour': (produced / hours_planned) if hours_planned > 0 else 0.0,
+        }
+
+    def _shift_downtime_list(self, s_loc, e_loc):
+        self.ensure_one()
+        workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', self.id)], limit=1)
+        if not workcenter or not s_loc:
+            return []
+        mac_tz = pytz.timezone(workcenter.company_id.tz or 'UTC')
+        now_utc = fields.Datetime.now()
+        s_utc = mac_tz.localize(s_loc, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        e_utc = mac_tz.localize(e_loc, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        calc_end_utc = min(now_utc, e_utc)
+        active_ints, _ = self._get_planned_working_intervals(s_utc, calc_end_utc, workcenter)
+        run_sec = self._fetch_interval_stats(active_ints, workcenter.id, mode='runtime')
+        hours_run = (run_sec / 3600.0) if run_sec > 0 else 0.0
+
+        stats = {}
+        for loss_id, freq, dur in self._fetch_interval_stats(active_ints, workcenter.id, mode='downtime'):
+            evt_name = self.env['mes.event'].browse(loss_id).name
+            s = stats.setdefault(evt_name, {'freq': 0, 'dur': 0.0})
+            s['freq'] += freq
+            s['dur'] += dur
+
+        out = []
+        for name, data in stats.items():
+            dur_min = data['dur'] / 60.0
+            if dur_min > 0 or data['freq'] > 0:
+                out.append({
+                    'name': name,
+                    'frequency': data['freq'],
+                    'freq_per_hour': (data['freq'] / hours_run) if hours_run > 0 else 0.0,
+                    'duration_min': dur_min,
+                    'duration_per_hour': (dur_min / hours_run) if hours_run > 0 else 0.0,
+                    'avg_duration_per_stop': (dur_min / data['freq']) if data['freq'] > 0 else 0.0,
+                })
+        return out
+
+    def _shift_waste_list(self, s_loc, e_loc):
+        self.ensure_one()
+        workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', self.id)], limit=1)
+        if not workcenter or not s_loc:
+            return []
+        mac_tz = pytz.timezone(workcenter.company_id.tz or 'UTC')
+        now_utc = fields.Datetime.now()
+        s_utc = mac_tz.localize(s_loc, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        e_utc = mac_tz.localize(e_loc, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        calc_end_utc = min(now_utc, e_utc)
+        calc_e_loc = min(pytz.utc.localize(now_utc).astimezone(mac_tz).replace(tzinfo=None), e_loc)
+        active_ints, _ = self._get_planned_working_intervals(s_utc, calc_end_utc, workcenter)
+        run_sec = self._fetch_interval_stats(active_ints, workcenter.id, mode='runtime')
+        hours_run = (run_sec / 3600.0) if run_sec > 0 else 0.0
+
+        with self.env['mes.timescale.base']._connection() as conn:
+            with conn.cursor() as cur:
+                raw_counts = self._fetch_waste_stats_raw(cur, s_loc, calc_e_loc)
+
+        counts_by_name = {c.name: c for c in self.env['mes.counts'].sudo().search([])}
+        out = []
+        for c_def in self.count_tag_ids:
+            if c_def.count_id == workcenter.production_count_id:
+                continue
+            data = raw_counts.get(c_def.tag_name, {'sum': 0.0, 'cum': 0.0})
+            val = data.get('cum') if c_def.is_cumulative else data.get('sum')
+            if val > 0:
+                cnt = c_def.count_id
+                out.append({
+                    'name': cnt.name if cnt else c_def.tag_name,
+                    'wheel': cnt.wheel if cnt else 0,
+                    'module': cnt.module if cnt else 0,
+                    'total': val,
+                    'per_hour': (val / hours_run) if hours_run > 0 else 0.0,
+                })
+        return out
+
+
+    SIGNAL_MODELS = ('mes.signal.count', 'mes.signal.event', 'mes.signal.process')
+
+    def flag_missing_tags(self, tag_names):
+        self.ensure_one()
+        flagged = []
+        now = fields.Datetime.now()
+        for model_name in self.SIGNAL_MODELS:
+            signals = self.env[model_name].with_context(active_test=False).sudo().search([
+                ('machine_id', '=', self.id),
+                ('tag_name', 'in', tag_names),
+            ])
+            for signal in signals:
+                if not signal.missing_on_plc_since:
+                    signal.missing_on_plc_since = now
+                signal.missing_report_count += 1
+                flagged.append(signal.tag_name)
+
+        if flagged:
+            _logger.warning("PLC %s reports %s missing symbol(s), flagged for review: %s",
+                            self.name, len(set(flagged)), sorted(set(flagged)))
+        unknown = sorted(set(tag_names) - set(flagged))
+        if unknown:
+            _logger.warning("PLC %s reports symbols that are not configured here: %s",
+                            self.name, unknown)
+        return sorted(set(flagged))
+
+    def clear_missing_for_received(self, tag_names):
+        self.ensure_one()
+        cleared = []
+        for model_name in self.SIGNAL_MODELS:
+            signals = self.env[model_name].with_context(active_test=False).sudo().search([
+                ('machine_id', '=', self.id),
+                ('tag_name', 'in', tag_names),
+                ('missing_on_plc_since', '!=', False),
+            ])
+            if signals:
+                cleared += signals.mapped('tag_name')
+                signals.write({'missing_on_plc_since': False, 'missing_report_count': 0})
+        if cleared:
+            _logger.info("PLC %s delivered data for previously missing symbol(s), flags cleared: %s",
+                         self.name, sorted(set(cleared)))
+        return sorted(set(cleared))
+
+    def action_clear_missing_flags(self):
+        for machine in self:
+            for model_name in machine.SIGNAL_MODELS:
+                signals = self.env[model_name].with_context(active_test=False).sudo().search([
+                    ('machine_id', '=', machine.id),
+                    ('missing_on_plc_since', '!=', False),
+                ])
+                signals.write({'missing_on_plc_since': False, 'missing_report_count': 0})
+        return True
+
 
 class MesSignalBase(models.AbstractModel):
     _name = 'mes.signal.base'
     _description = 'Base Signal Config'
+    _rec_name = 'tag_name'
     _inherit = ['mes.timescale.base']
 
     tag_name = fields.Char(string='Signal Tag', required=True)
+    active = fields.Boolean(string='Active', default=True)
+    missing_on_plc_since = fields.Datetime(
+        string='Missing On PLC Since', readonly=True,
+        help="First time the logger reported that this symbol does not exist on the PLC. "
+             "Cleared automatically as soon as the logger delivers data for this tag, "
+             "for example after the tag name is corrected. The signal itself is never "
+             "deactivated automatically.")
+    missing_report_count = fields.Integer(
+        string='Missing Reports', readonly=True, default=0,
+        help="How many times the logger failed to bind this symbol.")
     poll_type = fields.Selection([('cyclic', 'Cyclic'), ('on_change', 'On Change')], default='cyclic', required=True)
     poll_frequency = fields.Integer(string='Freq (ms)', default=10000)
     param_type = fields.Selection([
         ('auto', 'Auto'), ('bool', 'Boolean'), ('int', 'Integer'), ('double', 'Double'), ('string', 'String')
     ], string='Data Type', default='auto', required=True)
-
-    @api.model
-    def create(self, vals):
-        rec = super().create(vals)
-        self._sync(rec)
-        return rec
-
-    def write(self, vals):
-        res = super().write(vals)
-        for rec in self: self._sync(rec)
-        return res
-
-    def _sync(self, rec):
-        self._execute_from_file('upsert_signal.sql', (
-            rec.machine_id.name, rec.tag_name, rec.poll_type, rec.poll_frequency, rec.param_type, self._signal_type
-        ))
 
 class MesSignalCount(models.Model):
     _name = 'mes.signal.count'
@@ -479,14 +777,13 @@ class MesSignalCount(models.Model):
     count_id = fields.Many2one('mes.counts', string='Dictionary Count', required=True)
     is_cumulative = fields.Boolean(string='Cumulative (MAX-MIN)', default=False)
     _sql_constraints = [('tag_count_uniq', 'unique(machine_id, tag_name, count_id)', 'Mapping exists!')]
+    _rec_names_search = ['tag_name', 'count_id.name']
 
-    def unlink(self):
-        for rec in self: self._execute_from_file('delete_signal.sql', (rec.machine_id.name, rec.tag_name))
-        return super().unlink()
-
-    @api.onchange('count_id')
-    def _onchange_count_id(self):
-        if self.count_id: self.is_cumulative = self.count_id.is_cumulative
+    @api.depends('tag_name', 'count_id.name')
+    def _compute_display_name(self):
+        for signal in self:
+            signal.display_name = f"{signal.count_id.name} · {signal.tag_name}" if signal.count_id \
+                else signal.tag_name or ''
 
 class MesSignalEvent(models.Model):
     _name = 'mes.signal.event'
@@ -499,12 +796,13 @@ class MesSignalEvent(models.Model):
     event_id = fields.Many2one('mes.event', string='Dictionary Event', required=True)
     plc_value = fields.Integer(string='PLC Value', required=True)
     _sql_constraints = [('tag_val_event_uniq', 'unique(machine_id, tag_name, plc_value, event_id)', 'Mapping exists!')]
+    _rec_names_search = ['tag_name', 'event_id.name']
 
-    def unlink(self):
-        for rec in self:
-            if self.search_count([('machine_id', '=', rec.machine_id.id), ('tag_name', '=', rec.tag_name), ('id', '!=', rec.id)]) == 0:
-                self._execute_from_file('delete_signal.sql', (rec.machine_id.name, rec.tag_name))
-        return super().unlink()
+    @api.depends('tag_name', 'plc_value', 'event_id.name')
+    def _compute_display_name(self):
+        for signal in self:
+            signal.display_name = f"{signal.event_id.name} · {signal.tag_name} = {signal.plc_value}" \
+                if signal.event_id else signal.tag_name or ''
 
 class MesSignalProcess(models.Model):
     _name = 'mes.signal.process'
@@ -515,10 +813,13 @@ class MesSignalProcess(models.Model):
     machine_id = fields.Many2one('mes.machine.settings', string='Machine', required=True, ondelete='cascade')
     process_id = fields.Many2one('mes.process', string='Dictionary Process', required=True)
     _sql_constraints = [('tag_process_uniq', 'unique(machine_id, tag_name, process_id)', 'Mapping exists!')]
+    _rec_names_search = ['tag_name', 'process_id.name']
 
-    def unlink(self):
-        for rec in self: self._execute_from_file('delete_signal.sql', (rec.machine_id.name, rec.tag_name))
-        return super().unlink()
+    @api.depends('tag_name', 'process_id.name')
+    def _compute_display_name(self):
+        for signal in self:
+            signal.display_name = f"{signal.process_id.name} · {signal.tag_name}" if signal.process_id \
+                else signal.tag_name or ''
 
 class MesWasteLossStat(models.TransientModel):
     _name = 'mes.waste.loss.stat'
@@ -535,23 +836,26 @@ class MesWasteLossStat(models.TransientModel):
         workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
         if not workcenter: return
         
-        start_utc, shift_end_utc = self.env['mes.shift'].get_current_shift_window(workcenter)
-        if not start_utc: return
+        s_loc, e_loc = self.env['mes.shift'].get_current_shift_window(workcenter)
+        if not s_loc: return
         
+        mac_tz = pytz.timezone(workcenter.company_id.tz or 'UTC')
         now_utc = fields.Datetime.now()
-        calc_end_utc = min(now_utc, shift_end_utc)
         
-        active_ints, _ = machine._get_planned_working_intervals(start_utc, shift_end_utc, workcenter)
+        s_utc = mac_tz.localize(s_loc, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        e_utc = mac_tz.localize(e_loc, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        calc_end_utc = min(now_utc, e_utc)
+
+        now_loc = pytz.utc.localize(now_utc).astimezone(mac_tz).replace(tzinfo=None)
+        calc_e_loc = min(now_loc, e_loc)
+
+        active_ints, _ = machine._get_planned_working_intervals(s_utc, calc_end_utc, workcenter)
         total_run_sec = machine._fetch_interval_stats(active_ints, workcenter.id, mode='runtime')
         hours_run = (total_run_sec / 3600.0) if total_run_sec > 0 else 0.0
 
-        mac_tz = pytz.timezone(workcenter.company_id.tz or 'UTC')
-        s_loc = pytz.utc.localize(start_utc).astimezone(mac_tz).replace(tzinfo=None)
-        e_loc = pytz.utc.localize(calc_end_utc).astimezone(mac_tz).replace(tzinfo=None)
-
         with self.env['mes.timescale.base']._connection() as conn:
             with conn.cursor() as cur:
-                raw_counts = machine._fetch_waste_stats_raw(cur, s_loc, e_loc)
+                raw_counts = machine._fetch_waste_stats_raw(cur, s_loc, calc_e_loc)
 
         vals = []
         for c_def in machine.count_tag_ids:
@@ -562,8 +866,10 @@ class MesWasteLossStat(models.TransientModel):
             
             if val > 0:
                 vals.append({
-                    'machine_id': machine.id, 'name': c_def.count_id.name if c_def.count_id else c_def.tag_name,
-                    'waste_sum': val, 'waste_per_hour': (val / hours_run) if hours_run > 0 else 0.0
+                    'machine_id': machine.id, 
+                    'name': c_def.count_id.name if c_def.count_id else c_def.tag_name,
+                    'waste_sum': val, 
+                    'waste_per_hour': (val / hours_run) if hours_run > 0 else 0.0
                 })
         if vals: self.with_context(skip_generation=True).create(vals)
 
@@ -577,6 +883,7 @@ class MesDowntimeLossStat(models.TransientModel):
     freq_per_hour = fields.Float(string='Frequency per Hour')
     total_time = fields.Float(string='Total Time (min)')
     time_per_hour = fields.Float(string='Time per Hour (min/h)')
+    avg_duration = fields.Float(string='Average Duration (min)')
 
     @api.model
     def _generate_stats(self, machine_id):
@@ -584,10 +891,17 @@ class MesDowntimeLossStat(models.TransientModel):
         workcenter = self.env['mrp.workcenter'].search([('machine_settings_id', '=', machine.id)], limit=1)
         if not workcenter: return
         
-        start_utc, shift_end_utc = self.env['mes.shift'].get_current_shift_window(workcenter)
-        if not start_utc: return
+        s_loc, e_loc = self.env['mes.shift'].get_current_shift_window(workcenter)
+        if not s_loc: return
         
-        active_ints, _ = machine._get_planned_working_intervals(start_utc, shift_end_utc, workcenter)
+        mac_tz = pytz.timezone(workcenter.company_id.tz or 'UTC')
+        now_utc = fields.Datetime.now()
+        
+        s_utc = mac_tz.localize(s_loc, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        e_utc = mac_tz.localize(e_loc, is_dst=False).astimezone(pytz.utc).replace(tzinfo=None)
+        calc_end_utc = min(now_utc, e_utc)
+        
+        active_ints, _ = machine._get_planned_working_intervals(s_utc, calc_end_utc, workcenter)
         total_run_sec = machine._fetch_interval_stats(active_ints, workcenter.id, mode='runtime')
         hours_run = (total_run_sec / 3600.0) if total_run_sec > 0 else 0.0
         
@@ -605,6 +919,239 @@ class MesDowntimeLossStat(models.TransientModel):
                 vals.append({
                     'machine_id': machine.id, 'name': name, 'frequency': data['freq'],
                     'freq_per_hour': (data['freq'] / hours_run) if hours_run > 0 else 0.0,
-                    'total_time': dur_min, 'time_per_hour': (dur_min / hours_run) if hours_run > 0 else 0.0
+                    'total_time': dur_min, 'time_per_hour': (dur_min / hours_run) if hours_run > 0 else 0.0,
+                    'avg_duration': (dur_min / data['freq']) if data['freq'] > 0 else 0.0,
                 })
         if vals: self.with_context(skip_generation=True).create(vals)
+
+SIGNAL_KINDS = {
+    'count': ('mes.signal.count', 'count_tag_ids', 'count_id',
+              ('poll_type', 'poll_frequency', 'param_type', 'is_cumulative')),
+    'event': ('mes.signal.event', 'event_tag_ids', 'event_id',
+              ('poll_type', 'poll_frequency', 'param_type')),
+    'process': ('mes.signal.process', 'process_tag_ids', 'process_id',
+                ('poll_type', 'poll_frequency', 'param_type')),
+}
+
+
+def plan_signal_copy(source, target):
+    def ident(signal):
+        return signal['tag'], signal['value']
+
+    by_object = {}
+    for signal in target:
+        by_object.setdefault(signal['obj'], []).append(signal)
+    grouped_source = {}
+    for signal in source:
+        grouped_source.setdefault(signal['obj'], []).append(signal)
+
+    identical, conflicts, pending, used = 0, [], [], set()
+    for obj, source_signals in grouped_source.items():
+        target_signals = by_object.get(obj, [])
+        target_idents = {ident(signal) for signal in target_signals}
+        source_idents = {ident(signal) for signal in source_signals}
+        identical += sum(1 for signal in source_signals if ident(signal) in target_idents)
+        used |= {signal['id'] for signal in target_signals if ident(signal) in source_idents}
+        rest_source = [signal for signal in source_signals if ident(signal) not in target_idents]
+        rest_target = [signal for signal in target_signals if ident(signal) not in source_idents]
+        for source_signal, target_signal in zip(rest_source, rest_target):
+            conflicts.append(('object', source_signal['id'], target_signal['id']))
+            used.add(target_signal['id'])
+        pending += rest_source[len(rest_target):]
+
+    free_by_ident = {}
+    for signal in target:
+        if signal['id'] not in used:
+            free_by_ident.setdefault(ident(signal), []).append(signal)
+    adds = []
+    for signal in pending:
+        clash = [other for other in free_by_ident.get(ident(signal), [])
+                 if other['obj'] != signal['obj'] and other['id'] not in used]
+        if clash:
+            conflicts.append(('tag', signal['id'], clash[0]['id']))
+            used.add(clash[0]['id'])
+        else:
+            adds.append(signal['id'])
+    return adds, conflicts, identical
+
+
+class MesCopySignalsWizard(models.TransientModel):
+    _name = 'mes.copy.signals.wizard'
+    _description = 'Copy Signals Wizard'
+
+    target_machine_id = fields.Many2one('mes.machine.settings', string='Target Machine', required=True, readonly=True)
+    source_machine_id = fields.Many2one('mes.machine.settings', string='Source Machine', required=True)
+    copy_counts = fields.Boolean(string='Copy Counts', default=True)
+    copy_events = fields.Boolean(string='Copy Events', default=True)
+    copy_processes = fields.Boolean(string='Copy Processes', default=True)
+    clear_existing = fields.Boolean(string='Clear Existing First', default=True)
+    state = fields.Selection([('options', 'Options'), ('conflicts', 'Conflicts')], default='options')
+    conflict_ids = fields.One2many('mes.copy.signals.conflict', 'wizard_id', string='Different Signals')
+    plan_json = fields.Text()
+    add_count = fields.Integer(string='Will Be Added', readonly=True)
+    identical_count = fields.Integer(string='Already Present', readonly=True)
+
+    def _selected_kinds(self):
+        return [kind for kind, wanted in (('count', self.copy_counts), ('event', self.copy_events),
+                                          ('process', self.copy_processes)) if wanted]
+
+    @api.model
+    def _signal_rows(self, machine, kind):
+        _model, field, object_field, _params = SIGNAL_KINDS[kind]
+        return [{'id': signal.id, 'obj': signal[object_field].id, 'tag': signal.tag_name,
+                 'value': signal.plc_value if kind == 'event' else None}
+                for signal in machine[field]]
+
+    @api.model
+    def _signal_vals(self, signal, kind):
+        _model, _field, object_field, params = SIGNAL_KINDS[kind]
+        vals = {object_field: signal[object_field].id, 'tag_name': signal.tag_name}
+        if kind == 'event':
+            vals['plc_value'] = signal.plc_value
+        vals.update({name: signal[name] for name in params})
+        return vals
+
+    def _already_mapped(self, kind, vals, exclude_id=False):
+        model, _field, object_field, _params = SIGNAL_KINDS[kind]
+        domain = [('machine_id', '=', self.target_machine_id.id), ('tag_name', '=', vals['tag_name']),
+                  (object_field, '=', vals[object_field])]
+        if kind == 'event':
+            domain.append(('plc_value', '=', vals['plc_value']))
+        if exclude_id:
+            domain.append(('id', '!=', exclude_id))
+        return bool(self.env[model].with_context(active_test=False).search_count(domain))
+
+    def _conflict_vals(self, kind, reason, source_id, target_id):
+        model, _field, object_field, _params = SIGNAL_KINDS[kind]
+        source = self.env[model].browse(source_id)
+        target = self.env[model].browse(target_id)
+        return {
+            'signal_type': kind,
+            'reason': reason,
+            'source_res_id': source_id,
+            'target_res_id': target_id,
+            'source_object': source[object_field].display_name,
+            'target_object': target[object_field].display_name,
+            'source_tag': source.tag_name,
+            'target_tag': target.tag_name,
+            'source_value': str(source.plc_value) if kind == 'event' else False,
+            'target_value': str(target.plc_value) if kind == 'event' else False,
+        }
+
+    def _copy_all(self):
+        for kind in self._selected_kinds():
+            model, field, _object_field, _params = SIGNAL_KINDS[kind]
+            self.target_machine_id[field].unlink()
+            for signal in self.source_machine_id[field]:
+                self.env[model].create(dict(self._signal_vals(signal, kind), machine_id=self.target_machine_id.id))
+        return {'type': 'ir.actions.act_window_close'}
+
+    def action_copy_signals(self):
+        self.ensure_one()
+        if self.source_machine_id == self.target_machine_id:
+            return {'type': 'ir.actions.act_window_close'}
+        if self.clear_existing:
+            return self._copy_all()
+        plan, conflicts = {}, []
+        for kind in self._selected_kinds():
+            adds, found, identical = plan_signal_copy(
+                self._signal_rows(self.source_machine_id, kind), self._signal_rows(self.target_machine_id, kind))
+            plan[kind] = {'adds': adds, 'identical': identical}
+            conflicts += [self._conflict_vals(kind, reason, source_id, target_id)
+                          for reason, source_id, target_id in found]
+        self.write({
+            'plan_json': json.dumps(plan),
+            'add_count': sum(len(data['adds']) for data in plan.values()),
+            'identical_count': sum(data['identical'] for data in plan.values()),
+            'conflict_ids': [(5, 0, 0)] + [(0, 0, vals) for vals in conflicts],
+        })
+        if not conflicts:
+            return self._apply_plan()
+        self.state = 'conflicts'
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Copy Signals"),
+            'res_model': self._name,
+            'res_id': self.id,
+            'view_mode': 'form',
+            'target': 'new',
+        }
+
+    def action_apply_conflicts(self):
+        self.ensure_one()
+        return self._apply_plan()
+
+    def _apply_plan(self):
+        plan = json.loads(self.plan_json or '{}')
+        added = replaced = skipped = 0
+        for kind, data in plan.items():
+            Signal = self.env[SIGNAL_KINDS[kind][0]]
+            for source in Signal.browse(data['adds']).exists():
+                vals = dict(self._signal_vals(source, kind), machine_id=self.target_machine_id.id)
+                if self._already_mapped(kind, vals):
+                    skipped += 1
+                    continue
+                Signal.create(vals)
+                added += 1
+        for line in self.conflict_ids.filtered('apply'):
+            Signal = self.env[SIGNAL_KINDS[line.signal_type][0]]
+            source = Signal.browse(line.source_res_id).exists()
+            target = Signal.browse(line.target_res_id).exists()
+            if not source or not target or target.machine_id != self.target_machine_id:
+                skipped += 1
+                continue
+            vals = self._signal_vals(source, line.signal_type)
+            if self._already_mapped(line.signal_type, vals, exclude_id=target.id):
+                skipped += 1
+                continue
+            target.write(vals)
+            replaced += 1
+        not_chosen = len(self.conflict_ids) - len(self.conflict_ids.filtered('apply'))
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'type': 'success',
+                'title': _("Signals copied"),
+                'message': _("Added %(added)s, replaced %(replaced)s, already present %(present)s, "
+                             "left unchanged %(unchanged)s.",
+                             added=added, replaced=replaced, present=self.identical_count + skipped,
+                             unchanged=not_chosen),
+                'next': {'type': 'ir.actions.client', 'tag': 'reload'},
+            },
+        }
+
+
+class MesCopySignalsConflict(models.TransientModel):
+    _name = 'mes.copy.signals.conflict'
+    _description = 'Signal That Differs Between Machines'
+
+    wizard_id = fields.Many2one('mes.copy.signals.wizard', required=True, ondelete='cascade')
+    apply = fields.Boolean(string='Replace')
+    signal_type = fields.Selection([('count', 'Count'), ('event', 'Event'), ('process', 'Process')],
+                                   string='Type', readonly=True)
+    reason = fields.Selection([
+        ('object', 'Same item, different tag'),
+        ('tag', 'Same tag, different item'),
+    ], string='Difference', readonly=True)
+    source_res_id = fields.Integer(readonly=True)
+    target_res_id = fields.Integer(readonly=True)
+    source_object = fields.Char(string='Source Item', readonly=True)
+    target_object = fields.Char(string='Target Item', readonly=True)
+    source_tag = fields.Char(string='Source Tag', readonly=True)
+    target_tag = fields.Char(string='Target Tag', readonly=True)
+    source_value = fields.Char(string='Source PLC Value', readonly=True)
+    target_value = fields.Char(string='Target PLC Value', readonly=True)
+
+
+class MesMassUpdateCumulativeWizard(models.TransientModel):
+    _name = 'mes.mass.update.cumulative.wizard'
+    _description = 'Mass Update Cumulative'
+
+    machine_id = fields.Many2one('mes.machine.settings', string='Machine', required=True, readonly=True)
+    is_cumulative = fields.Boolean(string='Cumulative (MAX-MIN)')
+
+    def action_apply(self):
+        self.ensure_one()
+        self.machine_id.count_tag_ids.write({'is_cumulative': self.is_cumulative})
+        return {'type': 'ir.actions.act_window_close'}

@@ -8,6 +8,12 @@
                 <field name="maintainx_id"/>
                 <field name="machine_id"/>
                 <field name="assigned_id"/>
+                <field name="reason_event_id"/>
+                <field name="reason_count_id"/>
+                <field name="reason_defect_id"/>
+                <field name="part_id"/>
+                <field name="piece_ids"/>
+                <field name="company_id" groups="base.group_multi_company"/>
 
                 <filter string="Open" name="state_new" domain="[('state', '=', 'new')]"/>
                 <filter string="In Progress" name="state_assigned" domain="[('state', '=', 'assigned')]"/>
@@ -20,6 +26,12 @@
                     <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
                     <filter string="Priority" name="group_priority" context="{'group_by': 'priority'}"/>
                     <filter string="Machine" name="group_machine" context="{'group_by': 'machine_id'}"/>
+                    <filter string="Problem Area" name="group_problem_area" context="{'group_by': 'problem_area'}"/>
+                    <filter string="Event" name="group_reason_event" context="{'group_by': 'reason_event_id'}"/>
+                    <filter string="Reject Count" name="group_reason_count" context="{'group_by': 'reason_count_id'}"/>
+                    <filter string="Defect Type" name="group_reason_defect" context="{'group_by': 'reason_defect_id'}"/>
+                    <filter string="Part" name="group_part" context="{'group_by': 'part_id'}"/>
+                    <filter string="Company" name="group_company" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
                     <filter string="Creation Day" name="group_mx_created_day" context="{'group_by': 'maintainx_created_at:day'}"/>
                     <filter string="Update Day" name="group_mx_updated_day" context="{'group_by': 'maintainx_updated_at:day'}"/>
                 </group>
@@ -49,6 +61,7 @@
                        decoration-danger="priority == '2'" 
                        decoration-warning="priority == '1'" 
                        decoration-success="priority == '0'"/>
+                <field name="company_id" groups="base.group_multi_company"/>
                 <field name="machine_id"/>
                 <field name="name"/>
                 <field name="maintainx_created_at"/>
@@ -66,8 +79,10 @@
         <field name="name">mes.task.kanban</field>
         <field name="model">mes.task</field>
         <field name="arch" type="xml">
-            <kanban default_group_by="state" 
+            <kanban default_group_by="state"
                     class="o_kanban_small_column"
+                    records_draggable="0"
+                    group_create="0" group_delete="0" group_edit="0"
                     default_order="priority desc, maintainx_created_at desc">
                 <field name="name"/>
                 <field name="state"/>
@@ -121,37 +136,93 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <field name="state" widget="statusbar" statusbar_visible="new,assigned,done"/>
+                    <button name="action_create_subtask" type="object"
+                            string="Create Subtask" class="btn-secondary"
+                            invisible="not id"/>
+                    <field name="state" widget="statusbar" statusbar_visible="new,assigned,done"
+                           readonly="1" groups="!mes_core.group_mes_workflow_override"/>
+                    <field name="state" widget="statusbar" statusbar_visible="new,assigned,done"
+                           groups="mes_core.group_mes_workflow_override"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button type="object" name="action_view_subtasks"
+                                class="oe_stat_button" icon="fa-tasks"
+                                invisible="not id">
+                            <field name="child_count" widget="statinfo" string="Subtasks"/>
+                        </button>
+                    </div>
                     <div class="oe_title">
                         <h1><field name="name"/></h1>
                     </div>
                     <group>
                         <group string="Main Info">
+                            <field name="task_type" readonly="1"/>
                             <field name="machine_id"/>
+                            <field name="part_id" options="{'no_create': True}"/>
+                            <field name="piece_ids" widget="many2many_tags"
+                                   options="{'no_create': True}"
+                                   invisible="not part_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
                             <field name="priority" widget="radio" options="{'horizontal': true}"/>
-                            <field name="assigned_id"/> 
+                            <field name="assigned_id"/>
                         </group>
-                        <group string="MaintainX Sync">
+                        <group string="Hierarchy">
+                            <field name="parent_id"/>
+                        </group>
+                        <group string="MaintainX Sync" invisible="task_type != 'maintainx'">
                             <field name="maintainx_id"/>
                             <field name="maintainx_created_at"/>
                         </group>
+                        <group string="Kiosk Reason" invisible="task_type != 'kiosk_help'">
+                            <field name="problem_area"/>
+                            <field name="reason_source"/>
+                            <field name="reason_event_id"
+                                   invisible="problem_area not in ('alarm', 'manual')"/>
+                            <field name="reason_count_id"
+                                   invisible="problem_area != 'rejection'"/>
+                            <field name="reason_process_id" invisible="not reason_process_id"/>
+                            <field name="reason_defect_id"
+                                   invisible="problem_area != 'defect'"/>
+                        </group>
                     </group>
                     <notebook>
-                        <page string="Description">
-                            <field name="description"/>
+                        <page string="Description" name="description_page">
+                            <field name="operator_description" placeholder="Operator description..."
+                                   invisible="task_type != 'kiosk_help'"/>
+                            <field name="description" invisible="task_type == 'kiosk_help'"/>
                         </page>
-                        <page string="Status History">
-                            <field name="status_history_ids">
-                                <tree editable="bottom" create="0" delete="0">
-                                    <field name="change_date"/>
-                                    <field name="status"/>
-                                    <field name="source"/>
+                        <page string="Subtasks" name="subtasks_page" invisible="not id">
+                            <div class="oe_button_box mb-2">
+                                <button name="action_create_subtask" type="object"
+                                        string="Add Subtask" class="btn btn-primary btn-sm"
+                                        icon="fa-plus"/>
+                            </div>
+                            <field name="child_ids" readonly="1" nolabel="1">
+                                <tree>
+                                    <field name="name"/>
+                                    <field name="task_type"/>
+                                    <field name="state"/>
+                                    <field name="priority" widget="badge"/>
+                                    <field name="assigned_id"/>
+                                    <field name="reason_event_id" optional="hide"/>
+                                    <field name="reason_count_id" optional="hide"/>
                                 </tree>
                             </field>
                         </page>
-                        <page string="Assignees History">
+                        <page string="Status History">
+                            <field name="status_history_ids" readonly="1">
+                                <tree create="0" delete="0" default_order="change_date desc">
+                                    <field name="change_date"/>
+                                    <field name="status"/>
+                                    <field name="employee_id"/>
+                                    <field name="user_id" optional="show"/>
+                                    <field name="comment"/>
+                                    <field name="source" optional="hide"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Assignees History" invisible="task_type != 'maintainx'">
                             <field name="maintainx_assignees_history"/>
                         </page>
                     </notebook>

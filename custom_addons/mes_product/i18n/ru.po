@@ -1,0 +1,1246 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* mes_product
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 17.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-09-30 09:12+0000\n"
+"PO-Revision-Date: 2026-09-30 09:12+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : 2);\n"
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_product_engine.py:0
+msgid "%(first)s together with %(second)s"
+msgstr "%(first)s вместе с %(second)s"
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_workcenter_product.py:0
+msgid "%(product)s has no attribute %(attributes)s."
+msgstr "У %(product)s нет атрибута %(attributes)s."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_product_engine.py:0
+msgid "%(product)s lists %(attributes)s on several lines; keep each attribute on one line with all its values"
+msgstr "у %(product)s атрибут %(attributes)s заведён на нескольких строках; каждый атрибут должен быть одной строкой со всеми своими значениями"
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_signature.py:0
+msgid "'%(value)s' belongs to role %(value_role)s, not %(role)s."
+msgstr "«%(value)s» относится к роли %(value_role)s, а не %(role)s."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_product_override.py:0
+#: code:addons/mes_product/wizard/mes_product_set_wizard.py:0
+msgid "'Until' must be later than 'From'."
+msgstr "«По» должно быть позже «С»."
+
+#. module: mes_product
+#: model:ir.model.constraint,message:mes_product.constraint_mes_workcenter_product_config_workcenter_date_uniq
+msgid "A configuration already starts at this moment on this machine."
+msgstr "На этой машине уже есть конфигурация, начинающаяся в этот момент."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_workcenter_product.py:0
+msgid "A configuration can hold only one value per product attribute."
+msgstr "В конфигурации может быть только одно значение на атрибут продукта."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_workcenter_product.py:0
+msgid "A configuration can hold only one value per role."
+msgstr "В конфигурации может быть только одно значение на роль."
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mrp_workcenter__signature_debounce_min
+msgid "A new combination of programs becomes a product change only after it stays unchanged this long, so clicking through programs during a changeover does not create short runs."
+msgstr "Новая комбинация программ становится сменой продукта, только если держится без изменений столько минут, — так перещёлкивание программ во время переналадки не создаёт коротких прогонов."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_product_rule.py:0
+msgid "A rule can use only one value per role."
+msgstr "В правиле может быть только одно значение на роль."
+
+#. module: mes_product
+#: model:ir.model.constraint,message:mes_product.constraint_mes_signature_role_code_uniq
+msgid "A signature role with this code already exists."
+msgstr "Роль сигнатуры с таким кодом уже существует."
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mes_workcenter_signature_line__signal_id
+msgid "A text process, or a number used as a code such as a program or format number. A measured number like speed or temperature is not a signature: every reading would become a new raw value."
+msgstr "Текстовый процесс или число, используемое как код, например номер программы или формата. Измеряемое число вроде скорости или температуры сигнатурой не является: каждое показание стало бы новым сырым значением."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_signature.py:0
+msgid "A value cannot conflict with itself."
+msgstr "Значение не может конфликтовать само с собой."
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_rule__active
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_conflict__active
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_role__active
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_value__active
+#: model:ir.model.fields,field_description:mes_product.field_mes_workcenter_signature_line__active
+msgid "Active"
+msgstr "Активно"
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mes_product_rule__sequence
+msgid "Among equally specific rules the lower sequence wins."
+msgstr "Среди одинаково конкретных правил побеждает то, у которого последовательность меньше."
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mes_workcenter_product_config__attribute_value_ids
+msgid "Attribute values set by the machine itself rather than by its programs: size, box or tray, and the edition used when nothing else is planned."
+msgstr "Значения атрибутов, которые задаёт сама машина, а не её программы: размер, коробка или трэй и выпуск, действующий, пока план не говорит иное."
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__availability
+msgid "Availability (%)"
+msgstr "Доступность (%)"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_alarm__avg_stop_minutes
+msgid "Avg Stop (min)"
+msgstr "Средняя остановка (мин)"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_set_wizard_form
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.xml:0
+msgid "Cancel"
+msgstr "Отмена"
+
+#. module: mes_product
+#: model_terms:ir.actions.act_window,help:mes_product.action_mes_product_oee
+msgid "Closed shifts appear here about half an hour after they end."
+msgstr "Закрытые смены появляются здесь примерно через полчаса после окончания."
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_role__code
+msgid "Code"
+msgstr "Код"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mrp_workcenter__product_config_ids
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mrp_workcenter_form_product
+msgid "Configuration History"
+msgstr "История конфигурации"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_production_run_tree
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mrp_workcenter_form_product
+msgid "Correct"
+msgstr "Исправить"
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_production_run.py:0
+msgid "Correct Product"
+msgstr "Исправить продукт"
+
+#. module: mes_product
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_product_override__kind__correction
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_product_set_wizard__kind__correction
+msgid "Correction"
+msgstr "Исправление"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_override_search
+msgid "Corrections"
+msgstr "Исправления"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__is_current
+msgid "Current"
+msgstr "Текущий"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mrp_workcenter__current_product_id
+msgid "Current Product"
+msgstr "Текущий продукт"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mrp_workcenter__current_product_run_id
+msgid "Current Run"
+msgstr "Текущий прогон"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_oee_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_run_analysis_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_stop_analysis_search
+msgid "Day"
+msgstr "День"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__downtime_loss
+msgid "Downtime Loss (%)"
+msgstr "Потери простоя (%)"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__duration_hours
+msgid "Duration (h)"
+msgstr "Длительность (ч)"
+
+#. module: mes_product
+#: model:ir.model.constraint,message:mes_product.constraint_mes_workcenter_signature_line_workcenter_role_uniq
+msgid "Each role can be read from only one process per machine."
+msgstr "Каждую роль можно читать только из одного процесса машины."
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mes_performance_product_line__date_end
+msgid "Empty while the product is still being made."
+msgstr "Пусто, пока продукт ещё выпускается."
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mes_production_run__date_end
+msgid "Empty while the run is still going on."
+msgstr "Пусто, пока прогон продолжается."
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_override__user_id
+msgid "Entered By"
+msgstr "Внёс"
+
+#. module: mes_product
+#: model_terms:ir.actions.act_window,help:mes_product.action_mes_signature_alias
+msgid "Every program name a machine reports appears here automatically."
+msgstr "Каждое название программы, которое сообщает машина, появляется здесь само."
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_alias__first_seen
+msgid "First Seen"
+msgstr "Впервые замечено"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_workcenter_product_config__attribute_value_ids
+msgid "Fixed Product Attributes"
+msgstr "Постоянные атрибуты продукта"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_workcenter_product_config__value_ids
+msgid "Fixed Signature Values"
+msgstr "Постоянные значения сигнатуры"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_signature_alias_search
+msgid "For Every Machine"
+msgstr "Для всех машин"
+
+#. module: mes_product
+#: model:mes.signature.role,name:mes_product.role_format
+msgid "Format"
+msgstr "Формат"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_product_line__date_start
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__date_start
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_override__date_start
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_set_wizard__date_start
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__date_start
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_interval__date_start
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.xml:0
+msgid "From"
+msgstr "С"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mrp_workcenter__signature_full_rescan
+msgid "Full Signature Rescan Requested"
+msgstr "Запрошен полный пересбор сигнатур"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__good_qty
+msgid "Good Quantity"
+msgstr "Годные"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_oee_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_override_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_production_run_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_run_analysis_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_signature_alias_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_signature_value_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_stop_analysis_search
+msgid "Group By"
+msgstr "Группировать по"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__ideal_qty
+msgid "Ideal Quantity"
+msgstr "Идеальное количество"
+
+#. module: mes_product
+#: model:ir.actions.act_window,name:mes_product.action_mes_signature_conflict
+#: model:ir.ui.menu,name:mes_product.menu_mes_signature_conflict
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_signature_conflict_tree
+msgid "Incompatible Values"
+msgstr "Несовместимые значения"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_override__kind
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_set_wizard__kind
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_override_search
+msgid "Kind"
+msgstr "Вид"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_alias__last_seen
+msgid "Last Seen"
+msgstr "Последний раз"
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mes_signature_alias__workcenter_id
+msgid "Leave empty to apply the mapping to every machine."
+msgstr "Оставьте пустым, чтобы сопоставление действовало на всех машинах."
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mes_product_rule__workcenter_ids
+msgid "Leave empty to use the rule on every machine."
+msgstr "Оставьте пустым, чтобы правило действовало на всех машинах."
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mes_product_override__date_end
+msgid "Leave empty: the entry lasts until the next manual entry on this machine or until the machine changes its signature, whichever comes first."
+msgstr "Оставьте пустым: запись действует до следующей ручной записи на этой машине или до смены сигнатуры машины — что наступит раньше."
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_conflict__note
+msgid "Likely Cause"
+msgstr "Вероятная причина"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_alarm__workcenter_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_running__workcenter_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_slowing__workcenter_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__workcenter_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_override__workcenter_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_set_wizard__workcenter_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__workcenter_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_alias__workcenter_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_interval__workcenter_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_workcenter_product_config__workcenter_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_workcenter_signature_line__workcenter_id
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_product_oee__row_kind__machine
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_oee_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_override_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_production_run_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_run_analysis_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_signature_alias_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_stop_analysis_search
+msgid "Machine"
+msgstr "Машина"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_workcenter_product_config__product_tmpl_id
+msgid "Machine Output Product"
+msgstr "Продукт на выходе машины"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_interval__raw_label
+msgid "Machine Reported"
+msgstr "Сообщила машина"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__signature_label
+msgid "Machine Signature"
+msgstr "Сигнатура машины"
+
+#. module: mes_product
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_performance_product_line__source__signature
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_production_run__source__signature
+msgid "Machine signature"
+msgstr "Сигнатура машины"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_set_wizard_form
+msgid "Manual entries always take priority over the machine signature. Without an end they\n                    last until the next manual entry or the next program change on the machine."
+msgstr "Ручные записи всегда важнее сигнатуры машины. Без даты окончания запись действует до следующей ручной записи или до следующей смены программы на машине."
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_override__production_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_set_wizard__production_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__production_id
+msgid "Manufacturing Order"
+msgstr "Производственный заказ"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_alias__is_mapped
+msgid "Mapped"
+msgstr "Сопоставлено"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_alias__value_id
+msgid "Means"
+msgstr "Означает"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_conflict__value_b_id
+msgid "Must Not Appear With"
+msgstr "Не должно встречаться с"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_signature_alias_search
+msgid "Not Mapped Yet"
+msgstr "Ещё не сопоставлено"
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_workcenter_product.py:0
+msgid "Not recognized"
+msgstr "Не распознан"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_override__note
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_set_wizard__note
+#: model:ir.model.fields,field_description:mes_product.field_mes_workcenter_product_config__note
+msgid "Note"
+msgstr "Примечание"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_alarm__stop_count
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__stop_count
+msgid "Number Of Stops"
+msgstr "Число остановок"
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mes_product_rule__specificity
+msgid "Number of values the rule requires. More specific rules win."
+msgstr "Сколько значений требует правило. Более конкретные правила побеждают."
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__oee
+msgid "OEE (%)"
+msgstr "OEE (%)"
+
+#. module: mes_product
+#: model:ir.actions.act_window,name:mes_product.action_mes_product_oee
+#: model:ir.ui.menu,name:mes_product.menu_mes_product_oee
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_oee_graph
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_oee_pivot
+msgid "OEE By Product"
+msgstr "OEE по продуктам"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_rule__workcenter_ids
+msgid "Only On Machines"
+msgstr "Только на машинах"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_alarm__operator_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_running__operator_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_slowing__operator_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__operator_id
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_oee_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_run_analysis_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_stop_analysis_search
+msgid "Operator"
+msgstr "Оператор"
+
+#. module: mes_product
+#: model:mes.signature.role,name:mes_product.role_pack
+msgid "Pack"
+msgstr "Упаковка"
+
+#. module: mes_product
+#: model:mes.signature.role,name:mes_product.role_paper
+msgid "Paper"
+msgstr "Бумага"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__part_id
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_product_oee__row_kind__part
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_oee_search
+msgid "Part"
+msgstr "Часть"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__performance
+msgid "Performance (%)"
+msgstr "Производительность (%)"
+
+#. module: mes_product
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_product_override__kind__plan
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_product_set_wizard__kind__plan
+msgid "Plan"
+msgstr "План"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__override_id
+msgid "Plan Or Correction"
+msgstr "План или исправление"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__planned_hours
+msgid "Planned Hours"
+msgstr "Плановые часы"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__planned_sec
+msgid "Planned Seconds"
+msgstr "Плановые секунды"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_override_search
+msgid "Plans"
+msgstr "Планы"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mrp_workcenter__product_override_ids
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mrp_workcenter_form_product
+msgid "Plans And Corrections"
+msgstr "Планы и исправления"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_workcenter_signature_line__process_id
+msgid "Process"
+msgstr "Процесс"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_workcenter_signature_line__signal_id
+msgid "Process Signal"
+msgstr "Сигнал процесса"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mrp_workcenter_form_product
+msgid "Processes That Identify The Product"
+msgstr "Процессы, определяющие продукт"
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_workcenter_product.py:0
+#: model:ir.model.fields,field_description:mes_product.field_mes_pending_comment__product_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_alarm__product_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_product_line__product_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_running__product_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_slowing__product_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__product_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_override__product_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_rule__product_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_set_wizard__product_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__product_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_task__product_id
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_oee_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_production_run_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_run_analysis_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_stop_analysis_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_task_search_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mrp_workcenter_form_product
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.xml:0
+msgid "Product"
+msgstr "Продукт"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_value__attribute_value_id
+msgid "Product Attribute Value"
+msgstr "Значение атрибута продукта"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mrp_workcenter__product_dirty_from
+msgid "Product History Stale From"
+msgstr "История продукта устарела с"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mrp_workcenter__product_propagate_from
+msgid "Product Marking Pending From"
+msgstr "Разметка продукта ожидает с"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_set_wizard__current_product_id
+msgid "Product Now Recorded"
+msgstr "Сейчас записан продукт"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_machine_performance__product_oee_computed_at
+msgid "Product OEE Computed"
+msgstr "OEE по продукту рассчитан"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_machine_performance__product_oee_error
+msgid "Product OEE Error"
+msgstr "Ошибка расчёта OEE по продукту"
+
+#. module: mes_product
+#: model:ir.actions.act_window,name:mes_product.action_mes_product_override
+#: model:ir.ui.menu,name:mes_product.menu_mes_product_override
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_override_tree
+msgid "Product Plans And Corrections"
+msgstr "Планы и исправления продукта"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_rule_form
+msgid "Product Rule"
+msgstr "Правило продукта"
+
+#. module: mes_product
+#: model:ir.actions.act_window,name:mes_product.action_mes_product_rule
+#: model:ir.ui.menu,name:mes_product.menu_mes_product_rule
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_rule_tree
+msgid "Product Rules"
+msgstr "Правила продукта"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mrp_workcenter__product_run_ids
+msgid "Product Runs"
+msgstr "Прогоны продукта"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mrp_workcenter_form_product
+msgid "Product Signature"
+msgstr "Сигнатура продукта"
+
+#. module: mes_product
+#: model:ir.ui.menu,name:mes_product.menu_mes_product_signature
+msgid "Product Signatures"
+msgstr "Сигнатуры продукта"
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_workcenter_product.py:0
+msgid "Product history"
+msgstr "История продукта"
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mes_workcenter_product_config__product_tmpl_id
+msgid "Product whose variants this machine produces."
+msgstr "Продукт, варианты которого выпускает эта машина."
+
+#. module: mes_product
+#: model:ir.actions.act_window,name:mes_product.action_mes_production_run
+#: model:ir.ui.menu,name:mes_product.menu_mes_production_run
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_production_run_calendar
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_production_run_tree
+msgid "Production Runs"
+msgstr "Прогоны продукции"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_machine_performance__product_line_ids
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_machine_performance_form_product
+msgid "Products"
+msgstr "Продукты"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_machine_performance__product_ids
+msgid "Products Made"
+msgstr "Выпущенные продукты"
+
+#. module: mes_product
+#: model:ir.actions.act_window,name:mes_product.action_mes_signature_alias
+#: model:ir.ui.menu,name:mes_product.menu_mes_signature_alias
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_signature_alias_tree
+msgid "Raw Machine Values"
+msgstr "Сырые значения машин"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_alias__raw_text
+msgid "Raw Value"
+msgstr "Сырое значение"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_interval__raw_json
+msgid "Raw Values"
+msgstr "Сырые значения"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mrp_workcenter_form_product
+msgid "Rebuild every product run of this machine from its signatures, plans and corrections?"
+msgstr "Пересобрать все прогоны этой машины из её сигнатур, планов и исправлений?"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mrp_workcenter_form_product
+msgid "Recompute Product History"
+msgstr "Пересчитать историю продукта"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_alias__role_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_role__name
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_value__role_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_workcenter_signature_line__role_id
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_signature_alias_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_signature_value_search
+msgid "Role"
+msgstr "Роль"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__row_kind
+msgid "Row Kind"
+msgstr "Вид строки"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_product_line__run_id
+msgid "Run"
+msgstr "Прогон"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_set_wizard__run_id
+msgid "Run Being Corrected"
+msgstr "Исправляемый прогон"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__run_hours
+msgid "Run Hours"
+msgstr "Часы работы"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__run_sec
+msgid "Run Seconds"
+msgstr "Секунды работы"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_run_analysis_tree
+msgid "Running"
+msgstr "Работа"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_product_line__started_shift
+msgid "Running At Shift Start"
+msgstr "Шёл на начало смены"
+
+#. module: mes_product
+#: model:ir.actions.act_window,name:mes_product.action_mes_run_analysis
+#: model:ir.ui.menu,name:mes_product.menu_mes_run_analysis
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_run_analysis_pivot
+msgid "Running By Product"
+msgstr "Работа по продуктам"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_production_run_search
+msgid "Running Now"
+msgstr "Идёт сейчас"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mrp_workcenter_form_product
+msgid "Runs"
+msgstr "Прогоны"
+
+#. module: mes_product
+#: model_terms:ir.actions.act_window,help:mes_product.action_mes_production_run
+msgid "Runs appear automatically from the program names the machines report,\n                or from plans and corrections entered by managers."
+msgstr "Прогоны появляются сами — из названий программ, которые сообщают машины,\n                или из планов и исправлений, внесённых менеджерами."
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_set_wizard_form
+msgid "Save"
+msgstr "Сохранить"
+
+#. module: mes_product
+#: model_terms:ir.actions.act_window,help:mes_product.action_mes_signature_alias
+msgid "Say what each one means by picking a value. Clear the machine to reuse the mapping\n                on every machine."
+msgstr "Укажите, что означает каждое, выбрав значение. Очистите машину, чтобы\n                сопоставление действовало на всех машинах."
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_rule__sequence
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_role__sequence
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_value__sequence
+msgid "Sequence"
+msgstr "Последовательность"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mrp_workcenter_form_product
+msgid "Set Or Plan Product"
+msgstr "Задать или запланировать продукт"
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_workcenter_product.py:0
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_set_wizard_form
+msgid "Set Product"
+msgstr "Задать продукт"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__downtime_share
+msgid "Share Of Downtime (%)"
+msgstr "Доля простоя (%)"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__waste_share
+msgid "Share Of Waste (%)"
+msgstr "Доля отхода (%)"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_alarm__shift_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_running__shift_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_slowing__shift_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__shift_id
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_oee_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_run_analysis_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_stop_analysis_search
+msgid "Shift"
+msgstr "Смена"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_alarm__shift_date
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_running__shift_date
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_slowing__shift_date
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__shift_date
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_oee_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_run_analysis_search
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_stop_analysis_search
+msgid "Shift Date"
+msgstr "Дата смены"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_product_line__performance_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__performance_id
+msgid "Shift Report"
+msgstr "Документ смены"
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mes_signature_conflict__note
+msgid "Shown on the run, for example: pack program not switched."
+msgstr "Показывается у прогона, например: не переключили программу упаковки."
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mrp_workcenter__signature_interval_ids
+msgid "Signature History"
+msgstr "История сигнатуры"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mrp_workcenter__signature_line_ids
+msgid "Signature Processes"
+msgstr "Процессы сигнатуры"
+
+#. module: mes_product
+#: model:ir.actions.act_window,name:mes_product.action_mes_signature_role
+#: model:ir.ui.menu,name:mes_product.menu_mes_signature_role
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_signature_role_tree
+msgid "Signature Roles"
+msgstr "Роли сигнатуры"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mrp_workcenter__signature_debounce_min
+msgid "Signature Stable For (min)"
+msgstr "Сигнатура устойчива (мин)"
+
+#. module: mes_product
+#: model:ir.actions.act_window,name:mes_product.action_mes_signature_value
+#: model:ir.ui.menu,name:mes_product.menu_mes_signature_value
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_signature_value_tree
+msgid "Signature Values"
+msgstr "Значения сигнатуры"
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mes_workcenter_product_config__value_ids
+msgid "Signature values that do not come from the machine; used only by explicit product rules."
+msgstr "Значения сигнатуры, которые не приходят с машины; используются только явными правилами продукта."
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mrp_workcenter__signature_scanned_to
+msgid "Signatures Scanned Up To"
+msgstr "Сигнатуры просмотрены до"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_product_line__source
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__source
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_production_run_search
+msgid "Source"
+msgstr "Источник"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_rule__specificity
+msgid "Specificity"
+msgstr "Конкретность"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_production_run_search
+msgid "Started"
+msgstr "Начало"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_alarm__stop_minutes_per_run_hour
+msgid "Stop Min / Run Hour"
+msgstr "Минут остановок на час работы"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_stop_analysis_search
+msgid "Stop Reason"
+msgstr "Причина остановки"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__stop_sec
+msgid "Stop Seconds"
+msgstr "Секунды остановок"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__stop_minutes
+msgid "Stop Time (min)"
+msgstr "Время остановок (мин)"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_stop_analysis_tree
+msgid "Stops"
+msgstr "Остановок"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_alarm__stops_per_run_hour
+msgid "Stops / Run Hour"
+msgstr "Остановок на час работы"
+
+#. module: mes_product
+#: model:ir.actions.act_window,name:mes_product.action_mes_stop_analysis
+#: model:ir.ui.menu,name:mes_product.menu_mes_stop_analysis
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_stop_analysis_graph
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_stop_analysis_pivot
+msgid "Stops By Product"
+msgstr "Остановки по продуктам"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__stream_id
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_product_oee__row_kind__stream
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_oee_search
+msgid "Stream"
+msgstr "Поток"
+
+#. module: mes_product
+#: model_terms:ir.actions.act_window,help:mes_product.action_mes_product_oee
+msgid "Stream and part rows show their share of the machine's losses and how many points of\n                OEE they cost."
+msgstr "Строки потоков и частей показывают их долю в потерях машины и сколько пунктов\n                OEE они стоят."
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_workcenter_signature_line__tag_name
+msgid "Tag"
+msgstr "Тег"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mrp_workcenter_form_product
+msgid "The machine produces variants of the output product. Its programs give the\n                        attributes they can tell, such as the paper variant; fixed product attributes give\n                        the rest: size, box or tray, and the edition used when no plan says otherwise.\n                        Add a new line with its start date when the machine is rebuilt; never edit an old\n                        line, or earlier history changes with it."
+msgstr "Машина выпускает варианты продукта на выходе. Её программы задают атрибуты, которые она различает, например вариант бумаги; постоянные атрибуты продукта задают остальное: размер, коробку или трэй и выпуск, действующий, пока план не говорит иное. При переделке машины добавьте новую строку с датой начала; никогда не правьте старую, иначе вместе с ней изменится и прежняя история."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_workcenter_product.py:0
+msgid "The process signal must belong to this machine's telemetry settings."
+msgstr "Сигнал процесса должен принадлежать настройкам телеметрии этой машины."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_workcenter_product.py:0
+msgid "The product history will be rebuilt in the background within a few minutes."
+msgstr "История продукта будет пересобрана в фоне в течение нескольких минут."
+
+#. module: mes_product
+#: model:ir.model.fields,help:mes_product.field_mes_signature_value__attribute_value_id
+msgid "The product variant attribute value this machine value stands for, for example paper program Raw Black Cones stands for Variant: Black."
+msgstr "Значение атрибута варианта продукта, которое означает это значение машины; например, программа бумаги Raw Black Cones означает Вариант: Black."
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_rule_form
+msgid "The rule matches when the machine shows all the chosen values. Roles left out\n                        of the rule are ignored. When several rules match, the one with more values\n                        wins, then the lower sequence."
+msgstr "Правило срабатывает, когда машина показывает все выбранные значения. Роли, не включённые в правило, не учитываются. Если подходят несколько правил, побеждает то, в котором больше значений, затем — с меньшей последовательностью."
+
+#. module: mes_product
+#: model:ir.model.constraint,message:mes_product.constraint_mes_signature_alias_alias_uniq
+msgid "This raw value is already listed for the role and machine."
+msgstr "Это сырое значение уже есть для этой роли и машины."
+
+#. module: mes_product
+#: model:ir.model.constraint,message:mes_product.constraint_mes_signature_value_role_name_uniq
+msgid "This value already exists for the role."
+msgstr "Такое значение уже есть у этой роли."
+
+#. module: mes_product
+#: model:mes.signature.role,name:mes_product.role_tips
+msgid "Tips"
+msgstr "Типсы"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_run_analysis_tree
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_stop_analysis_tree
+msgid "Total"
+msgstr "Итого"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_production_run_search
+msgid "Unknown Signature"
+msgstr "Неизвестная сигнатура"
+
+#. module: mes_product
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_performance_product_line__source__unknown
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_production_run__source__unknown
+msgid "Unknown signature"
+msgstr "Неизвестная сигнатура"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__unmapped_label
+msgid "Unrecognized Values"
+msgstr "Нераспознанные значения"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_performance_product_line__date_end
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__date_end
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_override__date_end
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_set_wizard__date_end
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__date_end
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_interval__date_end
+msgid "Until"
+msgstr "По"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_workcenter_product_config__date_from
+msgid "Valid From"
+msgstr "Действует с"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_workcenter_product_config__date_to
+msgid "Valid Until"
+msgstr "Действует по"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_conflict__value_a_id
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_value__name
+msgid "Value"
+msgstr "Значение"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_signature_role__value_ids
+msgid "Values"
+msgstr "Значения"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__warning_label
+msgid "Warnings"
+msgstr "Предупреждения"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__waste_loss
+msgid "Waste Loss (%)"
+msgstr "Потери от брака (%)"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_oee__waste_qty
+msgid "Waste Quantity"
+msgstr "Количество отхода"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mrp_workcenter_form_product
+msgid "What The Machine Reported"
+msgstr "Что сообщала машина"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_rule__value_ids
+msgid "When The Machine Shows"
+msgstr "Когда машина показывает"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_set_wizard_form
+msgid "Why, for example: special edition, program not switched..."
+msgstr "Почему, например: спецвыпуск, не переключили программу..."
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_production_run_search
+msgid "With Warnings"
+msgstr "С предупреждениями"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_stop_analysis_search
+msgid "Without Product"
+msgstr "Без продукта"
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_product_engine.py:0
+msgid "machine reports %(attribute)s %(reported)s, configuration says %(configured)s"
+msgstr "машина сообщает %(attribute)s %(reported)s, а в конфигурации %(configured)s"
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_product_engine.py:0
+msgid "no output product in the machine configuration"
+msgstr "в конфигурации машины не задан продукт на выходе"
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_product_engine.py:0
+msgid "no variant %(product)s (%(values)s)"
+msgstr "нет варианта %(product)s (%(values)s)"
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_product_engine.py:0
+msgid "not determined: %s"
+msgstr "не определено: %s"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_override__origin
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__changed_via
+msgid "Changed Via"
+msgstr "Изменено через"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_override__employee_id
+msgid "Changed By Employee"
+msgstr "Изменил (сотрудник)"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_override__changed_at
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__changed_at
+msgid "Changed At"
+msgstr "Время изменения"
+
+#. module: mes_product
+#: model:ir.model.fields,field_description:mes_product.field_mes_product_override__changed_by
+#: model:ir.model.fields,field_description:mes_product.field_mes_production_run__changed_by
+msgid "Changed By"
+msgstr "Изменил"
+
+#. module: mes_product
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_product_override__origin__backend
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_production_run__changed_via__backend
+msgid "Back Office"
+msgstr "Бэк-офис"
+
+#. module: mes_product
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_product_override__origin__kiosk
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_production_run__changed_via__kiosk
+msgid "Kiosk"
+msgstr "Киоск"
+
+#. module: mes_product
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_production_run__source__manual
+#: model:ir.model.fields.selection,name:mes_product.selection__mes_performance_product_line__source__manual
+msgid "Manual"
+msgstr "Вручную"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_production_run_search
+msgid "Set Manually"
+msgstr "Задано вручную"
+
+#. module: mes_product
+#: model_terms:ir.ui.view,arch_db:mes_product.view_mes_product_override_search
+msgid "Changed In Kiosk"
+msgstr "Изменено в киоске"
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_kiosk_product.py:0
+msgid "No output product is configured for this machine."
+msgstr "Для этой машины не настроен выпускаемый продукт."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_kiosk_product.py:0
+msgid "Log in to change the product."
+msgstr "Войдите, чтобы сменить продукт."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_kiosk_product.py:0
+msgid "This product is not configured for this machine."
+msgstr "Этот продукт не настроен для этой машины."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_kiosk_product.py:0
+msgid "Choose one value for every characteristic."
+msgstr "Выберите по одному значению для каждой характеристики."
+
+#. module: mes_product
+#. odoo-python
+#. odoo-javascript
+#: code:addons/mes_product/models/mes_kiosk_product.py:0
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.xml:0
+msgid "There is no product with this combination of characteristics."
+msgstr "Продукта с таким сочетанием характеристик нет."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_kiosk_product.py:0
+msgid "The time is not valid."
+msgstr "Неверное время."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_kiosk_product.py:0
+msgid "The time cannot be in the future."
+msgstr "Время не может быть в будущем."
+
+#. module: mes_product
+#. odoo-python
+#: code:addons/mes_product/models/mes_kiosk_product.py:0
+msgid "The time cannot be more than 24 hours ago."
+msgstr "Время не может быть раньше чем 24 часа назад."
+
+#. module: mes_product
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.js:0
+msgid "Cannot load products."
+msgstr "Не удалось загрузить продукты."
+
+#. module: mes_product
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.js:0
+msgid "Error: "
+msgstr "Ошибка: "
+
+#. module: mes_product
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.js:0
+msgid "Product change failed."
+msgstr "Не удалось сменить продукт."
+
+#. module: mes_product
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.js:0
+msgid "Product changed to %s."
+msgstr "Продукт изменён на %s."
+
+#. module: mes_product
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.js:0
+msgid "Product change to %s saved; the history updates within 5 minutes."
+msgstr "Смена продукта на %s сохранена; история обновится в течение 5 минут."
+
+#. module: mes_product
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.xml:0
+msgid "Change product"
+msgstr "Изменить продукт"
+
+#. module: mes_product
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.xml:0
+msgid "Now"
+msgstr "Сейчас"
+
+#. module: mes_product
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.xml:0
+msgid "Shift start"
+msgstr "Начало смены"
+
+#. module: mes_product
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.xml:0
+msgid "Changed by"
+msgstr "Кто меняет"
+
+#. module: mes_product
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.xml:0
+msgid "Saving..."
+msgstr "Сохранение..."
+
+#. module: mes_product
+#. odoo-javascript
+#: code:addons/mes_product/static/src/kiosk/kiosk_product.xml:0
+msgid "OK"
+msgstr "OK"
+

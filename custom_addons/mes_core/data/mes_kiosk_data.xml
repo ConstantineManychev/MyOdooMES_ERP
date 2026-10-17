@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="seq_mes_task_kiosk_help" model="ir.sequence">
+            <field name="name">Kiosk Help Request</field>
+            <field name="code">mes.task.kiosk_help</field>
+            <field name="prefix">HR-%(year)s%(month)s-</field>
+            <field name="padding">5</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+        </record>
+
+        <record id="user_mes_kiosk_bot" model="res.users">
+            <field name="name">Kiosk Bot</field>
+            <field name="login">kiosk_bot</field>
+            <field name="password">change-me-after-install</field>
+            <field name="active" eval="True"/>
+            <field name="groups_id" eval="[(6, 0, [ref('mes_core.group_mes_kiosk_bot'), ref('mes_core.group_mes_operator')])]"/>
+            <field name="share" eval="False"/>
+        </record>
+    </data>
+</odoo>

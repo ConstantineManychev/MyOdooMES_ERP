@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_mes_production_run"
+              name="Production Runs"
+              parent="mes_core.menu_mes_documents"
+              action="action_mes_production_run"
+              sequence="40"/>
+
+    <menuitem id="menu_mes_product_override"
+              name="Product Plans And Corrections"
+              parent="mes_core.menu_mes_documents"
+              action="action_mes_product_override"
+              groups="mes_core.group_mes_manager"
+              sequence="41"/>
+
+    <menuitem id="menu_mes_product_signature"
+              name="Product Signatures"
+              parent="mes_core.menu_mes_catalogues"
+              groups="mes_core.group_mes_manager"
+              sequence="60"/>
+
+    <menuitem id="menu_mes_signature_alias"
+              name="Raw Machine Values"
+              parent="menu_mes_product_signature"
+              action="action_mes_signature_alias"
+              sequence="10"/>
+
+    <menuitem id="menu_mes_signature_value"
+              name="Signature Values"
+              parent="menu_mes_product_signature"
+              action="action_mes_signature_value"
+              sequence="20"/>
+
+    <menuitem id="menu_mes_product_rule"
+              name="Product Rules"
+              parent="menu_mes_product_signature"
+              action="action_mes_product_rule"
+              sequence="30"/>
+
+    <menuitem id="menu_mes_signature_conflict"
+              name="Incompatible Values"
+              parent="menu_mes_product_signature"
+              action="action_mes_signature_conflict"
+              sequence="35"/>
+
+    <menuitem id="menu_mes_signature_role"
+              name="Signature Roles"
+              parent="menu_mes_product_signature"
+              action="action_mes_signature_role"
+              groups="mes_core.group_mes_administrator"
+              sequence="40"/>
+
+    <menuitem id="menu_mes_stop_analysis"
+              name="Stops By Product"
+              parent="mes_core.menu_mes_analytics"
+              action="action_mes_stop_analysis"
+              groups="mes_core.group_mes_manager"
+              sequence="19"/>
+
+    <menuitem id="menu_mes_run_analysis"
+              name="Running By Product"
+              parent="mes_core.menu_mes_analytics"
+              action="action_mes_run_analysis"
+              groups="mes_core.group_mes_manager"
+              sequence="20"/>
+
+    <menuitem id="menu_mes_product_oee"
+              name="OEE By Product"
+              parent="mes_core.menu_mes_analytics"
+              action="action_mes_product_oee"
+              groups="mes_core.group_mes_manager"
+              sequence="18"/>
+
+</odoo>

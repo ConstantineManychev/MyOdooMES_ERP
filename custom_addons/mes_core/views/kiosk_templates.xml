@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="kiosk_no_match" name="MES Kiosk: Pick Machine">
+        <t t-call="web.layout">
+            <t t-set="head">
+                <style>
+                    body { background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; margin: 0; }
+                    .o_kiosk_picker {
+                        max-width: 760px; margin: 3rem auto; padding: 2rem;
+                        background: #1e293b; border-radius: 12px;
+                    }
+                    .o_kiosk_picker h1 { margin: 0 0 0.5rem; color: #22d3ee; }
+                    .o_kiosk_picker h2 { margin: 1.5rem 0 0.75rem; font-size: 1.1rem; color: #94a3b8; }
+                    .o_kiosk_picker .ip { font-family: ui-monospace, monospace; color: #f59e0b; }
+                    .o_kiosk_picker code { background: #334155; padding: 2px 6px; border-radius: 4px; color: #f1f5f9; }
+                    .o_kiosk_grid {
+                        display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                        gap: 0.75rem; margin-top: 1rem;
+                    }
+                    .o_kiosk_card {
+                        display: block; padding: 1rem 1.25rem; background: #273449;
+                        border-radius: 8px; text-decoration: none; color: #e2e8f0;
+                        border-left: 4px solid #22d3ee; transition: transform 0.1s;
+                    }
+                    .o_kiosk_card:hover { transform: translateY(-2px); background: #334155; color: #e2e8f0; text-decoration: none; }
+                    .o_kiosk_card .name { font-weight: 600; font-size: 1.05rem; }
+                    .o_kiosk_card .ips { font-size: 0.8rem; color: #94a3b8; margin-top: 0.25rem; font-family: ui-monospace, monospace; }
+                </style>
+            </t>
+            <div class="o_kiosk_picker">
+                <h1>Select Your Machine</h1>
+                <p>Server detected your IP as <span class="ip" t-esc="client_ip"/> — no workcenter is bound to this address.</p>
+                <p>You can either:</p>
+                <ul>
+                    <li>Click the machine below to open its kiosk directly</li>
+                    <li>Or open a URL like <code>/mes/kiosk/auto?machine=YourMachineName</code></li>
+                    <li>Or fix IP detection (admin task — see docker-compose notes)</li>
+                </ul>
+
+                <h2>Available Workcenters</h2>
+                <div class="o_kiosk_grid">
+                    <t t-foreach="workcenters" t-as="wc">
+                        <a t-attf-href="/mes/kiosk/wc/#{wc.id}" class="o_kiosk_card">
+                            <div class="name" t-esc="wc.name"/>
+                            <div class="ips" t-esc="wc.allowed_pc_ips or 'no IP bound'"/>
+                        </a>
+                    </t>
+                </div>
+
+                <p style="margin-top: 2rem;" t-if="not logged_in">
+                    <a href="/web/login" style="color: #22d3ee;">Login first</a> if needed.
+                </p>
+                <p t-else="" style="margin-top: 2rem; font-size: 0.85rem; color: #94a3b8;">
+                    Logged in as <code t-esc="login"/>
+                </p>
+            </div>
+        </t>
+    </template>
+</odoo>

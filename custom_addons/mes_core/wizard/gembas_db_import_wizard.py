@@ -206,7 +206,6 @@ class ExternalImportWizard(models.TransientModel):
         loss_map = self._sync_alarm_reasons(data_dict)
         count_map = self._sync_count_reasons(data_dict)
 
-#TODO: Change default product after VerifySystem sync
         default_product = self.env['product.product'].search([('detailed_type', '=', 'product')], limit=1)
 
         PerfObj = self.env['mes.machine.performance']

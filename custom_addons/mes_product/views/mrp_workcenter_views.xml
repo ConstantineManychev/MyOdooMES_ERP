@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mrp_workcenter_form_product" model="ir.ui.view">
+        <field name="name">mrp.workcenter.form.mes.product</field>
+        <field name="model">mrp.workcenter</field>
+        <field name="inherit_id" ref="mrp.mrp_workcenter_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Product" name="mes_product" groups="mes_core.group_mes_manager">
+                    <group>
+                        <group>
+                            <field name="current_product_id"/>
+                            <field name="current_product_run_id"/>
+                        </group>
+                        <group>
+                            <div colspan="2">
+                                <button name="action_set_product" type="object" string="Set Or Plan Product"
+                                        icon="fa-calendar-plus-o" class="btn-primary"/>
+                            </div>
+                        </group>
+                    </group>
+                    <separator string="Runs"/>
+                    <field name="product_run_ids" readonly="1">
+                        <tree limit="20" decoration-info="source == 'manual'"
+                              decoration-warning="source == 'unknown'" decoration-bf="not date_end">
+                            <field name="product_id"/>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="duration_hours" widget="float_time"/>
+                            <field name="source"/>
+                            <field name="signature_label" optional="show"/>
+                            <field name="unmapped_label" optional="show"/>
+                            <button name="action_change_product" type="object" string="Correct"
+                                    icon="fa-pencil"/>
+                        </tree>
+                    </field>
+                    <separator string="Plans And Corrections"/>
+                    <field name="product_override_ids">
+                        <tree limit="10" editable="top">
+                            <field name="kind"/>
+                            <field name="production_id" optional="show" options="{'no_create': True}"/>
+                            <field name="product_id" options="{'no_create': True}"/>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="note" optional="show"/>
+                            <field name="origin" optional="show"/>
+                            <field name="changed_by" optional="show"/>
+                            <field name="changed_at" optional="show"/>
+                        </tree>
+                    </field>
+                </page>
+                <page string="Product Signature" name="mes_product_signature"
+                      groups="mes_core.group_mes_administrator">
+                    <field name="machine_settings_id" invisible="1"/>
+                    <group>
+                        <group>
+                            <field name="signature_debounce_min"/>
+                            <field name="product_dirty_from"/>
+                            <field name="signature_scanned_to"/>
+                            <field name="product_propagate_from"/>
+                            <field name="signature_full_rescan"/>
+                        </group>
+                        <group>
+                            <div colspan="2">
+                                <button name="action_recompute_product_history" type="object"
+                                        string="Recompute Product History" icon="fa-refresh"
+                                        class="btn-secondary"
+                                        confirm="Rebuild every product run of this machine from its signatures, plans and corrections?"/>
+                            </div>
+                        </group>
+                    </group>
+                    <separator string="Processes That Identify The Product"/>
+                    <field name="signature_line_ids">
+                        <tree editable="bottom">
+                            <field name="role_id" options="{'no_create': True}"/>
+                            <field name="signal_id" options="{'no_create': True}"
+                                   domain="[('machine_id', '=', parent.machine_settings_id)]"/>
+                            <field name="process_id"/>
+                            <field name="tag_name" optional="hide"/>
+                            <field name="active" widget="boolean_toggle"/>
+                        </tree>
+                    </field>
+                    <separator string="What The Machine Reported"/>
+                    <field name="signature_interval_ids" readonly="1">
+                        <tree limit="10" decoration-bf="not date_end">
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="raw_label"/>
+                        </tree>
+                    </field>
+                    <separator string="Configuration History"/>
+                    <field name="product_config_ids">
+                        <tree editable="bottom">
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="product_tmpl_id" options="{'no_create': True}"/>
+                            <field name="attribute_value_ids" widget="many2many_tags"
+                                   options="{'no_create': True}"/>
+                            <field name="value_ids" widget="many2many_tags" optional="hide"
+                                   options="{'no_create': True}"/>
+                            <field name="note"/>
+                        </tree>
+                    </field>
+                    <p class="text-muted">
+                        The machine produces variants of the output product. Its programs give the
+                        attributes they can tell, such as the paper variant; fixed product attributes give
+                        the rest: size, box or tray, and the edition used when no plan says otherwise.
+                        Add a new line with its start date when the machine is rebuilt; never edit an old
+                        line, or earlier history changes with it.
+                    </p>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

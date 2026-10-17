@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_company_form_inherit_mes_maintainx" model="ir.ui.view">
+        <field name="name">res.company.form.inherit.mes.maintainx</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="MaintainX" name="mes_maintainx">
+                    <group>
+                        <field name="maintainx_enabled"/>
+                        <field name="maintainx_api_token" password="True"
+                               invisible="not maintainx_enabled"/>
+                        <field name="maintainx_webhook_secret" password="True"
+                               invisible="not maintainx_enabled"/>
+                    </group>
+                    <group string="Downtime Defaults">
+                        <field name="mes_planned_downtime_event_id" options="{'no_create': True}"/>
+                        <field name="mes_unplanned_downtime_color" widget="color"/>
+                    </group>
+                    <group string="Work Order Defaults" invisible="not maintainx_enabled">
+                        <field name="maintainx_default_assignee_id" options="{'no_create': True}"/>
+                        <field name="maintainx_comment_author_id" options="{'no_create': True}"/>
+                    </group>
+                    <button name="action_test_maintainx_connection"
+                            string="Test Connection"
+                            type="object" class="btn-primary"
+                            invisible="not maintainx_enabled"/>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

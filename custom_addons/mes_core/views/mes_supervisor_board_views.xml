@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_mes_supervisor_board" model="ir.actions.client">
+        <field name="name">Supervisor Dashboard</field>
+        <field name="tag">mes_core.supervisor_board</field>
+        <field name="target">current</field>
+    </record>
+
+    <menuitem id="menu_mes_supervisor_board"
+              name="Supervisor Dashboard"
+              parent="menu_mes_dashboards"
+              action="action_mes_supervisor_board"
+              groups="mes_core.group_mes_manager"
+              sequence="5"/>
+</odoo>

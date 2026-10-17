@@ -49,7 +49,7 @@
                     </block>
 
                     <block title="External Services" id="maintainx_settings">
-                        <setting string="MaintainX Integration" help="Bi-directional sync of tasks and work orders.">
+                        <setting string="MaintainX Integration" help="Per-company API token. Each company gets its own MaintainX account.">
                             <field name="use_maintainx"/>
                             
                             <div class="content-group" invisible="not use_maintainx">
@@ -57,9 +57,27 @@
                                     <label for="maintainx_api_token" class="col-lg-3 o_light_label"/>
                                     <field name="maintainx_api_token" password="True" required="use_maintainx"/>
                                 </div>
+                                <div class="row mt16">
+                                    <label for="maintainx_default_assignee_id" class="col-lg-3 o_light_label"/>
+                                    <field name="maintainx_default_assignee_id"
+                                           options="{'no_create': True}"/>
+                                </div>
+                                <div class="row mt16">
+                                    <label for="maintainx_comment_author_id" class="col-lg-3 o_light_label"/>
+                                    <field name="maintainx_comment_author_id"
+                                           options="{'no_create': True}"/>
+                                </div>
+                                <div class="row mt16">
+                                    <label for="maintainx_webhook_secret" class="col-lg-3 o_light_label"/>
+                                    <field name="maintainx_webhook_secret" password="True"
+                                           placeholder="Needed only for status-change callbacks"/>
+                                </div>
+                                <div class="mt8 text-muted">
+                                    Editing token for company: <field name="company_id" readonly="True" nolabel="1"/>
+                                </div>
                                 <div class="mt8">
                                     <button name="action_test_maintainx_connection" type="object" string="Check API Token" icon="fa-check-circle" class="btn-link"/>
-                                    <a href="https://www.getmaintainx.com/" target="_blank" class="ml-2 btn-link">
+                                    <a href="https://www.getmaintainx.com/" target="_blank" class="ml-2 btn-link" role="button">
                                         <i class="fa fa-external-link"/> Open Console
                                     </a>
                                 </div>
@@ -70,6 +88,53 @@
                     <block title="Global settings" id="global_settings">
                         <setting string="Global Settings" help="Global configuration settings for the MES system.">
                             <field name="mes_dashboard_refresh_interval"/>
+                        </setting>
+                        <setting string="Machine Data Gaps"
+                                 help="A machine whose logger stops reporting, or cannot read the PLC, for this long (minimum 3 minutes) is recorded as a data gap. Addresses below receive an email naming what failed, and another when data comes in again; separate them with commas. Gaps inside planned downtime are reported only if they last beyond it.">
+                            <div class="content-group">
+                                <div class="row mt8">
+                                    <label for="mes_link_loss_minutes" class="col-lg-5 o_light_label"/>
+                                    <field name="mes_link_loss_minutes"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="mes_link_loss_emails" class="col-lg-5 o_light_label"/>
+                                    <field name="mes_link_loss_emails" placeholder="maintenance@example.com, manager@example.com"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Anomaly Report"
+                                 help="A row turns Warning or Critical only when it deviates from the shift history and the excess this shift is at least this large. Smaller deviations stay Normal.">
+                            <div class="content-group">
+                                <div class="row mt8">
+                                    <label for="mes_anomaly_min_minutes" class="col-lg-5 o_light_label"/>
+                                    <field name="mes_anomaly_min_minutes"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="mes_anomaly_min_stops" class="col-lg-5 o_light_label"/>
+                                    <field name="mes_anomaly_min_stops"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="mes_anomaly_min_pieces" class="col-lg-5 o_light_label"/>
+                                    <field name="mes_anomaly_min_pieces"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Kiosk Buttons By Role"
+                                 help="Which logged-in kiosk roles see and can use these buttons. A button with no roles ticked is hidden for everyone.">
+                            <div class="content-group">
+                                <div class="row mt8">
+                                    <label for="mes_downtime_role_ids" class="col-lg-5 o_light_label"/>
+                                    <field name="mes_downtime_role_ids" widget="many2many_checkboxes"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="mes_help_role_ids" class="col-lg-5 o_light_label"/>
+                                    <field name="mes_help_role_ids" widget="many2many_checkboxes"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Help Request Workflow"
+                                 help="When disabled, a technician-closed help request goes straight to the operator for confirmation.">
+                            <field name="mes_supervisor_confirmation_required"/>
                         </setting>
                     </block>
 

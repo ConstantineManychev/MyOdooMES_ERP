@@ -1,0 +1,23 @@
+$mes-pm-on: #d9534f;
+$mes-pm-off: #adb5bd;
+
+.o_mes_pm_toggle .form-switch .form-check-input {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+    background-color: $mes-pm-off;
+    border-color: $mes-pm-off;
+    cursor: pointer;
+
+    &:checked {
+        background-color: $mes-pm-on;
+        border-color: $mes-pm-on;
+    }
+
+    &:focus {
+        box-shadow: 0 0 0 0.2rem rgba($mes-pm-on, 0.25);
+    }
+
+    &:disabled {
+        cursor: default;
+        opacity: 0.9;
+    }
+}

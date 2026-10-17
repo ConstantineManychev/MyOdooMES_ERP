@@ -14,6 +14,34 @@
         </field>
     </record>
 
+    <record id="view_mes_reject_report_search" model="ir.ui.view">
+        <field name="name">mes.reject.report.line.search</field>
+        <field name="model">mes.reject.report.line</field>
+        <field name="arch" type="xml">
+            <search string="Rejects Matrix">
+                <field name="machine_id"/>
+                <field name="count_name"/>
+                <field name="stream_name"/>
+                <field name="part_name"/>
+                <field name="piece_name"/>
+                <group expand="1" string="Group By">
+                    <filter name="group_machine" string="Machine"
+                            context="{'group_by': 'machine_id'}"/>
+                    <filter name="group_stream" string="Stream"
+                            context="{'group_by': 'stream_name'}"/>
+                    <filter name="group_part" string="Part"
+                            context="{'group_by': 'part_name'}"/>
+                    <filter name="group_piece" string="Piece"
+                            context="{'group_by': 'piece_name'}"/>
+                    <filter name="group_count" string="Reject Count"
+                            context="{'group_by': 'count_name'}"/>
+                    <filter name="group_period" string="Period"
+                            context="{'group_by': 'period_name'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
     <record id="view_mes_reject_report_pivot" model="ir.ui.view">
         <field name="name">mes.reject.report.line.pivot</field>
         <field name="model">mes.reject.report.line</field>
@@ -26,6 +54,7 @@
             </pivot>
         </field>
     </record>
+
 
     <record id="view_mes_reject_wizard_form" model="ir.ui.view">
         <field name="name">mes.reject.report.wizard.form</field>
@@ -43,17 +72,23 @@
             </xpath>
             
             <xpath expr="//group[@name='row_group']" position="inside">
-                <field name="row_by_cnt"/>
-                <field name="row_by_is_mod"/>
-                <field name="row_by_wheel"/>
-                <field name="row_by_mod"/>
+                <field name="row_by_stream" string="Stream"/>
+                <field name="row_by_part" string="Part"/>
+                <field name="row_by_piece" string="Piece"/>
+                <field name="row_by_cnt" string="Count"/>
+                <field name="row_by_is_mod" string="Is Module"/>
+                <field name="row_by_wheel" string="Wheel Number"/>
+                <field name="row_by_mod" string="Module Number"/>
             </xpath>
             
             <xpath expr="//group[@name='col_group']" position="inside">
-                <field name="col_by_cnt"/>
-                <field name="col_by_is_mod"/>
-                <field name="col_by_wheel"/>
-                <field name="col_by_mod"/>
+                <field name="col_by_stream" string="Stream"/>
+                <field name="col_by_part" string="Part"/>
+                <field name="col_by_piece" string="Piece"/>
+                <field name="col_by_cnt" string="Count"/>
+                <field name="col_by_is_mod" string="Is Module"/>
+                <field name="col_by_wheel" string="Wheel Number"/>
+                <field name="col_by_mod" string="Module Number"/>
             </xpath>
             
             <xpath expr="//page[@name='measures_page']" position="inside">

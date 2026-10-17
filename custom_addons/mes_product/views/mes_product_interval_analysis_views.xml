@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mes_stop_analysis_search" model="ir.ui.view">
+        <field name="name">mes.performance.alarm.analysis.search</field>
+        <field name="model">mes.performance.alarm</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="workcenter_id"/>
+                <field name="product_id"/>
+                <field name="operator_id"/>
+                <field name="loss_id"/>
+                <filter name="shift_date" string="Shift Date" date="shift_date"/>
+                <separator/>
+                <filter name="no_product" string="Without Product" domain="[('product_id', '=', False)]"/>
+                <group expand="1" string="Group By">
+                    <filter name="group_workcenter" string="Machine" context="{'group_by': 'workcenter_id'}"/>
+                    <filter name="group_product" string="Product" context="{'group_by': 'product_id'}"/>
+                    <filter name="group_operator" string="Operator" context="{'group_by': 'operator_id'}"/>
+                    <filter name="group_reason" string="Stop Reason" context="{'group_by': 'loss_id'}"/>
+                    <filter name="group_shift" string="Shift" context="{'group_by': 'shift_id'}"/>
+                    <filter name="group_day" string="Day" context="{'group_by': 'shift_date:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_mes_stop_analysis_pivot" model="ir.ui.view">
+        <field name="name">mes.performance.alarm.analysis.pivot</field>
+        <field name="model">mes.performance.alarm</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <pivot string="Stops By Product">
+                <field name="workcenter_id" type="row"/>
+                <field name="product_id" type="row"/>
+                <field name="stop_count" type="measure"/>
+                <field name="duration" type="measure"/>
+                <field name="avg_stop_minutes" type="measure"/>
+                <field name="stops_per_run_hour" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_mes_stop_analysis_graph" model="ir.ui.view">
+        <field name="name">mes.performance.alarm.analysis.graph</field>
+        <field name="model">mes.performance.alarm</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <graph string="Stops By Product" type="bar" stacked="1">
+                <field name="product_id"/>
+                <field name="loss_id"/>
+                <field name="stop_count" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_mes_stop_analysis_tree" model="ir.ui.view">
+        <field name="name">mes.performance.alarm.analysis.tree</field>
+        <field name="model">mes.performance.alarm</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <tree string="Stops" create="0" edit="0" delete="0">
+                <field name="start_time"/>
+                <field name="end_time"/>
+                <field name="workcenter_id"/>
+                <field name="product_id"/>
+                <field name="operator_id"/>
+                <field name="loss_id"/>
+                <field name="duration" sum="Total"/>
+                <field name="comment" optional="show"/>
+                <field name="performance_id" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_mes_stop_analysis" model="ir.actions.act_window">
+        <field name="name">Stops By Product</field>
+        <field name="res_model">mes.performance.alarm</field>
+        <field name="view_mode">pivot,graph,tree</field>
+        <field name="search_view_id" ref="view_mes_stop_analysis_search"/>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_mes_stop_analysis_pivot')}),
+            (0, 0, {'view_mode': 'graph', 'view_id': ref('view_mes_stop_analysis_graph')}),
+            (0, 0, {'view_mode': 'tree', 'view_id': ref('view_mes_stop_analysis_tree')})]"/>
+        <field name="context">{'search_default_shift_date': 1}</field>
+    </record>
+
+    <record id="view_mes_run_analysis_search" model="ir.ui.view">
+        <field name="name">mes.performance.running.analysis.search</field>
+        <field name="model">mes.performance.running</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="workcenter_id"/>
+                <field name="product_id"/>
+                <field name="operator_id"/>
+                <filter name="shift_date" string="Shift Date" date="shift_date"/>
+                <group expand="1" string="Group By">
+                    <filter name="group_workcenter" string="Machine" context="{'group_by': 'workcenter_id'}"/>
+                    <filter name="group_product" string="Product" context="{'group_by': 'product_id'}"/>
+                    <filter name="group_operator" string="Operator" context="{'group_by': 'operator_id'}"/>
+                    <filter name="group_shift" string="Shift" context="{'group_by': 'shift_id'}"/>
+                    <filter name="group_day" string="Day" context="{'group_by': 'shift_date:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_mes_run_analysis_pivot" model="ir.ui.view">
+        <field name="name">mes.performance.running.analysis.pivot</field>
+        <field name="model">mes.performance.running</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <pivot string="Running By Product">
+                <field name="workcenter_id" type="row"/>
+                <field name="product_id" type="row"/>
+                <field name="duration" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_mes_run_analysis_tree" model="ir.ui.view">
+        <field name="name">mes.performance.running.analysis.tree</field>
+        <field name="model">mes.performance.running</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <tree string="Running" create="0" edit="0" delete="0">
+                <field name="start_time"/>
+                <field name="end_time"/>
+                <field name="workcenter_id"/>
+                <field name="product_id"/>
+                <field name="operator_id"/>
+                <field name="loss_id"/>
+                <field name="duration" sum="Total"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_mes_run_analysis" model="ir.actions.act_window">
+        <field name="name">Running By Product</field>
+        <field name="res_model">mes.performance.running</field>
+        <field name="view_mode">pivot,tree</field>
+        <field name="search_view_id" ref="view_mes_run_analysis_search"/>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_mes_run_analysis_pivot')}),
+            (0, 0, {'view_mode': 'tree', 'view_id': ref('view_mes_run_analysis_tree')})]"/>
+        <field name="context">{'search_default_shift_date': 1}</field>
+    </record>
+
+</odoo>

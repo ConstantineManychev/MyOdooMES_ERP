@@ -1,10 +1,17 @@
-from odoo import models, fields, api
+from odoo import models, fields, api, _
 from datetime import datetime, time, timedelta
 import pytz
 
 class MesReportBaseWizard(models.TransientModel):
     _name = 'mes.report.base.wizard'
     _description = 'Base SKD Report Engine'
+
+    row_by_stream = fields.Boolean("Stream (Rows)", default=False)
+    col_by_stream = fields.Boolean("Stream (Columns)", default=False)
+    row_by_part = fields.Boolean("Part (Rows)", default=False)
+    col_by_part = fields.Boolean("Part (Columns)", default=False)
+    row_by_piece = fields.Boolean("Piece (Rows)", default=False)
+    col_by_piece = fields.Boolean("Piece (Columns)", default=False)
 
     start_datetime = fields.Datetime(string="Start Date & Time", required=True)
     end_datetime = fields.Datetime(string="End Date & Time", required=True)
@@ -20,7 +27,7 @@ class MesReportBaseWizard(models.TransientModel):
         ('day', 'By Logical Day'),
         ('month', 'By Month'),
         ('period', 'Entire Selected Period')
-    ], string="Time Aggregation", default='month', required=True)
+    ], string="Time Aggregation", default='shift', required=True)
 
     record_limit = fields.Integer(default=0)    
 
@@ -30,10 +37,10 @@ class MesReportBaseWizard(models.TransientModel):
             required=True
         )
 
-    row_by_machine = fields.Boolean("Machine", default=True)
-    row_by_period = fields.Boolean("Period", default=False)
-    col_by_machine = fields.Boolean("Machine", default=False)
-    col_by_period = fields.Boolean("Period", default=True)
+    row_by_machine = fields.Boolean("Machine (Rows)", default=True)
+    row_by_period = fields.Boolean("Period (Rows)", default=False)
+    col_by_machine = fields.Boolean("Machine (Columns)", default=False)
+    col_by_period = fields.Boolean("Period (Columns)", default=True)
 
     @api.model
     def default_get(self, fields_list):
@@ -143,10 +150,30 @@ class MesReportBaseWizard(models.TransientModel):
             else: merged.append(current)
         return merged
 
+    def _structure_labels(self, record):
+        return {
+            'stream': record.stream_id.name if record and record.stream_id else _('No stream'),
+            'part': record.part_id.name if record and record.part_id else _('No part'),
+            'piece': record.piece_id.name if record and record.piece_id else _('No piece'),
+        }
+
+    def _structure_label_parts(self, labels, axis):
+        prefix = 'row' if axis == 'row' else 'col'
+        parts = []
+        if getattr(self, f'{prefix}_by_stream'):
+            parts.append(labels['stream'])
+        if getattr(self, f'{prefix}_by_part'):
+            parts.append(labels['part'])
+        if getattr(self, f'{prefix}_by_piece'):
+            parts.append(labels['piece'])
+        return parts
+
     def _build_skd_context(self, measures):
         return {
             'pivot_row_groupby': ['row_group_label'],
             'pivot_column_groupby': ['col_group_label'],
+            'graph_groupbys': ['period_name', 'row_group_label'],
+            'graph_measure': measures[0] if measures else 'frequency',
             'pivot_measures': measures,
         }
 

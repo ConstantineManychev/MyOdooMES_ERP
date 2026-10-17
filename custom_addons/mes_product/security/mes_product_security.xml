@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="rule_mes_production_run_multi_company" model="ir.rule">
+        <field name="name">Production Runs: Multi-Company</field>
+        <field name="model_id" ref="model_mes_production_run"/>
+        <field name="global" eval="True"/>
+        <field name="domain_force">['|', ('workcenter_id', '=', False), '|', ('workcenter_id.company_id', '=', False), ('workcenter_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_mes_product_override_multi_company" model="ir.rule">
+        <field name="name">Product Plans And Corrections: Multi-Company</field>
+        <field name="model_id" ref="model_mes_product_override"/>
+        <field name="global" eval="True"/>
+        <field name="domain_force">['|', ('workcenter_id', '=', False), '|', ('workcenter_id.company_id', '=', False), ('workcenter_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_mes_signature_interval_multi_company" model="ir.rule">
+        <field name="name">Signature Intervals: Multi-Company</field>
+        <field name="model_id" ref="model_mes_signature_interval"/>
+        <field name="global" eval="True"/>
+        <field name="domain_force">['|', ('workcenter_id', '=', False), '|', ('workcenter_id.company_id', '=', False), ('workcenter_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_mes_signature_alias_multi_company" model="ir.rule">
+        <field name="name">Raw Machine Values: Multi-Company</field>
+        <field name="model_id" ref="model_mes_signature_alias"/>
+        <field name="global" eval="True"/>
+        <field name="domain_force">['|', ('workcenter_id', '=', False), '|', ('workcenter_id.company_id', '=', False), ('workcenter_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_mes_workcenter_signature_line_multi_company" model="ir.rule">
+        <field name="name">Signature Processes: Multi-Company</field>
+        <field name="model_id" ref="model_mes_workcenter_signature_line"/>
+        <field name="global" eval="True"/>
+        <field name="domain_force">['|', ('workcenter_id', '=', False), '|', ('workcenter_id.company_id', '=', False), ('workcenter_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_mes_workcenter_product_config_multi_company" model="ir.rule">
+        <field name="name">Machine Configuration History: Multi-Company</field>
+        <field name="model_id" ref="model_mes_workcenter_product_config"/>
+        <field name="global" eval="True"/>
+        <field name="domain_force">['|', ('workcenter_id', '=', False), '|', ('workcenter_id.company_id', '=', False), ('workcenter_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_mes_product_oee_multi_company" model="ir.rule">
+        <field name="name">OEE By Product: Multi-Company</field>
+        <field name="model_id" ref="model_mes_product_oee"/>
+        <field name="global" eval="True"/>
+        <field name="domain_force">['|', ('performance_id.company_id', '=', False), ('performance_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_mes_performance_product_line_multi_company" model="ir.rule">
+        <field name="name">Products In A Shift: Multi-Company</field>
+        <field name="model_id" ref="model_mes_performance_product_line"/>
+        <field name="global" eval="True"/>
+        <field name="domain_force">['|', ('performance_id.company_id', '=', False), ('performance_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+</odoo>

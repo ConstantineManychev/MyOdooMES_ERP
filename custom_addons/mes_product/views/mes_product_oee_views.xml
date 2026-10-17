@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mes_product_oee_search" model="ir.ui.view">
+        <field name="name">mes.product.oee.search</field>
+        <field name="model">mes.product.oee</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="workcenter_id"/>
+                <field name="product_id"/>
+                <field name="operator_id"/>
+                <field name="stream_id"/>
+                <field name="part_id"/>
+                <filter name="shift_date" string="Shift Date" date="shift_date"/>
+                <group expand="1" string="Group By">
+                    <filter name="group_workcenter" string="Machine" context="{'group_by': 'workcenter_id'}"/>
+                    <filter name="group_product" string="Product" context="{'group_by': 'product_id'}"/>
+                    <filter name="group_operator" string="Operator" context="{'group_by': 'operator_id'}"/>
+                    <filter name="group_stream" string="Stream" context="{'group_by': 'stream_id'}"/>
+                    <filter name="group_part" string="Part" context="{'group_by': 'part_id'}"/>
+                    <filter name="group_shift" string="Shift" context="{'group_by': 'shift_id'}"/>
+                    <filter name="group_day" string="Day" context="{'group_by': 'shift_date:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_mes_product_oee_pivot" model="ir.ui.view">
+        <field name="name">mes.product.oee.pivot</field>
+        <field name="model">mes.product.oee</field>
+        <field name="arch" type="xml">
+            <pivot string="OEE By Product" disable_linking="1">
+                <field name="workcenter_id" type="row"/>
+                <field name="product_id" type="row"/>
+                <field name="oee" type="measure"/>
+                <field name="downtime_loss" type="measure"/>
+                <field name="waste_loss" type="measure"/>
+                <field name="good_qty" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_mes_product_oee_graph" model="ir.ui.view">
+        <field name="name">mes.product.oee.graph</field>
+        <field name="model">mes.product.oee</field>
+        <field name="arch" type="xml">
+            <graph string="OEE By Product" type="bar">
+                <field name="product_id"/>
+                <field name="oee" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="action_mes_product_oee" model="ir.actions.act_window">
+        <field name="name">OEE By Product</field>
+        <field name="res_model">mes.product.oee</field>
+        <field name="view_mode">pivot,graph</field>
+        <field name="search_view_id" ref="view_mes_product_oee_search"/>
+        <field name="context">{'search_default_shift_date': 1}</field>
+        <field name="help" type="html">
+            <p>Closed shifts appear here about half an hour after they end.</p>
+            <p>Stream and part rows show their share of the machine's losses and how many points of
+                OEE they cost.</p>
+        </field>
+    </record>
+
+</odoo>

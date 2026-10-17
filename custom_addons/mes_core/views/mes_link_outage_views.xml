@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mes_link_outage_tree" model="ir.ui.view">
+        <field name="name">mes.link.outage.tree</field>
+        <field name="model">mes.link.outage</field>
+        <field name="arch" type="xml">
+            <tree string="Data Gaps" create="0" edit="0"
+                  decoration-danger="state == 'ongoing'"
+                  decoration-warning="state in ('lost', 'checking')"
+                  decoration-muted="state in ('recovered', 'planned')">
+                <field name="workcenter_id"/>
+                <field name="cause"/>
+                <field name="date_start"/>
+                <field name="date_end"/>
+                <field name="duration_minutes"/>
+                <field name="state" widget="badge"
+                       decoration-danger="state == 'ongoing'"
+                       decoration-warning="state in ('lost', 'checking')"
+                       decoration-success="state == 'recovered'"
+                       decoration-muted="state == 'planned'"/>
+                <field name="counts_cut" optional="show"/>
+                <field name="under_planned" optional="show"/>
+                <field name="reading_kept" optional="hide"/>
+                <field name="alerted_at" optional="hide"/>
+                <field name="loss_notified" optional="hide"/>
+                <field name="restore_notified" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_link_outage_search" model="ir.ui.view">
+        <field name="name">mes.link.outage.search</field>
+        <field name="model">mes.link.outage</field>
+        <field name="arch" type="xml">
+            <search string="Data Gaps">
+                <field name="workcenter_id"/>
+                <filter name="logger" string="Logger Not Responding" domain="[('cause', '=', 'logger')]"/>
+                <filter name="ads" string="PLC Not Readable" domain="[('cause', '=', 'ads')]"/>
+                <separator/>
+                <filter name="ongoing" string="Ongoing" domain="[('state', '=', 'ongoing')]"/>
+                <filter name="lost" string="Data Lost" domain="[('state', '=', 'lost')]"/>
+                <filter name="recovered" string="Data Recovered" domain="[('state', '=', 'recovered')]"/>
+                <filter name="planned" string="During Planned Downtime" domain="[('state', '=', 'planned')]"/>
+                <filter name="reported" string="Reported" domain="[('state', '!=', 'planned')]"/>
+                <separator/>
+                <filter name="date_start" string="Date" date="date_start"/>
+                <group expand="1" string="Group By">
+                    <filter name="group_machine" string="Machine" context="{'group_by': 'workcenter_id'}"/>
+                    <filter name="group_cause" string="What Failed" context="{'group_by': 'cause'}"/>
+                    <filter name="group_state" string="Result" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mes_link_outage" model="ir.actions.act_window">
+        <field name="name">Data Gaps</field>
+        <field name="res_model">mes.link.outage</field>
+        <field name="view_mode">tree</field>
+        <field name="search_view_id" ref="view_mes_link_outage_search"/>
+        <field name="context">{'search_default_reported': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No data gaps recorded</p>
+            <p>A machine appears here when its logger stops reporting, or keeps reporting but cannot read the PLC, for longer than the limit in the MES settings.</p>
+        </field>
+    </record>
+
+</odoo>

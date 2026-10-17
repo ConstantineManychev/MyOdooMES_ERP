@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mes_product_analysis_wizard_form" model="ir.ui.view">
+        <field name="name">mes.product.analysis.wizard.form</field>
+        <field name="model">mes.product.analysis.wizard</field>
+        <field name="inherit_id" ref="mes_core.view_mes_report_base_form"/>
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='skd_filters']" position="inside">
+                <field name="product_ids" widget="many2many_tags" options="{'no_create': True}"
+                       placeholder="All products"/>
+            </xpath>
+            <xpath expr="//group[@name='row_group']" position="inside">
+                <field name="row_by_product" string="Product"/>
+                <field name="row_by_employee" string="Operator"/>
+                <field name="row_by_event" string="Stop Reason"/>
+            </xpath>
+            <xpath expr="//group[@name='col_group']" position="inside">
+                <field name="col_by_product" string="Product"/>
+                <field name="col_by_employee" string="Operator"/>
+                <field name="col_by_event" string="Stop Reason"/>
+            </xpath>
+            <xpath expr="//page[@name='measures_page']" position="inside">
+                <group>
+                    <group>
+                        <field name="show_frequency"/>
+                        <field name="show_freq_per_hour"/>
+                        <field name="show_total_time"/>
+                        <field name="show_avg_time_per_stop"/>
+                    </group>
+                    <group>
+                        <field name="show_time_per_hour"/>
+                        <field name="show_run_hours"/>
+                        <field name="show_slow_time"/>
+                    </group>
+                </group>
+                <p class="text-muted">
+                    Rates are per hour of running on the same product, machine and operator, so products
+                    and operators can be compared fairly even when they ran for different times.
+                </p>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mes_product_analysis_line_pivot" model="ir.ui.view">
+        <field name="name">mes.product.analysis.line.pivot</field>
+        <field name="model">mes.product.analysis.line</field>
+        <field name="arch" type="xml">
+            <pivot string="Product Analysis" disable_linking="1">
+                <field name="row_group_label" type="row"/>
+                <field name="col_group_label" type="col"/>
+                <field name="frequency" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_mes_product_analysis_line_graph" model="ir.ui.view">
+        <field name="name">mes.product.analysis.line.graph</field>
+        <field name="model">mes.product.analysis.line</field>
+        <field name="arch" type="xml">
+            <graph string="Product Analysis" type="bar">
+                <field name="row_group_label"/>
+                <field name="frequency" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_mes_product_analysis_line_tree" model="ir.ui.view">
+        <field name="name">mes.product.analysis.line.tree</field>
+        <field name="model">mes.product.analysis.line</field>
+        <field name="arch" type="xml">
+            <tree string="Product Analysis" create="0" edit="0">
+                <field name="row_group_label"/>
+                <field name="col_group_label"/>
+                <field name="frequency" sum="Total"/>
+                <field name="freq_per_hour"/>
+                <field name="total_time" sum="Total"/>
+                <field name="avg_time_per_stop" optional="hide"/>
+                <field name="time_per_hour" optional="hide"/>
+                <field name="run_hours" sum="Total"/>
+                <field name="slow_time" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_mes_product_analysis_wizard" model="ir.actions.act_window">
+        <field name="name">Product Analysis</field>
+        <field name="res_model">mes.product.analysis.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_mes_product_analysis_wizard_form"/>
+        <field name="target">new</field>
+    </record>
+
+</odoo>

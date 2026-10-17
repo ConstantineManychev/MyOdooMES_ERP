@@ -1,0 +1,1686 @@
+.o_mes_kiosk {
+    --mes-kiosk-bg: #0f172a;
+    --mes-kiosk-surface: #1e293b;
+    --mes-kiosk-surface-2: #273449;
+    --mes-kiosk-text: #e2e8f0;
+    --mes-kiosk-muted: #94a3b8;
+    --mes-kiosk-accent: #22d3ee;
+    --mes-kiosk-danger: #ef4444;
+    --mes-kiosk-warning: #f59e0b;
+    --mes-kiosk-success: #22c55e;
+
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 9999;
+    background: var(--mes-kiosk-bg);
+    color: var(--mes-kiosk-text);
+    font-family: 'Inter', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.o_mes_kiosk_header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background: var(--mes-kiosk-surface);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.o_mes_kiosk_machine_name {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.o_mes_kiosk_header_sessions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex: 1 1 0;
+    justify-content: flex-end;
+}
+
+.o_mes_kiosk_header_title {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.o_mes_kiosk_header_center {
+    flex: 0 1 auto;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    min-width: 0;
+    padding: 0 1rem;
+}
+
+.o_mes_kiosk_header_badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    min-width: 0;
+    padding: 0.35rem 1rem;
+    border-radius: 0.6rem;
+    border: 1px solid var(--mes-kiosk-border);
+}
+
+.o_mes_badge_title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--mes-kiosk-muted);
+}
+
+.o_mes_badge_name {
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.o_mes_badge_details {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.3rem;
+    margin-top: 0.2rem;
+}
+
+.o_mes_badge_detail {
+    font-size: 0.8rem;
+    padding: 0.05rem 0.5rem;
+    border-radius: 1rem;
+    background: var(--mes-kiosk-surface-2, rgba(255, 255, 255, 0.06));
+    color: var(--mes-kiosk-text);
+    white-space: nowrap;
+}
+
+.o_mes_badge_note {
+    font-size: 0.75rem;
+    color: var(--mes-kiosk-muted);
+    margin-top: 0.15rem;
+    max-width: 28rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.o_mes_badge_manual {
+    border-color: var(--mes-kiosk-accent);
+}
+
+.o_mes_badge_warning {
+    border-color: var(--mes-kiosk-warning);
+
+    .o_mes_badge_name {
+        color: var(--mes-kiosk-warning);
+    }
+}
+
+.o_mes_kiosk_session_chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.o_mes_chip_operator { border-left: 3px solid var(--mes-kiosk-accent); }
+.o_mes_chip_supervisor { border-left: 3px solid var(--mes-kiosk-warning); }
+.o_mes_chip_technician { border-left: 3px solid var(--mes-kiosk-success); }
+
+.o_mes_kiosk_main {
+    flex: 1;
+    min-height: 0;
+    padding: 1.25rem 2rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    display: grid;
+    grid-template-columns: 220px 1fr 220px;
+    grid-template-rows: auto 1fr;
+    gap: 1rem;
+    align-items: start;
+}
+
+.o_mes_kiosk_metrics_left,
+.o_mes_kiosk_metrics_right {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.o_mes_kiosk_metrics_left { grid-column: 1; grid-row: 1 / span 2; }
+.o_mes_kiosk_metrics_right { grid-column: 3; grid-row: 1 / span 2; }
+
+.o_mes_kiosk_chart_area { grid-column: 2; grid-row: 1 / span 2; }
+
+.o_mes_metric {
+    background: var(--mes-kiosk-surface);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    text-align: center;
+}
+
+.o_mes_metric_label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--mes-kiosk-muted);
+    letter-spacing: 0.08em;
+}
+
+.o_mes_metric_value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--mes-kiosk-accent);
+    margin-top: 0.4rem;
+}
+
+.o_mes_metric_loss .o_mes_metric_value { color: var(--mes-kiosk-warning); }
+
+.o_mes_kiosk_help_button {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: var(--mes-kiosk-danger);
+    color: white;
+    font-size: 1.05rem;
+    font-weight: 700;
+    padding: 0.8rem 1.5rem;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+    z-index: 100;
+}
+
+.o_mes_kiosk_help_button:hover:not(:disabled) { opacity: 0.92; }
+.o_mes_kiosk_help_button:disabled {
+    background: #475569;
+    cursor: not-allowed;
+    opacity: 0.55;
+    box-shadow: none;
+}
+
+.o_mes_kiosk_help_panel {
+    grid-column: 1 / span 3;
+    background: var(--mes-kiosk-surface);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.o_mes_kiosk_help_header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.o_mes_kiosk_help_state {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.85rem;
+}
+
+.o_mes_kiosk_help_buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.o_mes_kiosk_subtask_box,
+.o_mes_kiosk_confirm_box {
+    background: rgba(255, 255, 255, 0.04);
+    padding: 0.75rem;
+    border-radius: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    width: 100%;
+}
+
+.o_mes_kiosk_confirm_pending {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    width: 100%;
+    font-size: 0.9rem;
+}
+
+.o_mes_kiosk_modal_backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    z-index: 10000;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 1rem;
+}
+
+.o_mes_kiosk_modal {
+    background: var(--mes-kiosk-surface);
+    border-radius: 16px;
+    padding: 2rem;
+    width: 90%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: auto;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.o_mes_kiosk_stream_canvas {
+    max-width: 100%;
+    flex: 0 0 auto;
+}
+
+.o_mes_kiosk_modal h2 {
+    margin: 0 0 0.5rem;
+    color: var(--mes-kiosk-text);
+}
+
+.o_mes_kiosk_modal label {
+    font-size: 0.85rem;
+    color: var(--mes-kiosk-muted);
+    margin-top: 0.5rem;
+}
+
+.o_mes_kiosk_modal input,
+.o_mes_kiosk_modal textarea,
+.o_mes_kiosk_modal select {
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--mes-kiosk-text);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    font-size: 1rem;
+    width: 100%;
+
+    option {
+        background: #1e293b;
+        color: #e2e8f0;
+    }
+
+    &:focus {
+        outline: none;
+        border-color: var(--mes-kiosk-accent);
+        box-shadow: 0 0 0 0.2rem rgba(34, 211, 238, 0.15);
+        background: rgba(0, 0, 0, 0.35);
+    }
+}
+
+.o_mes_kiosk_modal_actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.o_mes_kiosk_error {
+    color: var(--mes-kiosk-danger);
+    background: rgba(239, 68, 68, 0.1);
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+}
+
+.o_mes_kiosk_reason_summary {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.75rem;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.o_mes_kiosk_charts_panel {
+    background: var(--mes-kiosk-surface);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100%;
+    min-height: 480px;
+}
+
+.o_mes_kiosk_chart_controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.o_mes_kiosk_select {
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--mes-kiosk-text);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.9rem;
+
+    option {
+        background: #1e293b;
+        color: #e2e8f0;
+    }
+}
+
+.o_mes_kiosk_chart_mode_toggle {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.o_mes_kiosk_related_badge {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.o_mes_kiosk_related_badge .badge {
+    background: rgba(34, 211, 238, 0.15);
+    color: var(--mes-kiosk-accent);
+    border: 1px solid rgba(34, 211, 238, 0.3);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.o_mes_kiosk_chart_block {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.o_mes_kiosk_timeline_bar {
+    height: 24px;
+    margin-top: 6px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+.o_mes_kiosk_tl_block {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    border-right: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.o_mes_kiosk_canvas_wrap {
+    flex: 1;
+    min-height: 220px;
+    position: relative;
+}
+
+.o_mes_kiosk_canvas_wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.o_mes_kiosk_chart_loading,
+.o_mes_kiosk_chart_error {
+    color: var(--mes-kiosk-muted);
+    padding: 1rem;
+    text-align: center;
+}
+
+.o_mes_kiosk_chart_error { color: var(--mes-kiosk-danger); }
+
+.o_mes_kiosk_label {
+    font-size: 0.75rem;
+    color: var(--mes-kiosk-muted);
+    text-transform: uppercase;
+}
+
+.o_mes_kiosk_value {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.o_mes_metric_clickable {
+    cursor: pointer;
+    transition: transform 0.1s, background-color 0.15s;
+    &:hover {
+        transform: translateY(-2px);
+        background-color: rgba(34, 211, 238, 0.08);
+    }
+}
+
+.o_mes_kiosk_loss_modal {
+    min-width: 600px;
+    max-width: 900px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.o_mes_kiosk_loss_tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.o_mes_kiosk_wheel_total {
+    margin-left: 4px;
+    opacity: 0.7;
+    font-size: 0.85em;
+}
+
+.o_mes_kiosk_loss_body {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.o_mes_kiosk_loss_table {
+    color: #e2e8f0;
+    margin-top: 0;
+    th, td { padding: 8px 12px; }
+    thead {
+        position: sticky;
+        top: 0;
+        background: #1e293b;
+        z-index: 1;
+    }
+    thead th {
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+        cursor: pointer;
+        user-select: none;
+        &:hover { background: rgba(255, 255, 255, 0.05); }
+    }
+    tbody tr { border-bottom: 1px solid rgba(255,255,255,0.05); }
+}
+
+.o_mes_kiosk_loss_row_clickable {
+    cursor: pointer;
+    &:hover { background-color: rgba(34, 211, 238, 0.1); }
+}
+
+.o_mes_kiosk_status_bar {
+    padding: 12px 20px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    transition: filter 0.15s;
+    &:hover { filter: brightness(1.1); }
+}
+
+.o_mes_kiosk_status_label {
+    font-size: 0.85em;
+    font-weight: 700;
+    padding: 2px 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+    letter-spacing: 0.05em;
+}
+
+.o_mes_kiosk_status_name {
+    font-weight: 600;
+    flex: 0 0 auto;
+}
+
+.o_mes_kiosk_status_comment {
+    flex: 1;
+    font-style: italic;
+    opacity: 0.95;
+}
+
+.o_mes_kiosk_status_hint {
+    flex: 1;
+    font-size: 0.9em;
+    opacity: 0.7;
+    text-align: right;
+}
+
+.o_mes_kiosk_timeline_clickable {
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+    &:hover { box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.6); }
+}
+
+.o_mes_kiosk_timeline_modal {
+    min-width: 720px;
+    max-width: 1100px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.o_mes_kiosk_comment_modal {
+    min-width: 480px;
+    max-width: 640px;
+    textarea { resize: vertical; margin: 12px 0; }
+}
+
+.o_mes_kiosk_stream_bar {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    margin-top: 0.75rem;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.o_mes_kiosk_stream_hint {
+    color: var(--mes-kiosk-muted);
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.o_mes_kiosk_stream_buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.o_mes_kiosk_stream_events {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.o_mes_kiosk_stream_event {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--mes-kiosk-surface-2);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--mes-kiosk-text);
+
+    &:hover:not(:disabled) {
+        border-color: var(--mes-kiosk-accent);
+        color: var(--mes-kiosk-accent);
+    }
+}
+
+.o_mes_kiosk_stream_event_dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.o_mes_prev_shift_card {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    margin-top: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.15s;
+    &:hover { background: rgba(34, 211, 238, 0.12); }
+}
+
+.o_mes_prev_shift_title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    opacity: 0.75;
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.o_mes_prev_shift_grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.3rem 0.6rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.o_mes_prev_lbl {
+    opacity: 0.6;
+    font-size: 0.8em;
+    font-weight: 400;
+}
+
+.o_mes_kiosk_compare_modal {
+    min-width: 640px;
+    max-width: 900px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.o_mes_kiosk {
+    .text-muted { color: #94a3b8 !important; }
+    .text-secondary { color: #cbd5e1 !important; }
+
+    .table,
+    .table td,
+    .table th {
+        color: #e2e8f0;
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    .table > :not(caption) > * > * {
+        background-color: transparent;
+        color: #e2e8f0;
+    }
+
+    .form-control,
+    .form-select,
+    textarea.form-control {
+        background: rgba(0, 0, 0, 0.25);
+        color: #e2e8f0;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        &::placeholder { color: #94a3b8; }
+        &:focus {
+            background: rgba(0, 0, 0, 0.3);
+            color: #e2e8f0;
+            border-color: var(--mes-kiosk-accent);
+            box-shadow: 0 0 0 0.2rem rgba(34, 211, 238, 0.15);
+        }
+    }
+
+    select.form-select,
+    .o_mes_kiosk_modal select {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23e2e8f0' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 16px 12px;
+        padding-right: 2.25rem;
+        option {
+            background: #1e293b;
+            color: #e2e8f0;
+        }
+    }
+
+    .badge.bg-light,
+    .badge.text-dark { color: #0f172a !important; }
+
+    .btn-outline-secondary {
+        color: #cbd5e1;
+        border-color: rgba(255, 255, 255, 0.2);
+        &:hover { color: #0f172a; background: #cbd5e1; }
+    }
+
+    .text-danger { color: #f87171 !important; }
+    .text-success { color: #4ade80 !important; }
+    .text-warning { color: #fbbf24 !important; }
+}
+
+.o_mes_kiosk .o_mes_kiosk_modal {
+    h1, h2, h3, h4, h5, h6 {
+        color: var(--mes-kiosk-text);
+    }
+}
+
+.o_mes_kiosk_reason_edit {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+
+    label {
+        font-size: 0.8rem;
+        color: var(--mes-kiosk-muted);
+    }
+
+    input {
+        background: rgba(0, 0, 0, 0.25);
+        color: var(--mes-kiosk-text);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        padding: 0.4rem 0.6rem;
+        width: 100%;
+    }
+}
+
+.o_mes_layout_backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1060;
+}
+
+.o_mes_layout_dialog {
+    background: #ffffff;
+    color: #212529;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    max-width: 95vw;
+    max-height: 95vh;
+    overflow: auto;
+}
+
+.o_mes_layout_canvas {
+    position: relative;
+    border: 1px dashed #adb5bd;
+    border-radius: 6px;
+    background: #f8f9fa;
+    max-width: 90vw;
+    max-height: 70vh;
+    overflow: auto;
+    flex: 0 0 auto;
+}
+
+.o_mes_layout_item {
+    position: absolute;
+    cursor: move;
+    user-select: none;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    background: #ffffff;
+    overflow: hidden;
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        pointer-events: none;
+    }
+}
+
+.o_mes_layout_item_label {
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 0.25rem;
+}
+
+.o_mes_layout_actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.o_mes_kiosk_stream_canvas {
+    position: relative;
+    margin: 0 auto;
+    max-width: 100%;
+}
+
+.o_mes_kiosk_stream_button {
+    position: absolute;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: var(--mes-kiosk-surface-2);
+    color: var(--mes-kiosk-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        pointer-events: none;
+    }
+
+    &:hover:not(:disabled) {
+        border-color: var(--mes-kiosk-accent);
+    }
+}
+
+.o_mes_kiosk_scan_hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.6rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    color: var(--mes-kiosk-muted);
+    font-size: 0.8rem;
+
+    &.o_mes_scan_nfc {
+        color: var(--mes-kiosk-accent);
+        border-color: var(--mes-kiosk-accent);
+    }
+}
+
+.o_mes_kiosk_scan_hint {
+    cursor: pointer;
+
+    &.o_mes_scan_off {
+        color: var(--mes-kiosk-danger);
+        border-color: var(--mes-kiosk-danger);
+        opacity: 0.85;
+    }
+}
+
+.o_mes_help_badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid var(--mes-kiosk-danger);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    color: var(--mes-kiosk-text);
+}
+
+.o_mes_help_badge_count {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--mes-kiosk-danger);
+}
+
+.o_mes_help_badge_label {
+    font-size: 0.8rem;
+    color: var(--mes-kiosk-muted);
+}
+
+.o_mes_help_group {
+    margin-bottom: 0.75rem;
+}
+
+.o_mes_help_group_title {
+    font-weight: 600;
+    color: var(--mes-kiosk-accent);
+    margin-bottom: 0.25rem;
+}
+
+.o_mes_kiosk_custom_chart_modal {
+    width: 90vw;
+    max-width: 1200px;
+    max-height: 90vh;
+    overflow: auto;
+}
+
+.o_mes_kiosk_chart_ctl_label {
+    font-size: 0.75rem;
+    color: var(--mes-kiosk-muted);
+    margin: 0 0.25rem 0 0.5rem;
+}
+
+.o_mes_kiosk_custom_controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.o_mes_kiosk_slider_row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.o_mes_kiosk_slider {
+    flex: 1;
+    accent-color: var(--mes-kiosk-accent);
+    min-width: 160px;
+}
+
+.o_mes_kiosk_confirm_banner {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid var(--mes-kiosk-warning);
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.75rem;
+    color: var(--mes-kiosk-text);
+}
+
+.o_mes_confirm_dock {
+    position: fixed;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: #{"min(900px, 96vw)"};
+    max-height: 45vh;
+    overflow-y: auto;
+    background: var(--mes-kiosk-surface);
+    border: 1px solid var(--mes-kiosk-warning);
+    border-bottom: none;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.45);
+    padding: 0.75rem 1rem 1rem;
+    z-index: 1040;
+}
+
+.o_mes_confirm_dock_head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.o_mes_confirm_dock_title {
+    font-weight: 600;
+    color: var(--mes-kiosk-warning);
+}
+
+.o_mes_confirm_dock_queue {
+    font-size: 0.8rem;
+    color: var(--mes-kiosk-muted);
+    white-space: nowrap;
+}
+
+.o_mes_status_name {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 4px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.o_mes_prev_shift_window {
+    font-size: 0.72rem;
+    color: var(--mes-kiosk-muted);
+    margin-bottom: 0.3rem;
+}
+
+.o_mes_pdt_button {
+    margin-left: 0.75rem;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.o_mes_kiosk_tl_overlay {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-right: 1px solid #ffffff;
+}
+
+.o_mes_tl_group_head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.25rem 0;
+}
+
+.o_mes_tl_group_swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.o_mes_tl_group_toggle {
+    width: 1.2rem;
+    text-align: center;
+    font-family: monospace;
+}
+
+.o_mes_tl_child_row td:first-child {
+    padding-left: 1.8rem;
+}
+
+.o_mes_work_summary {
+    background: rgba(34, 211, 238, 0.1);
+    border-left: 3px solid var(--mes-kiosk-accent);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.o_mes_work_summary_title {
+    font-size: 0.8rem;
+    color: var(--mes-kiosk-muted);
+    margin-bottom: 0.2rem;
+}
+
+.o_mes_work_summary_text {
+    white-space: pre-wrap;
+}
+
+.o_mes_unknown_tag_modal {
+    min-width: 420px;
+    max-width: 560px;
+    text-align: center;
+}
+
+.o_mes_unknown_tag_uid {
+    font-family: monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--mes-kiosk-warning);
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid var(--mes-kiosk-warning);
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    margin: 0.75rem 0;
+    user-select: all;
+}
+
+.o_mes_unknown_tag_alt {
+    font-size: 0.8rem;
+    color: var(--mes-kiosk-muted);
+    margin-bottom: 0.5rem;
+}
+
+.o_mes_unknown_tag_chip {
+    display: inline-block;
+    font-family: monospace;
+    background: var(--mes-kiosk-surface-2);
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+    margin: 0 0.15rem;
+}
+
+@media (orientation: portrait) {
+
+    .o_mes_kiosk_main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+        align-content: start;
+    }
+
+    .o_mes_kiosk_metrics_left {
+        grid-column: 1;
+        grid-row: 1;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+
+    .o_mes_kiosk_chart_area {
+        grid-column: 1;
+        grid-row: 2;
+        min-height: 0;
+    }
+
+    .o_mes_kiosk_metrics_right {
+        grid-column: 1;
+        grid-row: 3;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+
+    .o_mes_kiosk_metrics_left > *,
+    .o_mes_kiosk_metrics_right > * {
+        flex: 1 1 30%;
+        min-width: 0;
+    }
+
+    .o_mes_kiosk_metrics_left .o_mes_prev_shift_card,
+    .o_mes_kiosk_metrics_right .o_mes_prev_shift_card {
+        flex-basis: 100%;
+    }
+}
+
+@media (max-height: 820px), (max-width: 1200px) {
+
+    .o_mes_kiosk {
+        font-size: 0.9rem;
+    }
+
+    .o_mes_kiosk_header {
+        padding: 0.5rem 1rem;
+    }
+
+    .o_mes_kiosk_machine_name {
+        font-size: 1.4rem;
+    }
+
+    .o_mes_kiosk_main {
+        padding: 0.6rem 1rem;
+        gap: 0.6rem;
+        grid-template-columns: 180px 1fr 180px;
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+
+    .o_mes_kiosk_metrics_left,
+    .o_mes_kiosk_metrics_right {
+        gap: 0.5rem;
+    }
+
+    .o_mes_metric {
+        padding: 0.5rem 0.6rem;
+    }
+
+    .o_mes_metric_value {
+        font-size: 1.5rem;
+    }
+
+    .o_mes_kiosk_status_bar {
+        padding: 0.5rem 1rem;
+    }
+
+    .o_mes_kiosk_canvas_wrap {
+        min-height: 180px;
+    }
+}
+
+@media (orientation: portrait) and (max-width: 1200px) {
+
+    .o_mes_kiosk_main {
+        grid-template-columns: 1fr;
+    }
+
+    .o_mes_metric_value {
+        font-size: 1.3rem;
+    }
+}
+
+.o_mes_kiosk_scan_status {
+    max-width: 22rem;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    color: var(--mes-kiosk-warning);
+}
+
+@media (max-height: 900px), (max-width: 1280px) {
+
+    .o_mes_kiosk_charts_panel {
+        min-height: 260px;
+        padding: 0.6rem 0.75rem;
+        gap: 0.5rem;
+    }
+
+    .o_mes_kiosk_canvas_wrap {
+        min-height: 160px;
+    }
+
+    .o_mes_kiosk_machine_name {
+        font-size: 1.2rem;
+    }
+
+    .o_mes_kiosk_header_center {
+        padding: 0 0.5rem;
+    }
+
+    .o_mes_kiosk_header_badge {
+        padding: 0.2rem 0.6rem;
+    }
+
+    .o_mes_badge_name {
+        font-size: 1rem;
+    }
+
+    .o_mes_badge_detail {
+        font-size: 0.7rem;
+    }
+
+    .o_mes_kiosk_header {
+        padding: 0.4rem 0.75rem;
+        gap: 0.5rem;
+    }
+
+    .o_mes_kiosk_session_chip {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    .o_mes_kiosk_scan_hint {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .o_mes_kiosk_scan_status {
+        max-width: 14rem;
+        font-size: 0.7rem;
+    }
+
+    .o_mes_pdt_button {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+    }
+
+    .o_mes_kiosk_help_button {
+        font-size: 0.85rem;
+        padding: 0.5rem 0.9rem;
+        bottom: 0.75rem;
+        right: 0.75rem;
+    }
+
+    .o_mes_kiosk_select {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.4rem;
+    }
+
+    .o_mes_kiosk_chart_controls {
+        gap: 0.35rem;
+    }
+
+    .o_mes_metric {
+        padding: 0.4rem 0.5rem;
+    }
+
+    .o_mes_metric_label {
+        font-size: 0.65rem;
+    }
+
+    .o_mes_metric_value {
+        font-size: 1.2rem;
+        margin-top: 0.2rem;
+    }
+}
+
+@media (orientation: portrait) {
+
+    .o_mes_kiosk_main {
+        padding-bottom: 0.6rem;
+    }
+
+    .o_mes_kiosk_help_button {
+        position: static;
+        display: block;
+        width: 100%;
+        margin: 0.6rem 0 0 0;
+        border-radius: 10px;
+        box-shadow: none;
+        order: 99;
+        flex: 0 0 auto;
+    }
+
+    .o_mes_kiosk_chart_area {
+        min-height: 260px;
+    }
+
+    .o_mes_kiosk_canvas_wrap {
+        min-height: 200px;
+    }
+}
+
+@media (orientation: portrait) and (max-height: 1400px) {
+
+    .o_mes_kiosk_metrics_left,
+    .o_mes_kiosk_metrics_right {
+        gap: 0.4rem;
+    }
+
+    .o_mes_metric_value {
+        font-size: 1.1rem;
+    }
+}
+
+.o_mes_kiosk_scan_status {
+    cursor: pointer;
+    text-decoration: underline dotted;
+}
+
+.o_mes_kiosk_scan_diag {
+    position: fixed;
+    top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+    max-width: 90vw;
+    max-height: 70vh;
+    overflow: auto;
+    margin: 0;
+    padding: 1rem 1.25rem;
+    background: var(--mes-kiosk-surface-2);
+    color: var(--mes-kiosk-text);
+    border: 1px solid var(--mes-kiosk-accent);
+    border-radius: 10px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    cursor: pointer;
+}
+
+.o_mes_kiosk_await_modal {
+    max-width: 30rem;
+    text-align: center;
+}
+
+.o_mes_kiosk_await_text {
+    margin: 0.5rem 0 1rem 0;
+    line-height: 1.45;
+    color: var(--mes-kiosk-text-dim);
+}
+
+.o_mes_kiosk_await_spinner {
+    width: 2.5rem;
+    height: 2.5rem;
+    margin: 0 auto 1rem auto;
+    border: 3px solid var(--mes-kiosk-border);
+    border-top-color: var(--mes-kiosk-accent);
+    border-radius: 50%;
+    animation: o_mes_await_spin 0.9s linear infinite;
+}
+
+@keyframes o_mes_await_spin {
+    to { transform: rotate(360deg); }
+}
+
+.o_mes_pending_badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid var(--mes-kiosk-warning);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    color: var(--mes-kiosk-text);
+}
+
+.o_mes_pending_badge i {
+    color: var(--mes-kiosk-warning);
+}
+
+.o_mes_pending_badge .o_mes_help_badge_count {
+    color: var(--mes-kiosk-warning);
+}
+
+.o_mes_kiosk_pending_modal {
+    max-width: 46rem;
+    width: 92vw;
+}
+
+.o_mes_pending_toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.o_mes_pending_selectall {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+    cursor: pointer;
+}
+
+.o_mes_pending_list {
+    max-height: 40vh;
+    overflow-y: auto;
+    border: 1px solid var(--mes-kiosk-border);
+    border-radius: 8px;
+    margin-bottom: 0.6rem;
+}
+
+.o_mes_pending_row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.5rem;
+    border-bottom: 1px solid var(--mes-kiosk-border);
+}
+
+.o_mes_pending_row:last-child {
+    border-bottom: none;
+}
+
+.o_mes_pending_time {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.o_mes_pending_dur {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
+}
+
+
+.o_mes_pending_row input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 1.15rem;
+    height: 1.15rem;
+    min-width: 0;
+    margin: 0;
+}
+
+.o_mes_pending_row .o_mes_pending_time {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.o_mes_pending_row .o_mes_pending_dur {
+    flex: 0 0 auto;
+}
+
+.o_mes_pending_row .btn {
+    flex: 0 0 auto;
+}
+
+
+.o_mes_layout_size {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.o_mes_layout_size label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+}
+
+.o_mes_layout_size input {
+    width: 6rem;
+    padding: 0.2rem 0.4rem;
+}
+
+.o_mes_kiosk_part_tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.o_mes_kiosk_piece_tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.4rem 0.5rem;
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.o_mes_kiosk_part_tabs .btn:focus,
+.o_mes_kiosk_part_tabs .btn:focus-visible,
+.o_mes_kiosk_part_tabs .btn.focus,
+.o_mes_kiosk_piece_tags .btn:focus,
+.o_mes_kiosk_piece_tags .btn:focus-visible,
+.o_mes_kiosk_piece_tags .btn.focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.o_mes_kiosk_reason_search {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.o_mes_kiosk_reason_search input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.o_mes_kiosk_reason_count {
+    flex: 0 0 auto;
+    min-width: 2.5rem;
+    text-align: center;
+    padding: 0.2rem 0.4rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    font-variant-numeric: tabular-nums;
+}
+
+.o_mes_kiosk_oee_modal {
+    max-width: 58rem;
+    width: 95vw;
+}
+
+.o_mes_oee_row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid var(--mes-kiosk-border);
+}
+
+.o_mes_oee_machine {
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 8px 8px 0 0;
+}
+
+.o_mes_oee_stream {
+    cursor: pointer;
+}
+
+.o_mes_oee_part {
+    padding-left: 2rem;
+    opacity: 0.85;
+    font-size: 0.9em;
+}
+
+.o_mes_oee_name {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.o_mes_oee_toggle {
+    display: inline-block;
+    width: 1rem;
+    text-align: center;
+    opacity: 0.7;
+}
+
+.o_mes_oee_blocks {
+    display: flex;
+    gap: 0.75rem;
+    flex: 0 0 auto;
+}
+
+.o_mes_oee_block {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+}
+
+.o_mes_oee_waste {
+    background: rgba(245, 158, 11, 0.12);
+}
+
+.o_mes_oee_dt {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.o_mes_oee_pct {
+    font-weight: 700;
+    min-width: 3.2rem;
+    text-align: right;
+}
+
+.o_mes_oee_sub {
+    opacity: 0.75;
+    font-size: 0.85em;
+}
+
+.o_mes_oee_piece {
+    padding-left: 3.5rem;
+    opacity: 0.78;
+    font-size: 0.85em;
+}
+
+.o_mes_oee_more {
+    flex: 0 0 auto;
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.5rem;
+    line-height: 1.1;
+}
+
+.o_mes_oee_detail {
+    font-variant-numeric: tabular-nums;
+}
+
+.o_mes_oee_detail td,
+.o_mes_oee_detail th {
+    padding: 0.3rem 0.4rem;
+}
+
+.o_mes_oee_calc {
+    font-weight: 700;
+    color: var(--mes-kiosk-warning);
+}
+
+.o_mes_viewer_back {
+    margin-right: 0.6rem;
+    vertical-align: middle;
+}
+
+.o_mes_viewer_chip {
+    display: inline-block;
+    margin-left: 0.75rem;
+    padding: 0.15rem 0.6rem;
+    border: 1px solid var(--mes-kiosk-muted);
+    border-radius: 1rem;
+    color: var(--mes-kiosk-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.o_mes_viewer_chip_pm {
+    border-color: var(--mes-kiosk-warning);
+    color: var(--mes-kiosk-warning);
+}
+
+.o_mes_viewer_nobody {
+    color: var(--mes-kiosk-muted);
+    white-space: nowrap;
+}

@@ -1,24 +1,35 @@
 {
     'name': 'MES Core System',
-    'version': '2.0',
-    'summary': 'Machine Performance, Production Reports, Tasks',
+    'version': '17.0.8.20.4',
+    'summary': 'Machine Performance, Production Reports, Tasks, Kiosk',
     'author': 'Constantine',
     'category': 'Manufacturing/MES',
-    'depends': ['base', 'mrp', 'mail', 'hr', 'queue_job'],
+    'license': 'LGPL-3',
+    'depends': ['base', 'mrp', 'mail', 'hr', 'bus', 'queue_job'],
     'data': [
         'security/mes_security.xml',
         'security/ir.model.access.csv',
+        'data/mes_kiosk_role_data.xml',
 
         'data/mes_cron.xml',
+        'data/mes_kiosk_cron.xml',
+        'data/mes_anomaly_cron.xml',
+        'data/mes_link_cron.xml',
+        'data/mes_kiosk_data.xml',
+
+        'views/mes_root_menus.xml',
+        'views/mes_report_base_views.xml',
 
         'wizard/dictionary_import_wizard.xml',
         'wizard/raw_data_csv_import_wizard.xml',
 
         'wizard/mes_downtime_planner.xml',
-        
+
         'wizard/mes_hist_performance_wiz.xml',
         'wizard/mes_operation_wizards.xml',
+        'wizard/mes_part_sync_wizard.xml',
 
+        'views/res_company_view.xml',
         'views/mes_dictionaries_views.xml',
         'views/mes_machine_performance_view.xml',
         'views/mes_production_report_view.xml',
@@ -26,20 +37,27 @@
         'views/res_config_settings_view.xml',
         'views/hr_employee_view.xml',
         'views/mes_telemetry_stats_views.xml',
+        'views/mes_link_outage_views.xml',
         'views/mes_planned_downtime_views.xml',
         'views/mes_machine_operation.xml',
-        
+
         'views/mes_telemetry_views.xml',
         'views/mes_machine_settings_views.xml',
-        'views/mes_report_base_views.xml',
-        
-        'wizard/mes_reject_report.xml',        
+
+        'views/mrp_workcenter_kiosk_views.xml',
+        'views/kiosk_templates.xml',
+        'views/mes_kiosk_views.xml',
+
+        'wizard/mes_reject_report.xml',
         'wizard/mes_analytics_report.xml',
         'wizard/mes_alarm_report.xml',
 
-        
+        'views/res_users_view.xml',
+        'views/mes_count_dashboard_views.xml',
+        'views/mes_supervisor_board_views.xml',
 
         'views/mes_menus.xml',
+        'views/mes_logger_release_views.xml',
     ],
 
     'assets': {
@@ -47,14 +65,36 @@
             'mes_core/static/src/js/auto_refresh.js',
             'mes_core/static/src/js/list_auto_refresh.js',
             'mes_core/static/src/js/mes_time_util.js',
+            'mes_core/static/src/js/text_process_overlay.js',
             'mes_core/static/src/js/machine_live_charts.js',
             'mes_core/static/src/js/hist_machine_charts.js',
+            'mes_core/static/src/js/stream_layout_editor.js',
+            'mes_core/static/src/js/live_status.js',
+            'mes_core/static/src/js/status_colored_name.js',
+            'mes_core/static/src/js/count_dashboard.js',
+            'mes_core/static/src/js/supervisor_board.js',
             'mes_core/static/src/xml/machine_live_charts.xml',
             'mes_core/static/src/xml/hist_machine_charts.xml',
+            'mes_core/static/src/xml/stream_layout_editor.xml',
+            'mes_core/static/src/xml/status_colored_name.xml',
+            'mes_core/static/src/xml/count_dashboard.xml',
+            'mes_core/static/src/xml/supervisor_board.xml',
+            'mes_core/static/src/scss/count_dashboard.scss',
+            'mes_core/static/src/scss/workcenter_list.scss',
+            'mes_core/static/src/scss/supervisor_board.scss',
+            'mes_core/static/src/scss/kiosk.scss',
+            'mes_core/static/src/js/kiosk/mesh_rpc.js',
+            'mes_core/static/src/js/kiosk/stream_canvas.js',
+            'mes_core/static/src/js/kiosk/fully_kiosk_nfc.js',
+            'mes_core/static/src/js/kiosk/fob_listener.js',
+            'mes_core/static/src/js/kiosk/help_request_form.js',
+            'mes_core/static/src/js/kiosk/help_flow.js',
+            'mes_core/static/src/js/kiosk/kiosk_charts.js',
+            'mes_core/static/src/js/kiosk/kiosk_action.js',
+            'mes_core/static/src/xml/kiosk/kiosk_templates.xml',
         ],
     },
-    
+
     'installable': True,
     'application': True,
-    'license': 'LGPL-3',
 }

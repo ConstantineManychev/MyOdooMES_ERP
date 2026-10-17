@@ -30,13 +30,89 @@ class ResConfigSettings(models.TransientModel):
     )
 
     use_maintainx = fields.Boolean(
-        string="Enable MaintainX Sync",
-        config_parameter='mes_core.use_maintainx'
+        related='company_id.maintainx_enabled',
+        readonly=False,
+        string="Enable MaintainX Sync (this company)",
     )
-    
+
+    mes_planned_downtime_event_id = fields.Many2one(
+        related='company_id.mes_planned_downtime_event_id',
+        readonly=False,
+        string="Default Planned Downtime Event",
+    )
+
+    mes_unplanned_downtime_color = fields.Char(
+        related='company_id.mes_unplanned_downtime_color',
+        readonly=False,
+        string="Unplanned Downtime Colour",
+    )
+
+    maintainx_default_assignee_id = fields.Many2one(
+        related='company_id.maintainx_default_assignee_id',
+        readonly=False,
+        string="Default MaintainX Assignee",
+    )
+
+    maintainx_comment_author_id = fields.Many2one(
+        related='company_id.maintainx_comment_author_id',
+        readonly=False,
+        string="Operator Confirmation Comment Author",
+    )
+
+    maintainx_webhook_secret = fields.Char(
+        related='company_id.maintainx_webhook_secret',
+        readonly=False,
+        string="MaintainX Webhook Secret",
+    )
+
     maintainx_api_token = fields.Char(
-        string="MaintainX API Token",
-        config_parameter='gemba.maintainx_token'
+        related='company_id.maintainx_api_token',
+        readonly=False,
+        string="MaintainX API Token (this company)",
+    )
+
+    mes_anomaly_min_minutes = fields.Float(
+        related='company_id.mes_anomaly_min_minutes',
+        readonly=False,
+        string="Anomaly: Minimum Extra Downtime (min, this company)",
+    )
+    mes_anomaly_min_stops = fields.Float(
+        related='company_id.mes_anomaly_min_stops',
+        readonly=False,
+        string="Anomaly: Minimum Extra Stops (this company)",
+    )
+    mes_anomaly_min_pieces = fields.Float(
+        related='company_id.mes_anomaly_min_pieces',
+        readonly=False,
+        string="Anomaly: Minimum Extra Waste (pcs, this company)",
+    )
+
+    mes_downtime_role_ids = fields.Many2many(
+        related='company_id.mes_downtime_role_ids',
+        readonly=False,
+        string="Planned Downtime Button For (this company)",
+    )
+    mes_help_role_ids = fields.Many2many(
+        related='company_id.mes_help_role_ids',
+        readonly=False,
+        string="Call For Help Button For (this company)",
+    )
+
+    mes_supervisor_confirmation_required = fields.Boolean(
+        related='company_id.mes_supervisor_confirmation_required',
+        readonly=False,
+        string="Require Supervisor Confirmation (this company)",
+    )
+
+    mes_link_loss_minutes = fields.Integer(
+        related='company_id.mes_link_loss_minutes',
+        readonly=False,
+        string="Data Gap After (min, this company)",
+    )
+    mes_link_loss_emails = fields.Char(
+        related='company_id.mes_link_loss_emails',
+        readonly=False,
+        string="Data Gap Emails (this company)",
     )
 
     mes_dashboard_refresh_interval = fields.Integer(
@@ -95,33 +171,4 @@ class ResConfigSettings(models.TransientModel):
 
     def action_test_maintainx_connection(self):
         self.ensure_one()
-        if not self.use_maintainx or not self.maintainx_api_token:
-            raise UserError(_("Please enable MaintainX Sync and provide an API Token first."))
-        
-        try:
-            import requests
-            headers = {
-                'Authorization': f'Bearer {self.maintainx_api_token}',
-                'Content-Type': 'application/json'
-            }
-            
-            response = requests.get(
-                "https://api.getmaintainx.com/v1/workorders", 
-                headers=headers, 
-                params={'limit': 1},
-                timeout=10
-            )
-            response.raise_for_status()
-            
-            return {
-                'type': 'ir.actions.client',
-                'tag': 'display_notification',
-                'params': {
-                    'title': _("MaintainX Connection Successful"),
-                    'message': "Successfully connected to MaintainX API.",
-                    'type': 'success',
-                    'sticky': False,
-                }
-            }
-        except Exception as e:
-            raise UserError(f"MaintainX Connection Failed: {str(e)}")
+        return self.company_id.action_test_maintainx_connection()

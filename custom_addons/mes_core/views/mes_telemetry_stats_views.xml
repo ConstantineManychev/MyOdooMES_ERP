@@ -48,40 +48,105 @@
     </record>
 
     <record id="view_mes_anomaly_tree" model="ir.ui.view">
-        <field name="name">mes.anomaly.fdw.tree</field>
-        <field name="model">mes.anomaly.fdw</field>
+        <field name="name">mes.anomaly.report.tree</field>
+        <field name="model">mes.anomaly.report</field>
         <field name="arch" type="xml">
-            <tree create="0" edit="0" delete="0" decoration-danger="status == 'critical'" decoration-success="status == 'normal'">
-                <field name="machine_name"/>
-                <field name="current_stops"/>
-                <field name="historical_avg"/>
-                <field name="status" widget="badge"/>
+            <tree string="Anomalies" create="0" edit="0" delete="0"
+                  default_order="severity_rank desc, z_score desc"
+                  decoration-danger="status == 'critical'"
+                  decoration-info="status == 'new'"
+                  decoration-warning="status == 'warning'"
+                  decoration-muted="status in ('normal', 'insufficient', 'gap')">
+                <header>
+                    <button name="action_refresh" type="object" string="Refresh" display="always"
+                            icon="fa-refresh"/>
+                </header>
+                <field name="machine_id"/>
+                <field name="shift_id" optional="show"/>
+                <field name="product_id" optional="show"/>
+                <field name="kind" optional="show"/>
+                <field name="reason_group" optional="hide"/>
+                <field name="subject"/>
+                <field name="runtime_hours" widget="float" digits="[8,2]" optional="show"/>
+                <field name="stops_per_hour" widget="float" digits="[8,2]"/>
+                <field name="stops_per_hour_avg" widget="float" digits="[8,2]"/>
+                <field name="stops_per_hour_std" widget="float" digits="[8,2]" optional="hide"/>
+                <field name="downtime_pct" widget="float" digits="[8,1]"/>
+                <field name="downtime_pct_avg" widget="float" digits="[8,1]"/>
+                <field name="downtime_pct_std" widget="float" digits="[8,1]" optional="hide"/>
+                <field name="avg_stop_min" widget="float" digits="[8,1]"/>
+                <field name="avg_stop_min_avg" widget="float" digits="[8,1]"/>
+                <field name="avg_stop_min_std" widget="float" digits="[8,1]" optional="hide"/>
+                <field name="waste_per_hour" widget="float" digits="[8,1]"/>
+                <field name="waste_per_hour_avg" widget="float" digits="[8,1]"/>
+                <field name="waste_per_hour_std" widget="float" digits="[8,1]" optional="hide"/>
+                <field name="excess_minutes" widget="float" digits="[8,1]" optional="show"
+                       invisible="kind != 'stop'"/>
+                <field name="excess_stops" widget="float" digits="[8,1]" optional="show"
+                       invisible="kind != 'stop'"/>
+                <field name="excess_pieces" widget="float" digits="[8,0]" optional="show"
+                       invisible="kind != 'waste'"/>
+                <field name="sample_count" optional="hide"/>
+                <field name="driver" optional="show"/>
+                <field name="z_score" widget="float" digits="[8,2]"/>
+                <field name="status" widget="badge"
+                       decoration-danger="status == 'critical'"
+                       decoration-info="status == 'new'"
+                       decoration-warning="status == 'warning'"
+                       decoration-success="status == 'normal'"/>
+                <field name="computed_at" optional="hide"/>
             </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_anomaly_search" model="ir.ui.view">
+        <field name="name">mes.anomaly.report.search</field>
+        <field name="model">mes.anomaly.report</field>
+        <field name="arch" type="xml">
+            <search string="Anomalies">
+                <field name="machine_id"/>
+                <field name="subject"/>
+                <field name="product_id"/>
+                <filter name="current_shift" string="Current Shift"
+                        domain="[('is_current_shift', '=', True)]"/>
+                <separator/>
+                <filter name="only_critical" string="Critical"
+                        domain="[('status', '=', 'critical')]"/>
+                <filter name="attention" string="Needs Attention"
+                        domain="[('status', 'in', ['critical', 'new', 'warning'])]"/>
+                <filter name="new_problems" string="New Problems"
+                        domain="[('status', '=', 'new')]"/>
+                <filter name="data_gap" string="Data Gap"
+                        domain="[('status', '=', 'gap')]"/>
+                <separator/>
+                <filter name="stops" string="Stops" domain="[('kind', '=', 'stop')]"/>
+                <filter name="waste" string="Waste" domain="[('kind', '=', 'waste')]"/>
+                <group expand="1" string="Group By">
+                    <filter name="group_machine" string="Machine"
+                            context="{'group_by': 'machine_id'}"/>
+                    <filter name="group_reason" string="Reason Group"
+                            context="{'group_by': 'reason_group'}"/>
+                    <filter name="group_shift" string="Shift"
+                            context="{'group_by': 'shift_id'}"/>
+                    <filter name="group_product" string="Product"
+                            context="{'group_by': 'product_id'}"/>
+                    <filter name="group_kind" string="Kind"
+                            context="{'group_by': 'kind'}"/>
+                </group>
+            </search>
         </field>
     </record>
 
     <record id="action_mes_anomaly_dashboard" model="ir.actions.act_window">
         <field name="name">Anomaly Dashboard</field>
-        <field name="res_model">mes.anomaly.fdw</field>
+        <field name="res_model">mes.anomaly.report</field>
         <field name="view_mode">tree</field>
+        <field name="search_view_id" ref="view_mes_anomaly_search"/>
+        <field name="context">{'search_default_group_machine': 1, 'search_default_current_shift': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No shift has started yet</p>
+            <p>Each shift is compared with the most recent completed shifts of the same machine (up to 20, within 45 days), for the same product only, per hour of runtime: stops per run hour, downtime as a share of runtime, average stop length and waste per run hour. Shifts where a problem did not occur count as zero. Stops during planned downtime or technician work, and reasons excluded on the event, are left out; unclosed stops end with their shift. A problem never seen before in those shifts is flagged as new. Warning and Critical also need an excess above the limits in the MES settings. The Current Shift filter shows only the shifts running now; remove it to see the last day.</p>
+        </field>
     </record>
 
-<!--
-    <menuitem id="menu_mes_analytics"
-              name="Analytics"
-              parent="menu_mes_root"
-              sequence="20"/>
-
-    <menuitem id="menu_mes_telemetry_hourly"
-              name="Telemetry Trends"
-              parent="menu_mes_analytics"
-              action="action_mes_telemetry_hourly"
-              sequence="10"/>
-
-    <menuitem id="menu_mes_anomaly"
-              name="Real-time Anomalies"
-              parent="menu_mes_analytics"
-              action="action_mes_anomaly_dashboard"
-              sequence="20"/>
--->
 </odoo>

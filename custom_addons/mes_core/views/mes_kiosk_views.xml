@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_kiosk" model="ir.actions.client">
+        <field name="name">MES Kiosk</field>
+        <field name="tag">mes_core.kiosk_action</field>
+        <field name="target">fullscreen</field>
+    </record>
+
+    <record id="view_mes_login_entry_active_tree" model="ir.ui.view">
+        <field name="name">mes.performance.login.entry.active.tree</field>
+        <field name="model">mes.performance.login.entry</field>
+        <field name="arch" type="xml">
+            <tree create="false" edit="false" delete="false"
+                  default_order="login_at desc">
+                <field name="workcenter_id"/>
+                <field name="employee_id"/>
+                <field name="job_title"/>
+                <field name="role" widget="badge"
+                       decoration-info="role == 'operator'"
+                       decoration-warning="role == 'supervisor'"
+                       decoration-success="role == 'technician'"/>
+                <field name="login_method"/>
+                <field name="login_at"/>
+                <field name="duration_minutes" sum="Total min" widget="float_time"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_login_entry_history_tree" model="ir.ui.view">
+        <field name="name">mes.performance.login.entry.history.tree</field>
+        <field name="model">mes.performance.login.entry</field>
+        <field name="arch" type="xml">
+            <tree create="false" edit="false" delete="false" default_order="login_at desc">
+                <field name="login_at"/>
+                <field name="logout_at"/>
+                <field name="workcenter_id"/>
+                <field name="employee_id"/>
+                <field name="job_title"/>
+                <field name="role"/>
+                <field name="login_method"/>
+                <field name="duration_minutes" sum="Total min" widget="float_time"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_login_entry_search" model="ir.ui.view">
+        <field name="name">mes.performance.login.entry.search</field>
+        <field name="model">mes.performance.login.entry</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="workcenter_id"/>
+                <filter name="active" string="Currently Logged In" domain="[('logout_at', '=', False)]"/>
+                <filter name="today" string="Today" domain="[('login_at', '>=', context_today().strftime('%Y-%m-%d 00:00:00'))]"/>
+                <separator/>
+                <filter name="role_operator" string="Operator" domain="[('role', '=', 'operator')]"/>
+                <filter name="role_supervisor" string="Supervisor" domain="[('role', '=', 'supervisor')]"/>
+                <filter name="role_technician" string="Technician" domain="[('role', '=', 'technician')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_workcenter" string="Workcenter" context="{'group_by': 'workcenter_id'}"/>
+                    <filter name="group_role" string="Role" context="{'group_by': 'role'}"/>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_kiosk_active_sessions_dashboard" model="ir.actions.act_window">
+        <field name="name">Active Sessions</field>
+        <field name="res_model">mes.performance.login.entry</field>
+        <field name="view_mode">tree</field>
+        <field name="view_id" ref="view_mes_login_entry_active_tree"/>
+        <field name="search_view_id" ref="view_mes_login_entry_search"/>
+        <field name="domain">[('logout_at', '=', False)]</field>
+    </record>
+
+    <record id="action_kiosk_login_history" model="ir.actions.act_window">
+        <field name="name">Login History</field>
+        <field name="res_model">mes.performance.login.entry</field>
+        <field name="view_mode">tree</field>
+        <field name="view_id" ref="view_mes_login_entry_history_tree"/>
+        <field name="search_view_id" ref="view_mes_login_entry_search"/>
+    </record>
+
+    <record id="action_kiosk_supervisor_dashboard" model="ir.actions.act_window">
+        <field name="name">Help Requests Dashboard</field>
+        <field name="res_model">mes.task</field>
+        <field name="view_mode">kanban,tree,form</field>
+        <field name="domain">[('task_type', '=', 'kiosk_help'), ('parent_id', '=', False)]</field>
+        <field name="context">{'search_default_open': 1, 'mes_help_request_dashboard': 1}</field>
+    </record>
+
+    <record id="view_mes_task_kiosk_help_search" model="ir.ui.view">
+        <field name="name">mes.task.kiosk.help.search</field>
+        <field name="model">mes.task</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="machine_id"/>
+                <filter name="open" string="Open" domain="[('state', 'not in', ['help_completed', 'help_rejected', 'cancel'])]"/>
+                <filter name="awaiting" string="Awaiting Operator" domain="[('state', '=', 'help_awaiting_operator')]"/>
+                <filter name="rejected" string="Rejected by Technician" domain="[('state', '=', 'help_rejected')]"/>
+                <filter name="my_supervised" string="My Supervised" domain="[('supervisor_session_id.user_id', '=', uid)]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="group_machine" string="Machine" context="{'group_by': 'machine_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_mes_task_kiosk_kanban" model="ir.ui.view">
+        <field name="name">mes.task.kiosk.kanban</field>
+        <field name="model">mes.task</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" class="o_kanban_small_column">
+                <field name="state"/>
+                <field name="machine_id"/>
+                <field name="priority"/>
+                <field name="reason_event_id"/>
+                <field name="reason_count_id"/>
+                <field name="operator_description"/>
+                <field name="supervisor_session_id"/>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_card oe_kanban_global_click">
+                            <div class="o_kanban_record_top">
+                                <strong><field name="name"/></strong>
+                                <field name="priority" widget="priority"/>
+                            </div>
+                            <div class="o_kanban_record_body">
+                                <div><field name="machine_id"/></div>
+                                <div t-if="record.reason_event_id.raw_value"><field name="reason_event_id"/></div>
+                                <div t-if="record.reason_count_id.raw_value"><field name="reason_count_id"/></div>
+                                <div class="text-muted"><field name="operator_description"/></div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <menuitem id="menu_mes_kiosk_root" name="Kiosk" parent="menu_mes_root" sequence="80"/>
+    <menuitem id="menu_kiosk_active_sessions" name="Active Sessions" parent="menu_mes_kiosk_root" action="action_kiosk_active_sessions_dashboard" sequence="10"/>
+    <menuitem id="menu_kiosk_login_history" name="Login History" parent="menu_mes_kiosk_root" action="action_kiosk_login_history" sequence="20"/>
+    <menuitem id="menu_kiosk_supervisor_dashboard" name="Help Requests" parent="menu_mes_kiosk_root" action="action_kiosk_supervisor_dashboard" sequence="30"/>
+</odoo>

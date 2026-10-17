@@ -9,22 +9,26 @@ patch(ListController.prototype, {
     setup() {
         super.setup(); 
         
-        if (this.props.resModel === 'mrp.workcenter') {
+        const isWorkcenter = this.props.resModel === 'mrp.workcenter';
+        const isLoginEntry = this.props.resModel === 'mes.performance.login.entry';
+        if (isWorkcenter || isLoginEntry) {
             this.orm = useService("orm");
             this.refreshTimer = null;
 
             onWillStart(async () => {
-                let intervalMs = 60000; 
-                
-                try {
-                    const intervalStr = await this.orm.call(
-                        "ir.config_parameter",
-                        "get_param",
-                        ["mes_core.dashboard_refresh_interval", "60"]
-                    );
-                    intervalMs = parseInt(intervalStr || "60") * 1000;
-                } catch (error) {
-                    console.warn("MES Dashboard: No permission to read settings, using default 60 sec", error);
+                let intervalMs = isLoginEntry ? 10000 : 60000;
+
+                if (isWorkcenter) {
+                    try {
+                        const intervalStr = await this.orm.call(
+                            "ir.config_parameter",
+                            "get_param",
+                            ["mes_core.dashboard_refresh_interval", "60"]
+                        );
+                        intervalMs = parseInt(intervalStr || "60") * 1000;
+                    } catch (error) {
+                        console.warn("MES Dashboard: using default interval", error);
+                    }
                 }
 
                 if (intervalMs > 0) {

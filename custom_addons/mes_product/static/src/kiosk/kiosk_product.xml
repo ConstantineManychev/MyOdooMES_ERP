@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="mes_product.KioskActionProduct" t-inherit="mes_core.KioskAction" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('o_mes_badge_name')]" position="replace">
+            <div class="o_mes_badge_name_row">
+                <div class="o_mes_badge_name" t-esc="badge.name"/>
+                <button t-if="badge.key === 'product' and hasActiveSession and !viewerMode" type="button"
+                        class="o_mes_badge_edit" title="Change product" aria-label="Change product"
+                        t-on-click="openProductEditor">
+                    <i class="fa fa-pencil"/>
+                </button>
+            </div>
+        </xpath>
+        <xpath expr="//div[hasclass('o_mes_kiosk')]" position="inside">
+            <div t-if="productUi.open" class="o_mes_kiosk_modal_backdrop" t-on-click="closeProductEditor">
+                <div class="o_mes_kiosk_modal o_mes_kiosk_product_modal" t-on-click.stop="">
+                    <h2>Change product</h2>
+                    <div t-if="productUi.loading" class="text-center p-3">
+                        <i class="fa fa-spinner fa-spin fa-2x"/>
+                    </div>
+                    <t t-elif="productUi.options">
+                        <div class="o_mes_product_section">
+                            <div class="o_mes_product_label">Product</div>
+                            <div class="o_mes_kiosk_part_tabs">
+                                <button t-foreach="productUi.options.templates" t-as="tmpl" t-key="tmpl.id"
+                                        type="button"
+                                        t-attf-class="btn btn-sm {{ productUi.templateId === tmpl.id ? 'btn-primary' : 'btn-outline-primary' }}"
+                                        t-on-click="() => this.selectProductTemplate(tmpl.id)">
+                                    <t t-esc="tmpl.name"/>
+                                </button>
+                            </div>
+                        </div>
+                        <t t-if="productTemplate">
+                            <div t-foreach="productTemplate.lines" t-as="line" t-key="line.id"
+                                 class="o_mes_product_section">
+                                <div class="o_mes_product_label" t-esc="line.name"/>
+                                <div class="o_mes_kiosk_part_tabs">
+                                    <button t-foreach="line.values" t-as="value" t-key="value.id" type="button"
+                                            t-attf-class="btn btn-sm {{ productUi.valueIds.includes(value.id) ? 'btn-primary' : 'btn-outline-primary' }}"
+                                            t-on-click="() => this.selectProductValue(line.id, value.id)">
+                                        <t t-esc="value.name"/>
+                                    </button>
+                                </div>
+                            </div>
+                        </t>
+                        <div class="o_mes_product_result" t-att-class="{'o_mes_product_missing': !productVariant}">
+                            <t t-if="productVariant" t-esc="productVariant.name"/>
+                            <t t-else="">There is no product with this combination of characteristics.</t>
+                        </div>
+                        <div class="o_mes_product_section">
+                            <div class="o_mes_product_label">From</div>
+                            <div class="o_mes_product_time">
+                                <input type="datetime-local" class="form-control"
+                                       t-att-min="productUi.options.earliest"
+                                       t-att-max="productUi.options.now"
+                                       t-model="productUi.moment"/>
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        t-on-click="setProductMomentNow">Now</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        t-on-click="setProductMomentShiftStart">Shift start</button>
+                            </div>
+                        </div>
+                        <div t-if="productSessions.length > 1" class="o_mes_product_section">
+                            <div class="o_mes_product_label">Changed by</div>
+                            <div class="o_mes_kiosk_part_tabs">
+                                <button t-foreach="productSessions" t-as="session" t-key="session.id" type="button"
+                                        t-attf-class="btn btn-sm {{ productUi.sessionId === session.id ? 'btn-primary' : 'btn-outline-primary' }}"
+                                        t-on-click="() => this.selectProductSession(session.id)">
+                                    <t t-esc="session.employee_name"/>
+                                </button>
+                            </div>
+                        </div>
+                    </t>
+                    <div class="o_mes_kiosk_modal_actions">
+                        <button type="button" class="btn btn-secondary" t-on-click="closeProductEditor">Cancel</button>
+                        <button type="button" class="btn btn-primary" t-att-disabled="!canApplyProduct"
+                                t-on-click="applyProductChange">
+                            <t t-if="productUi.saving">Saving...</t>
+                            <t t-else="">OK</t>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </t>
+
+</templates>

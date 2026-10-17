@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_users_form_inherit_mes_dashboard" model="ir.ui.view">
+        <field name="name">res.users.form.inherit.mes.dashboard</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="MES Dashboards" name="mes_dashboards"
+                      groups="mes_core.group_mes_operator">
+                    <group>
+                        <group string="Available Count Tabs">
+                            <field name="mes_dashboard_count_ids"
+                                   widget="many2many_tags"
+                                   options="{'no_create': True}"
+                                   nolabel="1"/>
+                        </group>
+                        <group string="Last Used Settings">
+                            <field name="mes_dashboard_period_mode"/>
+                            <field name="mes_dashboard_period_hours"
+                                   invisible="mes_dashboard_period_mode != 'hours'"/>
+                            <field name="mes_dashboard_interval"/>
+                            <field name="mes_dashboard_view_mode"/>
+                            <field name="mes_dashboard_last_count_id"
+                                   options="{'no_create': True}"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_users_form_simple_modif_inherit_mes_dashboard" model="ir.ui.view">
+        <field name="name">res.users.preferences.inherit.mes.dashboard</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form_simple_modif"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <group string="MES Dashboards" name="mes_dashboards"
+                       groups="mes_core.group_mes_operator">
+                    <field name="mes_dashboard_count_ids"
+                           widget="many2many_tags"
+                           options="{'no_create': True}"
+                           readonly="0"/>
+                    <field name="mes_dashboard_period_mode" readonly="0"/>
+                    <field name="mes_dashboard_period_hours"
+                           invisible="mes_dashboard_period_mode != 'hours'"
+                           readonly="0"/>
+                    <field name="mes_dashboard_interval" readonly="0"/>
+                    <field name="mes_dashboard_view_mode" readonly="0"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

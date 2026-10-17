@@ -20,6 +20,12 @@
             <form>
                 <header>
                     <field name="state" widget="statusbar" clickable="1" groups="mes_core.group_mes_manager"/>
+                    <button name="action_set_draft" 
+                            string="Set to Draft" 
+                            type="object" 
+                            invisible="state != 'done'" 
+                            groups="mes_core.group_mes_administrator"
+                            confirm="Are you sure you want to unlock this document?"/>
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -32,6 +38,7 @@
                         </group>
                         <group>
                             <field name="machine_id"/>
+                            <field name="company_id"/>
                         </group>
                     </group>
                     
@@ -88,6 +95,19 @@
                                     <field name="product_id"/>
                                     <field name="qty" sum="Total Scrap"/>
                                     <field name="reason_id"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Login History" name="login_history">
+                            <field name="login_entry_ids" readonly="1">
+                                <tree>
+                                    <field name="login_at"/>
+                                    <field name="logout_at"/>
+                                    <field name="employee_id"/>
+                                    <field name="job_title"/>
+                                    <field name="role"/>
+                                    <field name="login_method"/>
+                                    <field name="duration_minutes" sum="Total min" widget="float_time"/>
                                 </tree>
                             </field>
                         </page>

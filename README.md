@@ -1,4 +1,4 @@
-# MyOdoo MES / ERP Core
+# Odoo MES / ERP Core
 
 A Manufacturing Execution System (MES) built on Odoo 17, designed to aggregate machine telemetry, generate PQO (Product Quality Output) reports, and automate maintenance workflows via MaintainX.
 
@@ -31,7 +31,7 @@ This project utilizes a microservices architecture with full network isolation f
 
 ### Host Server Preparation
 * Ensure Docker and Docker Compose are installed on the host.
-* VPN (Crucial): Configure the VPN client directly on the host machine (server) so it has routing and access to the IP addresses of the PLC equipment (TwinCAT). The telemetry_worker container will use the host's network interface to poll the machines.
+* Telemetry is collected on site: each line PC runs the logger service (`externals/logger_automate.py`, installed with `externals/install_logger_service.bat`), which reads the TwinCAT PLC over ADS and pushes data to Odoo over HTTPS (`/mes/api/import_historical`). The server does not poll the PLCs, so it needs no network route to the PLC equipment for telemetry.
 
 ###  Cloning & Environment Setup
 Clone the repository and navigate to its directory. 
@@ -54,12 +54,12 @@ chmod +x init-letsencrypt.sh
 sudo ./init-letsencrypt.sh
 ```
 
-Launch the architecture. The --build flag is required on the first run or after any code changes in twincat_poller to ensure Docker builds the image with dependencies for the telemetry_worker:
+Launch the architecture. The --build flag is required on the first run or after changes to the Odoo image (Dockerfile):
 ```bash
 docker-compose up -d --build
 ```
 
-For the telemetry_worker to write telemetry and Odoo to read it, you must initialize the hypertables and configuration dictionaries.
+Before the loggers can write telemetry and Odoo can read it, initialize the hypertables.
 Apply the database schema from the migration (replace timescaledb_container_name with your actual container name from docker-compose ps):
 * Using the script from the repository:
 ```bash

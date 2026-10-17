@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_mes_count_dashboard" model="ir.actions.client">
+        <field name="name">Counts Dashboard</field>
+        <field name="tag">mes_core.count_dashboard</field>
+        <field name="target">current</field>
+    </record>
+
+    <menuitem id="menu_mes_count_dashboard"
+              name="Counts Dashboard"
+              parent="menu_mes_dashboards"
+              action="action_mes_count_dashboard"
+              sequence="10"/>
+
+    <menuitem id="menu_mes_anomaly"
+              name="Anomaly Dashboard"
+              parent="menu_mes_dashboards"
+              action="action_mes_anomaly_dashboard"
+              sequence="20"/>
+</odoo>

@@ -7,12 +7,50 @@
             <tree string="Alarms List" create="false" edit="false" delete="false" default_order="total_time desc">
                 <field name="row_group_label"/>
                 <field name="col_group_label"/>
+                <field name="event_name" optional="hide"/>
+                <field name="stream_name" optional="hide"/>
+                <field name="part_name" optional="hide"/>
+                <field name="piece_name" optional="hide"/>
+                <field name="comment" optional="show"/>
                 <field name="frequency" sum="Total Freq"/>
                 <field name="total_time" sum="Total Time" widget="float_time"/>
                 <field name="freq_per_hour" avg="Avg Freq/H"/>
                 <field name="time_per_hour" avg="Avg Time/H"/>
                 <field name="avg_time_per_stop" avg="Avg Stop Time"/>
             </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_alarm_report_search" model="ir.ui.view">
+        <field name="name">mes.alarm.report.line.search</field>
+        <field name="model">mes.alarm.report.line</field>
+        <field name="arch" type="xml">
+            <search string="Alarms Matrix">
+                <field name="machine_id"/>
+                <field name="event_name"/>
+                <field name="comment"/>
+                <field name="stream_name"/>
+                <field name="part_name"/>
+                <field name="piece_name"/>
+                <filter name="with_comment" string="With Comment"
+                        domain="[('comment', 'not in', [False, ''])]"/>
+                <group expand="1" string="Group By">
+                    <filter name="group_machine" string="Machine"
+                            context="{'group_by': 'machine_id'}"/>
+                    <filter name="group_stream" string="Stream"
+                            context="{'group_by': 'stream_name'}"/>
+                    <filter name="group_part" string="Part"
+                            context="{'group_by': 'part_name'}"/>
+                    <filter name="group_piece" string="Piece"
+                            context="{'group_by': 'piece_name'}"/>
+                    <filter name="group_event" string="Alarm / Event"
+                            context="{'group_by': 'event_name'}"/>
+                    <filter name="group_comment" string="Comment"
+                            context="{'group_by': 'comment'}"/>
+                    <filter name="group_period" string="Period"
+                            context="{'group_by': 'period_name'}"/>
+                </group>
+            </search>
         </field>
     </record>
 
@@ -24,6 +62,18 @@
                 <field name="row_group_label" type="row"/>
                 <field name="col_group_label" type="col"/>
             </pivot>
+        </field>
+    </record>
+
+<record id="view_mes_alarm_report_graph" model="ir.ui.view">
+        <field name="name">mes.alarm.report.line.graph</field>
+        <field name="model">mes.alarm.report.line</field>
+        <field name="arch" type="xml">
+            <graph string="Alarms Trend" type="line" sample="1">
+                <field name="period_name"/>
+                <field name="row_group_label"/>
+                <field name="frequency" type="measure"/>
+            </graph>
         </field>
     </record>
 
@@ -41,10 +91,18 @@
                 </div>
             </xpath>
             <xpath expr="//group[@name='row_group']" position="inside">
-                <field name="row_by_event"/>
+                <field name="row_by_stream" string="Stream"/>
+                <field name="row_by_part" string="Part"/>
+                <field name="row_by_piece" string="Piece"/>
+                <field name="row_by_event" string="Alarm / Event"/>
+                <field name="row_by_comment" string="Comment"/>
             </xpath>
             <xpath expr="//group[@name='col_group']" position="inside">
-                <field name="col_by_event"/>
+                <field name="col_by_stream" string="Stream"/>
+                <field name="col_by_part" string="Part"/>
+                <field name="col_by_piece" string="Piece"/>
+                <field name="col_by_event" string="Alarm / Event"/>
+                <field name="col_by_comment" string="Comment"/>
             </xpath>
             <xpath expr="//page[@name='measures_page']" position="inside">
                 <group>

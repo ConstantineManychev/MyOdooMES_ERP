@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="mes_core.SupervisorBoard">
+        <div class="o_mes_board">
+            <div class="o_mes_board_toolbar">
+                <div class="o_mes_board_summary">
+                    <span class="o_mes_board_summary_item">
+                        Machines: <strong t-esc="summary.total"/>
+                    </span>
+                    <span class="o_mes_board_summary_item" t-att-class="{'text-danger': summary.help}">
+                        Help requests: <strong t-esc="summary.help"/>
+                    </span>
+                    <span class="o_mes_board_summary_item">
+                        PM: <strong t-esc="summary.pm"/>
+                    </span>
+                </div>
+                <div class="o_mes_board_controls">
+                    <input type="search" class="form-control form-control-sm o_mes_board_search"
+                           placeholder="Find machine" t-att-value="state.search" t-on-input="onSearch"/>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn" title="Tiles"
+                                t-att-class="state.view === 'tiles' ? 'btn-primary' : 'btn-outline-secondary'"
+                                t-on-click="() => this.setView('tiles')">
+                            <i class="fa fa-th-large"/>
+                        </button>
+                        <button type="button" class="btn" title="List"
+                                t-att-class="state.view === 'list' ? 'btn-primary' : 'btn-outline-secondary'"
+                                t-on-click="() => this.setView('list')">
+                            <i class="fa fa-list"/>
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Refresh"
+                            t-on-click="refreshNow">
+                        <i class="fa fa-refresh"/>
+                    </button>
+                    <span t-if="state.updatedAt" class="text-muted small" t-esc="state.updatedAt"/>
+                </div>
+            </div>
+
+            <div t-if="state.error" class="alert alert-danger" t-esc="state.error"/>
+            <div t-elif="state.ready and !state.machines.length" class="o_mes_board_empty text-muted">
+                No machines are available to you.
+            </div>
+
+            <div t-if="state.view === 'tiles'" class="o_mes_board_grid">
+                <t t-foreach="visibleMachines" t-as="machine" t-key="machine.id">
+                    <div class="o_mes_board_tile" t-att-style="tileStyle(machine)"
+                         title="Open the kiosk screen of this machine" t-on-click="() => this.openKiosk(machine)">
+                        <div class="o_mes_board_tile_head">
+                            <span class="o_mes_board_name" t-esc="machine.name"/>
+                            <t t-call="mes_core.SupervisorBoardHelp"/>
+                            <t t-call="mes_core.SupervisorBoardPm"/>
+                        </div>
+                        <div class="o_mes_board_status" t-att-style="statusStyle(machine)"
+                             t-esc="statusLabel(machine) || '—'"/>
+                        <div t-foreach="machine.badges" t-as="badge" t-key="badge.key or badge_index"
+                             class="o_mes_board_note" t-att-class="'o_mes_board_note_' + badge.tone">
+                            <span class="o_mes_board_note_title" t-esc="badge.title"/>
+                            <span t-esc="badge.name"/>
+                            <span t-if="badge.details.length" class="text-muted"> · <t t-esc="badge.details.join(', ')"/></span>
+                        </div>
+                        <div class="o_mes_board_metrics">
+                            <div class="o_mes_board_metric">
+                                <span class="o_mes_board_metric_label">OEE</span>
+                                <span class="o_mes_board_metric_value" t-att-class="oeeClass(machine)"
+                                      t-esc="formatPercent(machine.oee)"/>
+                            </div>
+                            <div class="o_mes_board_metric o_mes_board_metric_link" title="Downtime details"
+                                 t-on-click.stop="() => this.openLosses(machine, 'downtime')">
+                                <span class="o_mes_board_metric_label">DT Loss</span>
+                                <span class="o_mes_board_metric_value" t-esc="formatPercent(machine.downtime_losses)"/>
+                            </div>
+                            <div class="o_mes_board_metric o_mes_board_metric_link" title="Waste details"
+                                 t-on-click.stop="() => this.openLosses(machine, 'waste')">
+                                <span class="o_mes_board_metric_label">Waste Loss</span>
+                                <span class="o_mes_board_metric_value" t-esc="formatPercent(machine.waste_losses)"/>
+                            </div>
+                            <div class="o_mes_board_metric">
+                                <span class="o_mes_board_metric_label">Produced</span>
+                                <span class="o_mes_board_metric_value" t-esc="formatCount(machine.produced)"/>
+                            </div>
+                            <div class="o_mes_board_metric">
+                                <span class="o_mes_board_metric_label">Runtime</span>
+                                <span class="o_mes_board_metric_value" t-esc="machine.runtime || '—'"/>
+                            </div>
+                            <div class="o_mes_board_metric">
+                                <span class="o_mes_board_metric_label">Start Time</span>
+                                <span class="o_mes_board_metric_value" t-att-title="machine.start_time_full"
+                                      t-esc="machine.start_time || '—'"/>
+                            </div>
+                        </div>
+                        <div class="o_mes_board_line">
+                            <span class="o_mes_board_line_label">Top Alarm</span>
+                            <span class="o_mes_board_line_value" t-att-title="displayText(machine.top_alarm)"
+                                  t-esc="displayText(machine.top_alarm)"/>
+                        </div>
+                        <div class="o_mes_board_line">
+                            <span class="o_mes_board_line_label">Top Rejection</span>
+                            <span class="o_mes_board_line_value" t-att-title="displayText(machine.top_rejection)"
+                                  t-esc="displayText(machine.top_rejection)"/>
+                        </div>
+                        <div class="o_mes_board_people">
+                            <t t-if="machine.sessions.length" t-call="mes_core.SupervisorBoardSessions"/>
+                            <span t-else="" class="text-muted">Nobody is logged in</span>
+                        </div>
+                    </div>
+                </t>
+            </div>
+
+            <div t-else="" class="o_mes_board_table_wrap">
+                <table class="table table-sm table-hover o_mes_board_table">
+                    <thead>
+                        <tr>
+                            <th>Machine</th>
+                            <th class="text-center">HR</th>
+                            <th class="text-center">PM</th>
+                            <th class="text-center">Start Time</th>
+                            <th class="text-end">Produced</th>
+                            <th class="text-center">Runtime</th>
+                            <th class="text-end">Waste Loss (%)</th>
+                            <th class="text-end">DT Loss (%)</th>
+                            <th class="text-end">OEE (%)</th>
+                            <th>Top Rejection</th>
+                            <th>Top Alarm</th>
+                            <th>Logged In</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="visibleMachines" t-as="machine" t-key="machine.id"
+                            class="o_mes_board_row" t-on-click="() => this.openKiosk(machine)">
+                            <td>
+                                <span class="o_mes_board_row_name" t-att-style="statusStyle(machine)"
+                                      t-att-title="statusLabel(machine)" t-esc="machine.name"/>
+                            </td>
+                            <td class="text-center"><t t-call="mes_core.SupervisorBoardHelp"/></td>
+                            <td class="text-center"><t t-call="mes_core.SupervisorBoardPm"/></td>
+                            <td class="text-center" t-att-title="machine.start_time_full" t-esc="machine.start_time || '—'"/>
+                            <td class="text-end" t-esc="formatCount(machine.produced)"/>
+                            <td class="text-center" t-esc="machine.runtime || '—'"/>
+                            <td class="text-end o_mes_board_metric_link" title="Waste details"
+                                t-on-click.stop="() => this.openLosses(machine, 'waste')"
+                                t-esc="formatPercent(machine.waste_losses)"/>
+                            <td class="text-end o_mes_board_metric_link" title="Downtime details"
+                                t-on-click.stop="() => this.openLosses(machine, 'downtime')"
+                                t-esc="formatPercent(machine.downtime_losses)"/>
+                            <td class="text-end" t-att-class="oeeClass(machine)" t-esc="formatPercent(machine.oee)"/>
+                            <td class="o_mes_board_cell_text" t-att-title="displayText(machine.top_rejection)"
+                                t-esc="displayText(machine.top_rejection)"/>
+                            <td class="o_mes_board_cell_text" t-att-title="displayText(machine.top_alarm)"
+                                t-esc="displayText(machine.top_alarm)"/>
+                            <td><div class="o_mes_board_people"><t t-call="mes_core.SupervisorBoardSessions"/></div></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="mes_core.SupervisorBoardHelp">
+        <button t-if="machine.help" type="button" class="o_mes_board_hr" t-att-class="helpClass(machine.help)"
+                t-att-title="machine.help.title" t-on-click.stop="() => this.openTask(machine.help)">
+            <t t-esc="machine.help.label"/>
+            <sup t-if="machine.help.count > 1" t-esc="machine.help.count"/>
+        </button>
+    </t>
+
+    <t t-name="mes_core.SupervisorBoardPm">
+        <div class="o_mes_pm_toggle o_mes_board_pm" t-att-title="pmTitle(machine)" t-on-click.stop="">
+            <div class="form-check form-switch mb-0">
+                <input type="checkbox" class="form-check-input" t-att-id="'o_mes_board_pm_' + machine.id"
+                       t-att-checked="machine.pm_active" t-att-disabled="pmDisabled(machine)"
+                       t-on-change="(ev) => this.togglePm(machine, ev)"/>
+                <label class="form-check-label" t-att-for="'o_mes_board_pm_' + machine.id">PM</label>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="mes_core.SupervisorBoardSessions">
+        <span t-foreach="machine.sessions" t-as="session" t-key="session.id"
+              class="o_mes_board_person" t-att-class="'o_mes_board_person_' + session.role"
+              t-att-title="session.role_label">
+            <span class="o_mes_board_person_role" t-esc="roleShort(session)"/>
+            <span t-esc="session.name"/>
+            <span t-if="session.job_title" class="text-muted"> · <t t-esc="session.job_title"/></span>
+        </span>
+    </t>
+
+</templates>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mes_product_set_wizard_form" model="ir.ui.view">
+        <field name="name">mes.product.set.wizard.form</field>
+        <field name="model">mes.product.set.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Set Product">
+                <group>
+                    <group>
+                        <field name="workcenter_id" readonly="run_id" options="{'no_create': True}"/>
+                        <field name="run_id" invisible="not run_id"/>
+                        <field name="current_product_id" invisible="not run_id"/>
+                        <field name="kind" widget="radio"/>
+                    </group>
+                    <group>
+                        <field name="production_id" options="{'no_create': True}"/>
+                        <field name="product_id" options="{'no_create': True}"/>
+                        <field name="date_start"/>
+                        <field name="date_end"/>
+                    </group>
+                </group>
+                <field name="note" placeholder="Why, for example: special edition, program not switched..."/>
+                <p class="text-muted mt-2">
+                    Manual entries always take priority over the machine signature. Without an end they
+                    last until the next manual entry or the next program change on the machine.
+                </p>
+                <footer>
+                    <button name="action_apply" type="object" string="Save" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

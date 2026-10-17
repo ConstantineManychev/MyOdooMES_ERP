@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="mes_core.StatusColoredName">
+        <span t-if="backgroundColor" class="o_mes_status_name"
+              t-attf-style="background:{{backgroundColor}};color:{{textColor}};"
+              t-att-title="title"
+              t-esc="label"/>
+        <span t-else="" t-esc="label"/>
+    </t>
+
+</templates>

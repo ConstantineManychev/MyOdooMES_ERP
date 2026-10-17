@@ -1,0 +1,346 @@
+$mes-board-red: #dc3545;
+$mes-board-yellow: #ffc107;
+$mes-board-green: #198754;
+$mes-board-border: #dee2e6;
+$mes-board-muted: #6c757d;
+
+.o_mes_board {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    padding: 1rem;
+    background: #f5f6f8;
+}
+
+.o_mes_board_toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.o_mes_board_summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: 0.95rem;
+}
+
+.o_mes_board_controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.o_mes_board_search {
+    width: 14rem;
+    max-width: 100%;
+}
+
+.o_mes_board_empty {
+    padding: 2rem;
+    text-align: center;
+}
+
+.o_mes_board_grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+    gap: 0.85rem;
+}
+
+.o_mes_board_tile {
+    --mes-board-status: #{$mes-board-muted};
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    min-width: 0;
+    padding: 0.75rem;
+    background: #fff;
+    border: 1px solid $mes-board-border;
+    border-top: 4px solid var(--mes-board-status);
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+    transition: box-shadow 0.15s ease-in-out, transform 0.15s ease-in-out;
+
+    &:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        transform: translateY(-1px);
+    }
+}
+
+.o_mes_board_tile_head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.o_mes_board_name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 1.35rem;
+    font-weight: 700;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.o_mes_board_status {
+    padding: 0.2rem 0.5rem;
+    overflow: hidden;
+    background: #e9ecef;
+    border-radius: 0.3rem;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.o_mes_board_note {
+    overflow: hidden;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.o_mes_board_note_title {
+    margin-right: 0.35rem;
+    color: $mes-board-muted;
+}
+
+.o_mes_board_note_warning {
+    color: #b45309;
+    font-weight: 600;
+}
+
+.o_mes_board_note_manual {
+    color: #0d6efd;
+}
+
+.o_mes_board_metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
+}
+
+.o_mes_board_metric {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 0.3rem 0.4rem;
+    background: #f8f9fa;
+    border-radius: 0.3rem;
+}
+
+.o_mes_board_metric_label {
+    color: $mes-board-muted;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.o_mes_board_metric_value {
+    overflow: hidden;
+    font-size: 1.05rem;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.o_mes_board_metric_link {
+    cursor: zoom-in;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.o_mes_board_oee_good {
+    color: $mes-board-green;
+}
+
+.o_mes_board_oee_fair {
+    color: #b8860b;
+}
+
+.o_mes_board_oee_poor {
+    color: $mes-board-red;
+}
+
+.o_mes_board_line {
+    display: flex;
+    gap: 0.4rem;
+    min-width: 0;
+    font-size: 0.85rem;
+}
+
+.o_mes_board_line_label {
+    flex: 0 0 auto;
+    color: $mes-board-muted;
+}
+
+.o_mes_board_line_value {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.o_mes_board_people {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    padding-top: 0.35rem;
+    border-top: 1px dashed $mes-board-border;
+    font-size: 0.85rem;
+}
+
+.o_mes_board_person {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    max-width: 100%;
+    padding: 0.1rem 0.45rem;
+    overflow: hidden;
+    background: #eef2f7;
+    border-radius: 1rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.o_mes_board_person_role {
+    font-weight: 700;
+    font-size: 0.75rem;
+}
+
+.o_mes_board_person_operator .o_mes_board_person_role {
+    color: #0d6efd;
+}
+
+.o_mes_board_person_supervisor .o_mes_board_person_role {
+    color: #6f42c1;
+}
+
+.o_mes_board_person_technician .o_mes_board_person_role {
+    color: #fd7e14;
+}
+
+.o_mes_board_hr {
+    flex: 0 0 auto;
+    padding: 0.1rem 0.5rem;
+    border: 0;
+    border-radius: 0.35rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+
+    sup {
+        margin-left: 0.1rem;
+    }
+}
+
+.o_mes_board_hr_red {
+    background: $mes-board-red;
+    color: #fff;
+}
+
+.o_mes_board_hr_yellow {
+    background: $mes-board-yellow;
+    color: #212529;
+}
+
+.o_mes_board_hr_green {
+    background: $mes-board-green;
+    color: #fff;
+}
+
+.o_mes_board_hr_blink {
+    animation: o_mes_board_blink 1s ease-in-out infinite;
+}
+
+@keyframes o_mes_board_blink {
+    50% {
+        opacity: 0.2;
+    }
+}
+
+.o_mes_board_pm {
+    flex: 0 0 auto;
+
+    .form-check-label {
+        font-weight: 600;
+        cursor: pointer;
+    }
+}
+
+.o_mes_board_table_wrap {
+    overflow: auto;
+    background: #fff;
+    border: 1px solid $mes-board-border;
+    border-radius: 0.4rem;
+}
+
+.o_mes_board_table {
+    margin-bottom: 0;
+
+    th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #f8f9fa;
+        white-space: nowrap;
+    }
+
+    td {
+        vertical-align: middle;
+    }
+}
+
+.o_mes_board_row {
+    cursor: pointer;
+
+    .o_mes_board_people {
+        padding-top: 0;
+        border-top: 0;
+    }
+
+    .o_mes_board_pm {
+        display: inline-block;
+
+        .form-check-label {
+            display: none;
+        }
+    }
+}
+
+.o_mes_board_row_name {
+    display: inline-block;
+    white-space: nowrap;
+    padding: 0.1rem 0.5rem;
+    border-radius: 0.3rem;
+    font-weight: 700;
+}
+
+.o_mes_board_cell_text {
+    max-width: 14rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 575.98px) {
+    .o_mes_board {
+        padding: 0.75rem 1rem;
+    }
+
+    .o_mes_board_search {
+        width: 100%;
+    }
+
+    .o_mes_board_grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

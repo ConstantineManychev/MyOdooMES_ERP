@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <record id="role_paper" model="mes.signature.role">
+        <field name="name">Paper</field>
+        <field name="code">paper</field>
+        <field name="sequence">10</field>
+    </record>
+
+    <record id="role_tips" model="mes.signature.role">
+        <field name="name">Tips</field>
+        <field name="code">tips</field>
+        <field name="sequence">20</field>
+    </record>
+
+    <record id="role_pack" model="mes.signature.role">
+        <field name="name">Pack</field>
+        <field name="code">pack</field>
+        <field name="sequence">30</field>
+    </record>
+
+    <record id="role_format" model="mes.signature.role">
+        <field name="name">Format</field>
+        <field name="code">format</field>
+        <field name="sequence">40</field>
+    </record>
+
+</odoo>

@@ -27,12 +27,12 @@
                         <page string="Matrix Structure (Rows &amp; Cols)">
                             <group>
                                 <group string="Combine into Row Header" name="row_group">
-                                    <field name="row_by_machine"/>
-                                    <field name="row_by_period"/>
+                                    <field name="row_by_machine" string="Machine"/>
+                                    <field name="row_by_period" string="Period"/>
                                 </group>
                                 <group string="Combine into Column Header" name="col_group">
-                                    <field name="col_by_machine"/>
-                                    <field name="col_by_period"/>
+                                    <field name="col_by_machine" string="Machine"/>
+                                    <field name="col_by_period" string="Period"/>
                                 </group>
                                 <div class="text-muted mt-3" colspan="2">
                                     <i>Tip: Select multiple fields to combine them into a single flat grouping level.</i>

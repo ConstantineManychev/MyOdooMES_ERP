@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mes_production_run_tree" model="ir.ui.view">
+        <field name="name">mes.production.run.tree</field>
+        <field name="model">mes.production.run</field>
+        <field name="arch" type="xml">
+            <tree string="Production Runs" create="0" edit="0"
+                  decoration-info="source == 'manual'"
+                  decoration-warning="source == 'unknown' or warning_label"
+                  decoration-bf="not date_end">
+                <field name="workcenter_id"/>
+                <field name="product_id"/>
+                <field name="date_start"/>
+                <field name="date_end"/>
+                <field name="duration_hours" widget="float_time"/>
+                <field name="source" widget="badge"
+                       decoration-info="source == 'manual'"
+                       decoration-warning="source == 'unknown'"/>
+                <field name="changed_via" optional="show"/>
+                <field name="changed_by" optional="show"/>
+                <field name="changed_at" optional="show"/>
+                <field name="signature_label" optional="show"/>
+                <field name="unmapped_label" optional="show"/>
+                <field name="warning_label" optional="show"/>
+                <field name="production_id" optional="hide"/>
+                <button name="action_change_product" type="object" string="Correct" icon="fa-pencil"
+                        groups="mes_core.group_mes_manager"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_production_run_calendar" model="ir.ui.view">
+        <field name="name">mes.production.run.calendar</field>
+        <field name="model">mes.production.run</field>
+        <field name="arch" type="xml">
+            <calendar string="Production Runs" date_start="date_start" date_stop="date_end"
+                      color="product_id" mode="week" create="0" quick_create="0">
+                <field name="workcenter_id" filters="1"/>
+                <field name="product_id" filters="1"/>
+                <field name="source"/>
+            </calendar>
+        </field>
+    </record>
+
+    <record id="view_mes_production_run_search" model="ir.ui.view">
+        <field name="name">mes.production.run.search</field>
+        <field name="model">mes.production.run</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="workcenter_id"/>
+                <field name="product_id"/>
+                <filter name="current" string="Running Now" domain="[('date_end', '=', False)]"/>
+                <filter name="unknown" string="Unknown Signature" domain="[('source', '=', 'unknown')]"/>
+                <filter name="manual" string="Set Manually" domain="[('source', '=', 'manual')]"/>
+                <filter name="warnings" string="With Warnings" domain="[('warning_label', '!=', False)]"/>
+                <separator/>
+                <filter name="date_start" string="Started" date="date_start"/>
+                <group expand="1" string="Group By">
+                    <filter name="group_workcenter" string="Machine" context="{'group_by': 'workcenter_id'}"/>
+                    <filter name="group_product" string="Product" context="{'group_by': 'product_id'}"/>
+                    <filter name="group_source" string="Source" context="{'group_by': 'source'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mes_production_run" model="ir.actions.act_window">
+        <field name="name">Production Runs</field>
+        <field name="res_model">mes.production.run</field>
+        <field name="view_mode">tree,calendar</field>
+        <field name="help" type="html">
+            <p>Runs appear automatically from the program names the machines report,
+                or from plans and corrections entered by managers.</p>
+        </field>
+    </record>
+
+    <record id="view_mes_product_override_tree" model="ir.ui.view">
+        <field name="name">mes.product.override.tree</field>
+        <field name="model">mes.product.override</field>
+        <field name="arch" type="xml">
+            <tree string="Product Plans And Corrections" editable="top">
+                <field name="workcenter_id" options="{'no_create': True}"/>
+                <field name="kind"/>
+                <field name="production_id" optional="show" options="{'no_create': True}"/>
+                <field name="product_id" options="{'no_create': True}"/>
+                <field name="date_start"/>
+                <field name="date_end"/>
+                <field name="note" optional="show"/>
+                <field name="origin" optional="show"/>
+                <field name="changed_by" optional="show"/>
+                <field name="changed_at" optional="show"/>
+                <field name="user_id" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_product_override_search" model="ir.ui.view">
+        <field name="name">mes.product.override.search</field>
+        <field name="model">mes.product.override</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="workcenter_id"/>
+                <field name="product_id"/>
+                <field name="production_id"/>
+                <filter name="plans" string="Plans" domain="[('kind', '=', 'plan')]"/>
+                <filter name="corrections" string="Corrections" domain="[('kind', '=', 'correction')]"/>
+                <separator/>
+                <filter name="from_kiosk" string="Changed In Kiosk" domain="[('origin', '=', 'kiosk')]"/>
+                <group expand="1" string="Group By">
+                    <filter name="group_workcenter" string="Machine" context="{'group_by': 'workcenter_id'}"/>
+                    <filter name="group_kind" string="Kind" context="{'group_by': 'kind'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mes_product_override" model="ir.actions.act_window">
+        <field name="name">Product Plans And Corrections</field>
+        <field name="res_model">mes.product.override</field>
+        <field name="view_mode">tree</field>
+    </record>
+
+</odoo>

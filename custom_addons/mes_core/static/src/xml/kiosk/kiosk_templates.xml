@@ -1,0 +1,1246 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+
+    <t t-name="mes_core.KioskAction">
+        <div class="o_mes_kiosk">
+            <header class="o_mes_kiosk_header">
+                <div class="o_mes_kiosk_header_title">
+                    <button t-if="viewerMode" type="button" class="btn btn-sm btn-outline-light o_mes_viewer_back"
+                            title="Back" t-on-click="leaveViewer">
+                        <i class="fa fa-arrow-left"/>
+                    </button>
+                    <span class="o_mes_kiosk_machine_name" t-esc="state.data?.workcenter?.name || ''"/>
+                    <span t-if="viewerMode" class="o_mes_viewer_chip">View only</span>
+                    <span t-if="viewerMode and plannedDowntimeActive" class="o_mes_viewer_chip o_mes_viewer_chip_pm">
+                        <i class="fa fa-pause"/> PM
+                    </span>
+                    <button t-if="downtimeSession and !viewerMode" class="btn btn-sm o_mes_pdt_button"
+                            t-att-class="plannedDowntimeActive ? 'btn-warning' : 'btn-outline-warning'"
+                            t-att-disabled="state.plannedDowntimeBusy"
+                            t-on-click="togglePlannedDowntime">
+                        <i class="fa" t-att-class="plannedDowntimeActive ? 'fa-stop' : 'fa-pause'"/>
+                        <t t-if="plannedDowntimeActive">Finish planned downtime</t>
+                        <t t-else="">Start planned downtime</t>
+                    </button>
+                </div>
+                <div class="o_mes_kiosk_header_center">
+                    <t t-foreach="state.data?.header_badges || []" t-as="badge" t-key="badge.key">
+                        <div class="o_mes_kiosk_header_badge" t-att-class="'o_mes_badge_' + (badge.tone || 'normal')">
+                            <div class="o_mes_badge_title" t-esc="badge.title"/>
+                            <div class="o_mes_badge_name" t-esc="badge.name"/>
+                            <div t-if="badge.details?.length" class="o_mes_badge_details">
+                                <t t-foreach="badge.details" t-as="detail" t-key="detail_index">
+                                    <span class="o_mes_badge_detail" t-esc="detail"/>
+                                </t>
+                            </div>
+                            <div t-if="badge.note" class="o_mes_badge_note" t-esc="badge.note"/>
+                        </div>
+                    </t>
+                </div>
+                <div class="o_mes_kiosk_header_sessions">
+                    <t t-if="!viewerMode">
+                    <button class="o_mes_kiosk_scan_hint"
+                            t-att-class="{'o_mes_scan_nfc': nfc.active, 'o_mes_scan_off': !nfc.passive}"
+                            t-on-click="togglePassiveScan">
+                        <i class="fa" t-att-class="nfc.passive ? 'fa-id-card-o' : 'fa-ban'"/>
+                        <t t-if="!nfc.passive">Scaning diactivated</t>
+                        <t t-elif="nfc.active">Tap your card or phone</t>
+                        <t t-else="">Scan your badge anytime</t>
+                    </button>
+                    <div t-if="nfc.status" class="o_mes_kiosk_scan_status"
+                         t-on-click="toggleNfcDiagnostics" t-esc="nfc.status"/>
+                    <pre t-if="nfc.showDiagnostics" class="o_mes_kiosk_scan_diag"
+                         t-on-click="toggleNfcDiagnostics" t-esc="nfc.diagnostics"/>
+                    </t>
+                    <div t-if="hasOperator" class="o_mes_kiosk_session_chip o_mes_chip_operator">
+                        <span class="o_mes_chip_role">OP:</span>
+                        <span class="o_mes_chip_name" t-esc="state.data.sessions.operator.employee_name"/>
+                        <span t-if="state.data.sessions.operator.job_title" class="o_mes_chip_title">
+                            (<t t-esc="state.data.sessions.operator.job_title"/>)
+                        </span>
+                        <button t-if="!viewerMode" class="btn btn-sm btn-link" t-on-click="() => this.logoutRole('operator')">Logout</button>
+                    </div>
+                    <div t-if="hasSupervisor" class="o_mes_kiosk_session_chip o_mes_chip_supervisor">
+                        <span class="o_mes_chip_role">SV:</span>
+                        <span class="o_mes_chip_name" t-esc="state.data.sessions.supervisor.employee_name"/>
+                        <span t-if="state.data.sessions.supervisor.job_title" class="o_mes_chip_title">
+                            (<t t-esc="state.data.sessions.supervisor.job_title"/>)
+                        </span>
+                        <button t-if="!viewerMode" class="btn btn-sm btn-link" t-on-click="() => this.logoutRole('supervisor')">Logout</button>
+                    </div>
+                    <div t-if="hasTechnician" class="o_mes_kiosk_session_chip o_mes_chip_technician">
+                        <span class="o_mes_chip_role">TECH:</span>
+                        <span class="o_mes_chip_name" t-esc="state.data.sessions.technician.employee_name"/>
+                        <span t-if="state.data.sessions.technician.job_title" class="o_mes_chip_title">
+                            (<t t-esc="state.data.sessions.technician.job_title"/>)
+                        </span>
+                        <button t-if="!viewerMode" class="btn btn-sm btn-link" t-on-click="() => this.logoutRole('technician')">Logout</button>
+                    </div>
+                    <button t-if="!viewerMode" class="btn btn-primary" t-on-click="openLoginModal">Login</button>
+                    <span t-if="viewerMode and !hasActiveSession" class="o_mes_viewer_nobody">Nobody is logged in</span>
+                </div>
+            </header>
+
+            <div class="o_mes_kiosk_status_bar" t-if="!state.loading &amp;&amp; displayedStatus"
+                 t-att-style="'background:' + displayedStatus.color"
+                 t-on-click="openCommentModalForCurrent">
+                <div class="o_mes_kiosk_status_label" t-esc="displayedStatus.status.toUpperCase()"/>
+                <div class="o_mes_kiosk_status_name" t-esc="displayedStatus.name"/>
+                <div class="o_mes_kiosk_status_comment" t-if="displayedStatus.comment">
+                    💬 <t t-esc="displayedStatus.comment"/>
+                </div>
+                <div class="o_mes_kiosk_status_comment" t-elif="queuedCommentForCurrent">
+                    💬 <t t-esc="queuedCommentForCurrent"/>
+                </div>
+                <div class="o_mes_kiosk_status_hint" t-elif="viewerMode and !canComment">View only</div>
+                <div class="o_mes_kiosk_status_hint" t-elif="!canComment">Log in to add a comment</div>
+                <div class="o_mes_kiosk_status_hint" t-else="">Click to add comment</div>
+            </div>
+
+
+            <div t-if="state.oeeModal" class="o_mes_kiosk_modal_backdrop" t-on-click="closeOeeModal">
+                <div class="o_mes_kiosk_modal o_mes_kiosk_oee_modal" t-on-click.stop="">
+                    <h2><t t-esc="state.oeeData?.machine?.name || ''"/></h2>
+
+                    <div t-if="state.oeeLoading" class="text-center p-4">
+                        <i class="fa fa-spinner fa-spin fa-2x"/>
+                    </div>
+                    <div t-elif="state.oeeError" class="alert alert-warning" t-esc="state.oeeError"/>
+                    <t t-else="">
+                        <div class="o_mes_oee_row o_mes_oee_machine">
+                            <div class="o_mes_oee_name">Machine</div>
+                            <t t-call="mes_core.OeeBlocks">
+                                <t t-set="node" t-value="state.oeeData.machine"/>
+                            </t>
+                            <button type="button" class="btn btn-sm btn-outline-secondary o_mes_oee_more"
+                                    t-on-click="(ev) => this.openOeeDetail(state.oeeData.machine, 'Machine', ev)">…</button>
+                        </div>
+
+                        <t t-foreach="state.oeeData.streams" t-as="stream" t-key="stream.key">
+                            <div class="o_mes_oee_row o_mes_oee_stream"
+                                 t-on-click="() => this.toggleOeeNode(stream.key)">
+                                <div class="o_mes_oee_name">
+                                    <span class="o_mes_oee_toggle"
+                                          t-esc="state.oeeOpen.includes(stream.key) ? '−' : '+'"/>
+                                    <t t-esc="stream.name"/>
+                                </div>
+                                <t t-call="mes_core.OeeBlocks">
+                                    <t t-set="node" t-value="stream"/>
+                                </t>
+                                <button type="button" class="btn btn-sm btn-outline-secondary o_mes_oee_more"
+                                        t-on-click="(ev) => this.openOeeDetail(stream, 'Stream', ev)">…</button>
+                            </div>
+                            <t t-if="state.oeeOpen.includes(stream.key)">
+                                <t t-foreach="stream.parts" t-as="part" t-key="part.key">
+                                    <div class="o_mes_oee_row o_mes_oee_part"
+                                         t-on-click="() => this.toggleOeeNode(part.key)">
+                                        <div class="o_mes_oee_name">
+                                            <span class="o_mes_oee_toggle" t-if="part.pieces.length"
+                                                  t-esc="state.oeeOpen.includes(part.key) ? '−' : '+'"/>
+                                            <t t-esc="part.name"/>
+                                        </div>
+                                        <t t-call="mes_core.OeeBlocks">
+                                            <t t-set="node" t-value="part"/>
+                                        </t>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary o_mes_oee_more"
+                                                t-on-click="(ev) => this.openOeeDetail(part, 'Part', ev)">…</button>
+                                    </div>
+                                    <t t-if="state.oeeOpen.includes(part.key)">
+                                        <div t-foreach="part.pieces" t-as="piece" t-key="piece.key"
+                                             class="o_mes_oee_row o_mes_oee_piece">
+                                            <div class="o_mes_oee_name"><t t-esc="piece.name"/></div>
+                                            <t t-call="mes_core.OeeBlocks">
+                                                <t t-set="node" t-value="piece"/>
+                                            </t>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary o_mes_oee_more"
+                                                    t-on-click="(ev) => this.openOeeDetail(piece, 'Piece', ev)">…</button>
+                                        </div>
+                                    </t>
+                                </t>
+                            </t>
+                        </t>
+                    </t>
+
+                    <div class="o_mes_kiosk_modal_actions">
+                        <button class="btn btn-secondary" t-on-click="closeOeeModal">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <div t-if="state.oeeDetail" class="o_mes_kiosk_modal_backdrop" t-on-click="closeOeeDetail">
+                <div class="o_mes_kiosk_modal o_mes_kiosk_oee_modal" t-on-click.stop="">
+                    <h2 t-esc="state.oeeDetail.title"/>
+                    <div t-if="!state.oeeDetail.items.length" class="text-muted p-2">
+                        Nothing recorded for this shift.
+                    </div>
+                    <table t-else="" class="table table-sm o_mes_oee_detail">
+                        <thead>
+                            <tr>
+                                <th>Name</th><th class="text-end">%</th>
+                                <th class="text-end">Qty</th><th class="text-end">/h</th>
+                                <th class="text-end">Duration</th><th class="text-end">ø</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="state.oeeDetail.items" t-as="item" t-key="item.kind + item.name">
+                                <td t-attf-class="{{ item.calculable ? 'o_mes_oee_calc' : '' }}">
+                                    <t t-esc="item.name"/>
+                                </td>
+                                <td class="text-end"><t t-esc="item.pct"/>%</td>
+                                <td class="text-end"><t t-esc="item.qty"/></td>
+                                <td class="text-end"><t t-esc="item.per_hour"/></td>
+                                <td class="text-end"><t t-esc="item.duration_text"/></td>
+                                <td class="text-end"><t t-esc="item.avg_text"/></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="o_mes_kiosk_modal_actions">
+                        <button class="btn btn-secondary" t-on-click="closeOeeDetail">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <div t-if="state.pendingStopsModal" class="o_mes_kiosk_modal_backdrop"
+                 t-on-click="closePendingStopsModal">
+                <div class="o_mes_kiosk_modal o_mes_kiosk_pending_modal" t-on-click.stop="">
+                    <h2>Operator stops to explain</h2>
+
+                    <t t-if="state.streamPicker">
+                        <div class="o_mes_kiosk_stream_hint">
+                            <t t-esc="state.streamPicker.name"/> — select the reason for
+                            <t t-esc="state.pendingStopsSelected.length"/> selected stop(s)
+                        </div>
+                        <div t-if="state.streamEventsLoading" class="text-center p-3">
+                            <i class="fa fa-spinner fa-spin fa-2x"/>
+                        </div>
+                        <div t-elif="state.streamEvents.length" class="o_mes_kiosk_stream_events">
+                            <button t-foreach="state.streamEvents" t-as="streamEvent" t-key="streamEvent.id"
+                                    class="btn btn-sm o_mes_kiosk_stream_event"
+                                    t-att-disabled="state.pendingStopsSaving"
+                                    t-on-click="() => this.selectStreamEvent(streamEvent)">
+                                <span t-if="streamEvent.color" class="o_mes_kiosk_stream_event_dot"
+                                      t-attf-style="background:{{streamEvent.color}};"/>
+                                <t t-esc="streamEvent.name"/>
+                            </button>
+                        </div>
+                        <div t-else="" class="text-muted p-2">No manual stop events for this stream.</div>
+                        <div class="o_mes_kiosk_modal_actions">
+                            <button class="btn btn-secondary" t-on-click="closeStreamPicker">Back</button>
+                        </div>
+                    </t>
+
+                    <t t-else="">
+                        <div class="o_mes_pending_toolbar">
+                            <label class="o_mes_pending_selectall">
+                                <input type="checkbox" t-att-checked="allPendingStopsSelected"
+                                       t-on-change="toggleAllPendingStops"/>
+                                <span>Select all</span>
+                            </label>
+                            <span class="text-muted">
+                                Selected: <t t-esc="state.pendingStopsSelected.length"/>
+                                of <t t-esc="pendingOperatorStops.length"/>
+                            </span>
+                        </div>
+
+                        <div class="o_mes_pending_list">
+                            <t t-foreach="pendingOperatorStops" t-as="item" t-key="pendingStopKey(item)">
+                                <div class="o_mes_pending_row">
+                                    <input type="checkbox" t-att-checked="isPendingStopSelected(item)"
+                                           t-on-change="() => this.togglePendingStop(item)"/>
+                                    <span class="o_mes_pending_time">
+                                        <t t-esc="formatDatetime(item.start)"/>
+                                        <t t-if="item.is_open"> — now</t>
+                                        <t t-else=""> — <t t-esc="formatDatetime(item.end)"/></t>
+                                    </span>
+                                    <span class="o_mes_pending_dur" t-esc="formatDurationHms(item.duration)"/>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            t-on-click="() => this.editPendingStop(item)">Edit</button>
+                                </div>
+                            </t>
+                        </div>
+
+                        <div t-if="availableStreams.length" class="o_mes_kiosk_stream_canvas"
+                             t-attf-style="width:{{streamCanvasSize.width}}px;height:{{streamCanvasSize.height}}px;">
+                            <button t-foreach="availableStreams" t-as="stream" t-key="stream.stream_id"
+                                    class="btn o_mes_kiosk_stream_button"
+                                    t-attf-style="left:{{stream.pos_x}}%;top:{{stream.pos_y}}%;width:{{stream.width}}px;height:{{stream.height}}px;"
+                                    t-on-click="() => this.toggleStreamPicker(stream)">
+                                <img t-if="stream.image_url" t-att-src="stream.image_url" t-att-alt="stream.name"/>
+                                <t t-else="" t-esc="stream.name"/>
+                            </button>
+                        </div>
+
+                        <textarea class="form-control" rows="2" t-model="state.pendingStopsComment"
+                                  placeholder="Comment applied to all selected..."/>
+
+                        <div class="o_mes_kiosk_modal_actions">
+                            <button class="btn btn-secondary" t-on-click="closePendingStopsModal">Cancel</button>
+                            <button class="btn btn-primary" t-att-disabled="state.pendingStopsSaving"
+                                    t-on-click="applyPendingStopsCommentOnly">
+                                <t t-if="state.pendingStopsSaving">Saving...</t>
+                                <t t-else="">Apply comment</t>
+                            </button>
+                        </div>
+                    </t>
+                </div>
+            </div>
+
+            <main class="o_mes_kiosk_main" t-if="!state.loading &amp;&amp; state.data">
+                <section class="o_mes_kiosk_metrics_left">
+                    <div t-if="pendingOperatorStops.length" class="o_mes_pending_badge o_mes_metric_clickable"
+                         t-on-click="openPendingStopsModal">
+                        <i class="fa fa-exclamation-triangle"/>
+                        <span class="o_mes_help_badge_count" t-esc="pendingOperatorStops.length"/>
+                        <span class="o_mes_help_badge_label">Stops to explain</span>
+                    </div>
+
+                    <div t-if="helpRequestSummaries.length" class="o_mes_help_badge o_mes_metric_clickable"
+                         t-on-click="openHelpListModal">
+                        <i class="fa fa-life-ring"/>
+                        <span class="o_mes_help_badge_count" t-esc="helpRequestSummaries.length"/>
+                        <span class="o_mes_help_badge_label">Open Help</span>
+                    </div>
+                    <div class="o_mes_metric o_mes_metric_clickable" t-on-click="openOeeModal">
+                        <div class="o_mes_metric_label">OEE</div>
+                        <div class="o_mes_metric_value"><t t-esc="Math.round(state.data.workcenter.current_oee || 0)"/>%</div>
+                    </div>
+                    <div class="o_mes_metric o_mes_metric_loss o_mes_metric_clickable" t-on-click="() => this.openLossModal('downtime')">
+                        <div class="o_mes_metric_label">DT Losses</div>
+                        <div class="o_mes_metric_value"><t t-esc="Math.round(state.data.workcenter.current_downtime_losses || 0)"/>%</div>
+                    </div>
+                    <div class="o_mes_metric o_mes_metric_loss o_mes_metric_clickable" t-on-click="() => this.openLossModal('waste')">
+                        <div class="o_mes_metric_label">Waste Losses</div>
+                        <div class="o_mes_metric_value"><t t-esc="Math.round(state.data.workcenter.current_waste_losses || 0)"/>%</div>
+                    </div>
+                    <div class="o_mes_metric">
+                        <div class="o_mes_metric_label">Produced</div>
+                        <div class="o_mes_metric_value"><t t-esc="state.data.workcenter.current_produced || 0"/></div>
+                    </div>
+                    <div class="o_mes_metric">
+                        <div class="o_mes_metric_label">Runtime</div>
+                        <div class="o_mes_metric_value"><t t-esc="state.data.workcenter.current_runtime_formatted || '--'"/></div>
+                    </div>
+                    <div class="o_mes_metric">
+                        <div class="o_mes_metric_label">Avg Produced/h Planned</div>
+                        <div class="o_mes_metric_value"><t t-esc="Math.round(state.data.workcenter.current_produced_per_planned_hour || 0)"/></div>
+                    </div>
+                    <div class="o_mes_metric">
+                        <div class="o_mes_metric_label">Avg Produced/h Runtime</div>
+                        <div class="o_mes_metric_value"><t t-esc="Math.round(state.data.workcenter.current_produced_per_hour || 0)"/></div>
+                    </div>
+                </section>
+
+                <section class="o_mes_kiosk_chart_area">
+                    <KioskCharts t-if="state.workcenterId" workcenterId="state.workcenterId" forceCountId="state.forceCountId" onTimelineClick="() => this.openTimelineModal()" onGoodPartReset="() => this.clearForceCount()"/>
+                </section>
+
+                <section class="o_mes_kiosk_metrics_right">
+                    <div class="o_mes_metric">
+                        <div class="o_mes_metric_label">Top Alarm</div>
+                        <div class="o_mes_metric_value o_mes_metric_text"><t t-esc="state.data.workcenter.current_top_alarm || '--'"/></div>
+                    </div>
+                    <div class="o_mes_metric o_mes_metric_clickable" t-on-click="selectTopRejection">
+                        <div class="o_mes_metric_label">Top Rejection</div>
+                        <div class="o_mes_metric_value o_mes_metric_text"><t t-esc="state.data.workcenter.current_top_rejection || '--'"/></div>
+                    </div>
+                    <div class="o_mes_prev_shift_card o_mes_metric_clickable"
+                         t-if="state.prevShift" t-on-click="openCompareModal">
+                        <div class="o_mes_prev_shift_title">Previous Shift ▸</div>
+                        <div t-if="state.prevShift.shift_start" class="o_mes_prev_shift_window">
+                            <t t-esc="state.prevShift.shift_start"/>
+                            <t t-if="state.prevShift.planned_hours">
+                                · planned <t t-esc="state.prevShift.planned_hours"/>h
+                            </t>
+                        </div>
+                        <div class="o_mes_prev_shift_grid">
+                            <div><span class="o_mes_prev_lbl">OEE</span> <span t-esc="Math.round(state.prevShift.oee || 0)"/>%</div>
+                            <div><span class="o_mes_prev_lbl">DT</span> <span t-esc="state.prevShift.dt_losses"/>%</div>
+                            <div><span class="o_mes_prev_lbl">Waste</span> <span t-esc="state.prevShift.waste_losses"/>%</div>
+                            <div><span class="o_mes_prev_lbl">Prod/h Plan</span> <span t-esc="Math.round(state.prevShift.produced_per_planned_hour || 0)"/></div>
+                            <div><span class="o_mes_prev_lbl">Prod/h Run</span> <span t-esc="Math.round(state.prevShift.produced_per_hour || 0)"/></div>
+                        </div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-info w-100 mt-2" t-on-click="openCustomChartModal">
+                        <i class="fa fa-line-chart me-1"/>Custom Chart
+                    </button>
+                </section>
+
+            </main>
+
+            <div t-if="pendingOperatorConfirmation and !viewerMode" class="o_mes_confirm_dock">
+                <div class="o_mes_confirm_dock_head">
+                    <span class="o_mes_confirm_dock_title">
+                        Confirm completion: <t t-esc="pendingOperatorConfirmation.name"/>
+                    </span>
+                    <span t-if="operatorConfirmationQueue.length > 1" class="o_mes_confirm_dock_queue">
+                        1 of <t t-esc="operatorConfirmationQueue.length"/>
+                    </span>
+                </div>
+                <KioskHelpFlow helpRequest="pendingOperatorConfirmation"
+                               sessions="state.data.sessions"
+                               workcenterId="state.workcenterId"
+                               supervisorConfirmationRequired="state.data.supervisor_confirmation_required"
+                               onRefresh="() => this.refresh()"/>
+            </div>
+
+            <button t-if="helpSession and !viewerMode" class="o_mes_kiosk_help_button"
+                    t-att-disabled="helpButtonDisabled"
+                    t-on-click="openHelpForm">
+                <span t-if="helpRequest">Help active</span>
+                <span t-else="">Call for Help</span>
+            </button>
+
+            <div t-if="state.modal === 'login'" class="o_mes_kiosk_modal_backdrop" t-on-click="closeModal">
+                <div class="o_mes_kiosk_modal" t-on-click.stop="">
+                    <h2>Kiosk Login</h2>
+
+                    <div class="o_mes_kiosk_login_tabs">
+                        <button class="btn"
+                                t-att-class="{'btn-primary': state.loginTab === 'pin', 'btn-outline-secondary': state.loginTab !== 'pin'}"
+                                t-on-click="setLoginTabPin">
+                            PIN
+                        </button>
+                        <button class="btn"
+                                t-att-class="{'btn-primary': state.loginTab === 'fob', 'btn-outline-secondary': state.loginTab !== 'fob'}"
+                                t-on-click="setLoginTabFob">
+                            Scan FOB
+                        </button>
+                    </div>
+
+                    <div t-if="state.loginError" class="o_mes_kiosk_error" t-esc="state.loginError"/>
+
+                    <div t-if="state.loginTab === 'pin'" class="o_mes_kiosk_pin_form">
+                        <label>PIN</label>
+                        <input type="password" t-model="state.pinField" autofocus="true"
+                               t-on-keydown="onPinKeydown"/>
+                        <div class="o_mes_kiosk_modal_actions">
+                            <button class="btn btn-secondary" t-on-click="closeModal">Cancel</button>
+                            <button class="btn btn-primary" t-att-disabled="state.loginBusy" t-on-click="submitPin">Login</button>
+                        </div>
+                    </div>
+
+                    <div t-if="state.loginTab === 'fob'" class="o_mes_kiosk_fob_form">
+                        <div class="o_mes_kiosk_fob_prompt">
+                            <i class="fa fa-id-card fa-3x"/>
+                            <p>Scan your FOB now</p>
+                            <small class="text-muted">Waiting for scanner input...</small>
+                        </div>
+                        <div class="o_mes_kiosk_modal_actions">
+                            <button class="btn btn-secondary" t-on-click="closeModal">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div t-if="state.lossModal" class="o_mes_kiosk_modal_backdrop" t-on-click="closeModal">
+                <div class="o_mes_kiosk_modal o_mes_kiosk_loss_modal" t-on-click.stop="">
+                    <h2 t-if="state.lossModal === 'downtime'">Downtime Losses</h2>
+                    <h2 t-else="">Waste Losses</h2>
+
+                    <div t-if="state.lossModal === 'waste'" class="o_mes_kiosk_loss_tabs">
+                        <button class="btn btn-sm"
+                                t-att-class="{'btn-primary': state.lossActiveTab === 'all', 'btn-outline-secondary': state.lossActiveTab !== 'all'}"
+                                t-on-click="() => this.selectLossTab('all')">
+                            All
+                        </button>
+                        <button class="btn btn-sm"
+                                t-att-class="{'btn-primary': state.lossActiveTab === 'no_wheel', 'btn-outline-secondary': state.lossActiveTab !== 'no_wheel'}"
+                                t-on-click="() => this.selectLossTab('no_wheel')">
+                            No Wheel
+                        </button>
+                        <t t-foreach="lossWheelTabs" t-as="w" t-key="w">
+                            <button class="btn btn-sm"
+                                    t-att-class="{'btn-primary': state.lossActiveTab === 'wheel_' + w, 'btn-outline-secondary': state.lossActiveTab !== 'wheel_' + w}"
+                                    t-on-click="() => this.selectLossTab('wheel_' + w)">
+                                Wheel <t t-esc="w"/>
+                                <span class="o_mes_kiosk_wheel_total">
+                                    (<t t-esc="Math.round(lossWheelTotals[w] || 0)"/>)
+                                </span>
+                            </button>
+                        </t>
+                    </div>
+
+                    <div class="o_mes_kiosk_loss_body">
+                        <div t-if="state.lossLoading" class="text-center p-4">
+                            <i class="fa fa-spinner fa-spin fa-2x"/>
+                        </div>
+                        <div t-elif="!visibleLossItems.length" class="text-center text-muted p-4">
+                            No data for current shift.
+                        </div>
+                        <table t-else="" class="o_mes_kiosk_loss_table table table-sm">
+                            <thead>
+                                <tr t-if="state.lossModal === 'downtime'">
+                                    <th t-on-click="() => this.sortLossBy('name')">
+                                        Event
+                                        <span t-if="state.lossSortField === 'name'" t-esc="state.lossSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th class="text-end" t-on-click="() => this.sortLossBy('frequency')">
+                                        Freq
+                                        <span t-if="state.lossSortField === 'frequency'" t-esc="state.lossSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th class="text-end" t-on-click="() => this.sortLossBy('freq_per_hour')">
+                                        Freq/h
+                                        <span t-if="state.lossSortField === 'freq_per_hour'" t-esc="state.lossSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th class="text-end" t-on-click="() => this.sortLossBy('duration_min')">
+                                        Duration (min)
+                                        <span t-if="state.lossSortField === 'duration_min'" t-esc="state.lossSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th class="text-end" t-on-click="() => this.sortLossBy('avg_duration_per_stop')">
+                                        Avg (min)
+                                        <span t-if="state.lossSortField === 'avg_duration_per_stop'" t-esc="state.lossSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th class="text-end" t-on-click="() => this.sortLossBy('duration_per_hour')">
+                                        min/h
+                                        <span t-if="state.lossSortField === 'duration_per_hour'" t-esc="state.lossSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                </tr>
+                                <tr t-else="">
+                                    <th t-on-click="() => this.sortLossBy('name')">
+                                        Waste Type
+                                        <span t-if="state.lossSortField === 'name'" t-esc="state.lossSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th class="text-end" t-on-click="() => this.sortLossBy('total')">
+                                        Total
+                                        <span t-if="state.lossSortField === 'total'" t-esc="state.lossSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th class="text-end" t-on-click="() => this.sortLossBy('per_hour')">
+                                        per Hour
+                                        <span t-if="state.lossSortField === 'per_hour'" t-esc="state.lossSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="visibleLossItems" t-as="item" t-key="item_index">
+                                    <tr t-if="state.lossModal === 'downtime'">
+                                        <td t-esc="item.name"/>
+                                        <td class="text-end" t-esc="item.frequency"/>
+                                        <td class="text-end" t-esc="(item.freq_per_hour || 0).toFixed(1)"/>
+                                        <td class="text-end" t-esc="Math.round(item.duration_min)"/>
+                                        <td class="text-end" t-esc="(item.avg_duration_per_stop || 0).toFixed(1)"/>
+                                        <td class="text-end" t-esc="item.duration_per_hour.toFixed(1)"/>
+                                    </tr>
+                                    <tr t-else="" class="o_mes_kiosk_loss_row_clickable"
+                                        t-on-click="() => this.selectLossCount(item.count_id)">
+                                        <td t-esc="item.name"/>
+                                        <td class="text-end" t-esc="Math.round(item.total)"/>
+                                        <td class="text-end" t-esc="item.per_hour.toFixed(1)"/>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="o_mes_kiosk_modal_actions">
+                        <button class="btn btn-secondary" t-on-click="closeModal">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <KioskHelpForm t-if="state.modal === 'help_form' &amp;&amp; helpSession"
+                           workcenterId="state.workcenterId"
+                           operatorSessionId="helpSession.id"
+                           onCreated="() => this.onHelpCreated()"
+                           onClose="() => this.closeModal()"/>
+
+            <div t-if="state.timelineModalOpen" class="o_mes_kiosk_modal_backdrop" t-on-click="closeTimelineModal">
+                <div class="o_mes_kiosk_modal o_mes_kiosk_timeline_modal" t-on-click.stop="">
+                    <h2>Timeline events</h2>
+                    <div class="o_mes_kiosk_loss_body">
+                        <table t-if="state.timelineItems.length" class="o_mes_kiosk_loss_table table table-sm">
+                            <thead>
+                                <tr>
+                                    <th t-on-click="() => this.sortTimelineBy('start')">
+                                        Start
+                                        <span t-if="state.timelineSortField === 'start'" t-esc="state.timelineSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th t-on-click="() => this.sortTimelineBy('end')">
+                                        End
+                                        <span t-if="state.timelineSortField === 'end'" t-esc="state.timelineSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th t-on-click="() => this.sortTimelineBy('name')">
+                                        Name
+                                        <span t-if="state.timelineSortField === 'name'" t-esc="state.timelineSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th t-on-click="() => this.sortTimelineBy('durationSec')">
+                                        Duration
+                                        <span t-if="state.timelineSortField === 'durationSec'" t-esc="state.timelineSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th>Comment</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="groupedTimelineItems" t-as="row" t-key="row.key">
+                                    <t t-if="row.type === 'group'">
+                                        <tr class="o_mes_tl_group_row">
+                                            <td colspan="5">
+                                                <div class="o_mes_tl_group_head"
+                                                     t-on-click="() => this.toggleTimelineGroup(row.key)">
+                                                    <span class="o_mes_tl_group_toggle"
+                                                          t-esc="isTimelineGroupCollapsed(row.key) ? '+' : '−'"/>
+                                                    <span class="o_mes_tl_group_swatch"
+                                                          t-attf-style="background:{{row.overlay.color}};"/>
+                                                    <span t-esc="row.overlay.name"/>
+                                                    <span class="text-muted">
+                                                        <t t-esc="formatDatetime(row.overlay.start)"/> —
+                                                        <t t-esc="formatDatetime(row.overlay.end)"/>
+                                                        (<t t-esc="row.children.length"/>)
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <t t-if="!isTimelineGroupCollapsed(row.key)">
+                                            <t t-foreach="row.children" t-as="ev" t-key="'c-' + ev_index">
+                                                <tr class="o_mes_tl_child_row">
+                                                    <td t-esc="formatDatetime(ev.start)"/>
+                                                    <td t-esc="ev.is_open ? '—' : formatDatetime(ev.end)"/>
+                                                    <td>
+                                                        <span t-attf-style="display:inline-block;width:10px;height:10px;background:{{ev.color}};margin-right:6px;border-radius:2px;"/>
+                                                        <t t-esc="ev.name"/>
+                                                    </td>
+                                                    <td t-esc="formatDurationHms(ev.durationSec)"/>
+                                                    <td class="o_mes_kiosk_loss_row_clickable"
+                                                        t-on-click="() => this.openCommentModalForEvent(ev)">
+                                                        <t t-if="ev.comment" t-esc="ev.comment"/>
+                                                        <span t-elif="canComment" class="text-muted">Add comment…</span>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </t>
+                                    </t>
+                                    <tr t-else="">
+                                        <td t-esc="formatDatetime(row.event.start)"/>
+                                        <td t-esc="row.event.is_open ? '—' : formatDatetime(row.event.end)"/>
+                                        <td>
+                                            <span t-attf-style="display:inline-block;width:10px;height:10px;background:{{row.event.color}};margin-right:6px;border-radius:2px;"/>
+                                            <t t-esc="row.event.name"/>
+                                        </td>
+                                        <td t-esc="formatDurationHms(row.event.durationSec)"/>
+                                        <td class="o_mes_kiosk_loss_row_clickable"
+                                            t-on-click="() => this.openCommentModalForEvent(row.event)">
+                                            <t t-if="row.event.comment" t-esc="row.event.comment"/>
+                                            <span t-elif="canComment" class="text-muted">Add comment…</span>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                        <div t-else="" class="text-center text-muted p-4">No events for current shift.</div>
+                    </div>
+                    <div class="o_mes_kiosk_modal_actions">
+                        <button class="btn btn-secondary" t-on-click="closeTimelineModal">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <div t-if="state.unknownTagModal" class="o_mes_kiosk_modal_backdrop" t-on-click="closeUnknownTagModal">
+                <div class="o_mes_kiosk_modal o_mes_unknown_tag_modal" t-on-click.stop="">
+                    <h2>Badge not recognised</h2>
+                    <div class="o_mes_unknown_tag_uid" t-esc="state.unknownTagModal.scanned"/>
+                    <p>No employee is linked to this badge number.</p>
+                    <div t-if="state.unknownTagModal.candidates.length > 1" class="o_mes_unknown_tag_alt">
+                        Also checked:
+                        <t t-foreach="state.unknownTagModal.candidates" t-as="cand" t-key="cand_index">
+                            <span class="o_mes_unknown_tag_chip" t-esc="cand"/>
+                        </t>
+                    </div>
+                    <p class="text-muted">
+                        Ask a supervisor to add this number to the employee card.
+                    </p>
+                    <div class="o_mes_kiosk_modal_actions">
+                        <button class="btn btn-primary" t-on-click="closeUnknownTagModal">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <div t-if="state.customChartModal" class="o_mes_kiosk_modal_backdrop" t-on-click="closeCustomChartModal">
+                <div class="o_mes_kiosk_modal o_mes_kiosk_custom_chart_modal" t-on-click.stop="">
+                    <h2>Custom Chart</h2>
+                    <KioskCharts t-if="state.workcenterId"
+                                 workcenterId="state.workcenterId"
+                                 customMode="true"
+                                 onTimelineClick="() => this.openTimelineModal()"/>
+                    <div class="o_mes_kiosk_modal_actions">
+                        <button class="btn btn-secondary" t-on-click="closeCustomChartModal">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <div t-if="state.helpListModal" class="o_mes_kiosk_modal_backdrop" t-on-click="closeHelpListModal">
+                <div class="o_mes_kiosk_modal o_mes_kiosk_loss_modal" t-on-click.stop="">
+                    <h2>Open Help Requests</h2>
+                    <KioskHelpFlow t-if="selectedHelpRequest"
+                                   helpRequest="selectedHelpRequest"
+                                   sessions="state.data.sessions"
+                                   workcenterId="state.workcenterId"
+                                   supervisorConfirmationRequired="state.data.supervisor_confirmation_required"
+                                   readonly="viewerMode"
+                                   onRefresh="() => this.refresh()"/>
+
+                    <div t-if="!selectedHelpRequest" t-foreach="helpRequestsByPriority" t-as="group" t-key="group.label"
+                         class="o_mes_help_group">
+                        <div class="o_mes_help_group_title" t-esc="group.label"/>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Task</th>
+                                    <th>Current Reason</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="group.items" t-as="item" t-key="item.id"
+                                    class="o_mes_metric_clickable"
+                                    t-on-click="() => this.selectHelpRequest(item.id)">
+                                    <td t-esc="item.name"/>
+                                    <td t-esc="item.reason_label || '--'"/>
+                                    <td t-esc="item.state_label"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="o_mes_kiosk_modal_actions">
+                        <button t-if="selectedHelpRequest" class="btn btn-secondary"
+                                t-on-click="clearHelpSelection">Back</button>
+                        <button class="btn btn-secondary" t-on-click="closeHelpListModal">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <div t-if="state.commentModal" class="o_mes_kiosk_modal_backdrop" t-on-click="closeCommentModal">
+                <div class="o_mes_kiosk_modal o_mes_kiosk_comment_modal" t-on-click.stop="">
+                    <h2>Comment: <t t-esc="state.commentModal.name"/></h2>
+
+                    <t t-if="state.streamPicker">
+                        <div class="o_mes_kiosk_stream_hint">
+                            <t t-esc="state.streamPicker.name"/> —
+                            <t t-if="state.commentModal.isManualStop">select the event replacing the current status</t>
+                            <t t-else="">select the event to add to the comment</t>
+                        </div>
+                        <div t-if="state.streamEventsLoading" class="text-center p-3">
+                            <i class="fa fa-spinner fa-spin fa-2x"/>
+                        </div>
+                        <t t-else="">
+                            <div t-if="state.streamParts.length" class="o_mes_kiosk_part_tabs">
+                                <button type="button" t-foreach="state.streamParts" t-as="part" t-key="part.id"
+                                        t-attf-class="btn btn-sm {{ state.streamPartId === part.id ? 'btn-primary' : 'btn-outline-primary' }}"
+                                        t-on-click="(ev) => this.selectStreamPart(part.id, ev)">
+                                    <t t-esc="part.name"/>
+                                </button>
+                            </div>
+
+                            <div t-if="activeStreamPart and activeStreamPart.pieces.length" class="o_mes_kiosk_piece_tags">
+                                <button type="button" t-foreach="activeStreamPart.pieces" t-as="piece" t-key="piece.id"
+                                        t-attf-class="btn btn-sm {{ state.streamPieceIds.includes(piece.id) ? 'btn-secondary' : 'btn-outline-secondary' }}"
+                                        t-on-click="(ev) => this.toggleStreamPiece(piece.id, ev)">
+                                    <t t-esc="piece.name"/>
+                                </button>
+                            </div>
+
+                            <div t-if="filteredStreamEvents.length" class="o_mes_kiosk_stream_events">
+                                <button t-foreach="filteredStreamEvents" t-as="streamEvent" t-key="streamEvent.id"
+                                        class="btn btn-sm o_mes_kiosk_stream_event"
+                                        t-att-disabled="state.commentSaving"
+                                        t-on-click="() => this.selectStreamEvent(streamEvent)">
+                                    <span t-if="streamEvent.color" class="o_mes_kiosk_stream_event_dot"
+                                          t-attf-style="background:{{streamEvent.color}};"/>
+                                    <t t-esc="streamEvent.name"/>
+                                </button>
+                            </div>
+                            <div t-else="" class="text-muted p-2">No manual stop events for this selection.</div>
+                        </t>
+                        <div class="o_mes_kiosk_modal_actions">
+                            <button class="btn btn-secondary" t-on-click="closeStreamPicker">Back</button>
+                        </div>
+                    </t>
+
+                    <t t-else="">
+                        <div t-if="availableStreams.length" class="o_mes_kiosk_stream_canvas"
+                             t-attf-style="width:{{streamCanvasSize.width}}px;height:{{streamCanvasSize.height}}px;">
+                            <button t-foreach="availableStreams" t-as="stream" t-key="stream.stream_id"
+                                    class="btn o_mes_kiosk_stream_button"
+                                    t-attf-style="left:{{stream.pos_x}}%;top:{{stream.pos_y}}%;width:{{stream.width}}px;height:{{stream.height}}px;"
+                                    t-on-click="() => this.toggleStreamPicker(stream)">
+                                <img t-if="stream.image_url" t-att-src="stream.image_url" t-att-alt="stream.name"/>
+                                <t t-else="" t-esc="stream.name"/>
+                            </button>
+                        </div>
+
+                        <textarea class="form-control" rows="4" t-model="state.commentDraft" placeholder="Write a comment..."/>
+                        <div class="o_mes_kiosk_modal_actions">
+                            <button class="btn btn-secondary" t-on-click="closeCommentModal">Cancel</button>
+                            <button class="btn btn-primary" t-att-disabled="state.commentSaving" t-on-click="saveComment">
+                                <t t-if="state.commentSaving">Saving...</t>
+                                <t t-else="">Save</t>
+                            </button>
+                        </div>
+                    </t>
+                </div>
+            </div>
+
+            <div t-if="state.compareModalOpen" class="o_mes_kiosk_modal_backdrop" t-on-click="closeCompareModal">
+                <div class="o_mes_kiosk_modal o_mes_kiosk_compare_modal" t-on-click.stop="">
+                    <h2>Shift Comparison — Previous vs Current</h2>
+
+                    <div class="o_mes_kiosk_loss_tabs">
+                        <button class="btn btn-sm"
+                                t-att-class="{'btn-primary': state.compareTab === 'downtime', 'btn-outline-secondary': state.compareTab !== 'downtime'}"
+                                t-on-click="() => this.setCompareTab('downtime')">DT</button>
+                        <button class="btn btn-sm"
+                                t-att-class="{'btn-primary': state.compareTab === 'waste', 'btn-outline-secondary': state.compareTab !== 'waste'}"
+                                t-on-click="() => this.setCompareTab('waste')">Rejections</button>
+                    </div>
+
+                    <div t-if="state.compareLoading" class="text-center p-4">
+                        <i class="fa fa-spinner fa-spin fa-2x"/>
+                    </div>
+
+                    <div t-else="" class="o_mes_kiosk_loss_body">
+                        <table t-if="state.compareTab === 'downtime'" class="o_mes_kiosk_loss_table table table-sm">
+                            <thead>
+                                <tr>
+                                    <th t-on-click="() => this.sortCompareBy('name')">
+                                        Event
+                                        <span t-if="state.compareSortField === 'name'" t-esc="state.compareSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th class="text-end" t-on-click="() => this.sortCompareBy('previous.freq_per_hour')">
+                                        Prev stops/h
+                                        <span t-if="state.compareSortField === 'previous.freq_per_hour'" t-esc="state.compareSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th class="text-end" t-on-click="() => this.sortCompareBy('current.freq_per_hour')">
+                                        Curr stops/h
+                                        <span t-if="state.compareSortField === 'current.freq_per_hour'" t-esc="state.compareSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th class="text-end" t-on-click="() => this.sortCompareBy('previous.avg_duration_per_stop')">
+                                        Prev avg (min)
+                                        <span t-if="state.compareSortField === 'previous.avg_duration_per_stop'" t-esc="state.compareSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                    <th class="text-end" t-on-click="() => this.sortCompareBy('current.avg_duration_per_stop')">
+                                        Curr avg (min)
+                                        <span t-if="state.compareSortField === 'current.avg_duration_per_stop'" t-esc="state.compareSortDir === 'asc' ? '▲' : '▼'"/>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="compareDowntimeRows" t-as="row" t-key="row_index">
+                                    <tr>
+                                        <td t-esc="row.name"/>
+                                        <td class="text-end" t-esc="row.previous.freq_per_hour.toFixed(2)"/>
+                                        <td class="text-end"
+                                            t-att-class="{'text-danger': row.current.freq_per_hour > row.previous.freq_per_hour, 'text-success': row.current.freq_per_hour &lt; row.previous.freq_per_hour}"
+                                            t-esc="row.current.freq_per_hour.toFixed(2)"/>
+                                        <td class="text-end" t-esc="row.previous.avg_duration_per_stop.toFixed(1)"/>
+                                        <td class="text-end"
+                                            t-att-class="{'text-danger': row.current.avg_duration_per_stop > row.previous.avg_duration_per_stop, 'text-success': row.current.avg_duration_per_stop &lt; row.previous.avg_duration_per_stop}"
+                                            t-esc="row.current.avg_duration_per_stop.toFixed(1)"/>
+                                    </tr>
+                                </t>
+                                <tr t-if="!compareDowntimeRows.length">
+                                    <td colspan="5" class="text-center text-muted">No downtime data.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <t t-if="state.compareTab === 'waste'">
+                            <div class="o_mes_kiosk_loss_tabs">
+                                <button class="btn btn-sm"
+                                        t-att-class="{'btn-primary': state.compareWasteTab === 'all', 'btn-outline-secondary': state.compareWasteTab !== 'all'}"
+                                        t-on-click="() => this.setCompareWasteTab('all')">All</button>
+                                <button class="btn btn-sm"
+                                        t-att-class="{'btn-primary': state.compareWasteTab === 'no_wheel', 'btn-outline-secondary': state.compareWasteTab !== 'no_wheel'}"
+                                        t-on-click="() => this.setCompareWasteTab('no_wheel')">No Wheel</button>
+                                <t t-foreach="compareWasteWheelTabs" t-as="w" t-key="w">
+                                    <button class="btn btn-sm"
+                                            t-att-class="{'btn-primary': state.compareWasteTab === 'wheel_' + w, 'btn-outline-secondary': state.compareWasteTab !== 'wheel_' + w}"
+                                            t-on-click="() => this.setCompareWasteTab('wheel_' + w)">
+                                        Wheel <t t-esc="w"/>
+                                    </button>
+                                </t>
+                            </div>
+                            <table class="o_mes_kiosk_loss_table table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th t-on-click="() => this.sortCompareBy('name')">
+                                            Waste Type
+                                            <span t-if="state.compareSortField === 'name'" t-esc="state.compareSortDir === 'asc' ? '▲' : '▼'"/>
+                                        </th>
+                                        <th class="text-end" t-on-click="() => this.sortCompareBy('previous.per_hour')">
+                                            Prev /h
+                                            <span t-if="state.compareSortField === 'previous.per_hour'" t-esc="state.compareSortDir === 'asc' ? '▲' : '▼'"/>
+                                        </th>
+                                        <th class="text-end" t-on-click="() => this.sortCompareBy('current.per_hour')">
+                                            Curr /h
+                                            <span t-if="state.compareSortField === 'current.per_hour'" t-esc="state.compareSortDir === 'asc' ? '▲' : '▼'"/>
+                                        </th>
+                                        <th class="text-end">Δ /h</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="compareWasteRows" t-as="row" t-key="row_index">
+                                        <tr>
+                                            <td t-esc="row.name"/>
+                                            <td class="text-end" t-esc="row.previous.per_hour.toFixed(1)"/>
+                                            <td class="text-end" t-esc="row.current.per_hour.toFixed(1)"/>
+                                            <td class="text-end"
+                                                t-att-class="{'text-danger': row.current.per_hour > row.previous.per_hour, 'text-success': row.current.per_hour &lt; row.previous.per_hour}"
+                                                t-esc="(row.current.per_hour - row.previous.per_hour >= 0 ? '+' : '') + (row.current.per_hour - row.previous.per_hour).toFixed(1)"/>
+                                        </tr>
+                                    </t>
+                                    <tr t-if="!compareWasteRows.length">
+                                        <td colspan="4" class="text-center text-muted">No waste data.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+                    </div>
+
+                    <div class="o_mes_kiosk_modal_actions">
+                        <button class="btn btn-secondary" t-on-click="closeCompareModal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="mes_core.KioskHelpForm">
+        <div class="o_mes_kiosk_modal_backdrop" t-on-click="() => props.onClose()">
+            <div class="o_mes_kiosk_modal" t-on-click.stop="">
+                <h2>Call for Help</h2>
+
+                <t t-if="state.streamPicker">
+                    <div class="o_mes_kiosk_stream_hint">
+                        <t t-esc="state.streamPicker.name"/> — select the reason
+                    </div>
+                    <div t-if="state.streamLoading" class="text-center p-4">
+                        <i class="fa fa-spinner fa-spin fa-2x"/>
+                    </div>
+                    <t t-elif="streamReasonTabs.length">
+                        <div class="o_mes_kiosk_loss_tabs">
+                            <button t-foreach="streamReasonTabs" t-as="tab" t-key="tab.key"
+                                    class="btn btn-sm"
+                                    t-att-class="{'btn-primary': state.streamTab === tab.key, 'btn-outline-secondary': state.streamTab !== tab.key}"
+                                    t-on-click="() => this.setStreamTab(tab.key)">
+                                <t t-esc="tab.label"/> (<t t-esc="tab.items.length"/>)
+                            </button>
+                        </div>
+                        <div t-if="streamTabParts.length" class="o_mes_kiosk_part_tabs">
+                            <button type="button" t-foreach="streamTabParts" t-as="part" t-key="part.id"
+                                    t-attf-class="btn btn-sm {{ state.streamPartId === part.id ? 'btn-primary' : 'btn-outline-primary' }}"
+                                    t-on-click="(ev) => this.selectStreamPart(part.id, ev)">
+                                <t t-esc="part.name"/>
+                            </button>
+                        </div>
+
+                        <div t-if="activeStreamPart and activeStreamPart.pieces.length" class="o_mes_kiosk_piece_tags">
+                            <button type="button" t-foreach="activeStreamPart.pieces" t-as="piece" t-key="piece.id"
+                                    t-attf-class="btn btn-sm {{ state.streamPieceIds.includes(piece.id) ? 'btn-secondary' : 'btn-outline-secondary' }}"
+                                    t-on-click="(ev) => this.toggleStreamPiece(piece.id, ev)">
+                                <t t-esc="piece.name"/>
+                            </button>
+                        </div>
+
+                        <div class="o_mes_kiosk_reason_search">
+                            <input type="text" class="form-control"
+                                   placeholder="Type to filter the list..."
+                                   t-model="state.streamSearch"/>
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    t-if="state.streamSearch"
+                                    t-on-click="clearStreamSearch">&#215;</button>
+                            <span class="o_mes_kiosk_reason_count">
+                                <t t-esc="filteredStreamItems.length"/>
+                            </span>
+                        </div>
+
+                        <div t-if="filteredStreamItems.length" class="o_mes_kiosk_stream_events">
+                            <button type="button" t-foreach="filteredStreamItems" t-as="item" t-key="item.id"
+                                    class="btn btn-sm o_mes_kiosk_stream_event"
+                                    t-on-click="() => this.selectStreamReason(state.streamTab, item)">
+                                <t t-esc="item.label"/>
+                            </button>
+                        </div>
+                        <div t-else="" class="text-muted p-2">Nothing matches this filter.</div>
+                    </t>
+                    <div t-else="" class="text-muted p-2">No reasons configured for this stream.</div>
+                    <div class="o_mes_kiosk_modal_actions">
+                        <button class="btn btn-secondary" t-on-click="closeStreamPicker">Back</button>
+                    </div>
+                </t>
+
+                <t t-else="">
+                    <div t-if="availableStreams.length" class="o_mes_kiosk_stream_canvas"
+                         t-attf-style="width:{{streamCanvasSize.width}}px;height:{{streamCanvasSize.height}}px;">
+                        <button t-foreach="availableStreams" t-as="stream" t-key="stream.stream_id"
+                                class="btn o_mes_kiosk_stream_button"
+                                t-attf-style="left:{{stream.pos_x}}%;top:{{stream.pos_y}}%;width:{{stream.width}}px;height:{{stream.height}}px;"
+                                t-on-click="() => this.selectStream(stream)">
+                            <img t-if="stream.image_url" t-att-src="stream.image_url" t-att-alt="stream.name"/>
+                            <t t-else="" t-esc="stream.name"/>
+                        </button>
+                    </div>
+
+                    <div class="o_mes_kiosk_reason_summary">
+                        <span class="o_mes_kiosk_label">Reason:</span>
+                        <span class="o_mes_kiosk_value" t-esc="currentReasonLabel"/>
+                    </div>
+
+                <label>
+                    Description of the problem
+                    <t t-if="state.area === 'manual'"> (required)</t>
+                </label>
+                <textarea rows="4" t-model="state.description"
+                          placeholder="Describe what is happening..."></textarea>
+
+                <div class="o_mes_kiosk_modal_actions">
+                    <button class="btn btn-secondary" t-on-click="() => props.onClose()">Cancel</button>
+                    <button class="btn btn-danger" t-att-disabled="state.busy" t-on-click="submit">Send to Supervisor</button>
+                </div>
+                </t>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="mes_core.KioskHelpFlow">
+        <section class="o_mes_kiosk_help_panel">
+            <header class="o_mes_kiosk_help_header">
+                <strong t-esc="task.name"/>
+                <span class="o_mes_kiosk_help_state badge" t-esc="task.state"/>
+            </header>
+            <div class="o_mes_kiosk_help_body">
+                <div>
+                    <strong>Category:</strong> <t t-esc="areaLabels[task.problem_area] || task.problem_area"/>
+                    · <strong>Reason:</strong> <t t-esc="task.reason_label"/>
+                    <button t-if="canEditReason" class="btn btn-sm btn-outline-info ms-2"
+                            t-on-click="toggleEditReason">
+                        <t t-if="!state.editingReason">Edit</t><t t-else="">Cancel edit</t>
+                    </button>
+                </div>
+                <div t-if="task.operator_description"><strong>Description:</strong> <t t-esc="task.operator_description"/></div>
+                <div t-if="task.supervisor_user_name">
+                    <strong>Supervisor:</strong> <t t-esc="task.supervisor_user_name"/>
+                    <span class="text-muted" t-if="task.supervisor_accepted_at"> · accepted <t t-esc="task.supervisor_accepted_at"/></span>
+                </div>
+                <div t-if="task.technician_user_name">
+                    <strong>Technician:</strong> <t t-esc="task.technician_user_name"/>
+                    <span class="text-muted" t-if="task.technician_arrived_at"> · arrived <t t-esc="task.technician_arrived_at"/></span>
+                </div>
+            </div>
+
+            <div t-if="state.editingReason" class="o_mes_kiosk_reason_edit">
+                <label>Problem area</label>
+                <div class="btn-group w-100 mb-2" role="group">
+                    <t t-foreach="['alarm', 'rejection', 'defect', 'manual']" t-as="area" t-key="area">
+                        <button type="button"
+                                t-att-class="'btn btn-sm ' + (state.editArea === area ? 'btn-primary' : 'btn-outline-secondary')"
+                                t-on-click="() => this.setEditArea(area)"
+                                t-esc="areaLabels[area]"/>
+                    </t>
+                </div>
+                <select t-if="state.editArea === 'alarm'" class="form-select mb-2" t-model.number="state.editEventId">
+                    <option value="">— select stoppage reason —</option>
+                    <t t-foreach="state.prefill?.alarm?.options || []" t-as="opt" t-key="opt.id">
+                        <option t-att-value="opt.id" t-esc="opt.label"/>
+                    </t>
+                </select>
+                <select t-if="state.editArea === 'rejection'" class="form-select mb-2" t-model.number="state.editCountId">
+                    <option value="">— select reject count —</option>
+                    <t t-foreach="state.prefill?.rejection?.options || []" t-as="opt" t-key="opt.id">
+                        <option t-att-value="opt.id"><t t-esc="opt.label"/> — <t t-esc="opt.rate"/>/h</option>
+                    </t>
+                </select>
+                <select t-if="state.editArea === 'defect'" class="form-select mb-2" t-model.number="state.editDefectId">
+                    <option value="">— select defect type —</option>
+                    <t t-foreach="state.prefill?.defect?.options || []" t-as="opt" t-key="opt.id">
+                        <option t-att-value="opt.id" t-esc="opt.label"/>
+                    </t>
+                </select>
+                <input type="text" class="mb-2" t-model="state.editComment" placeholder="Comment (required)"/>
+                <button class="btn btn-primary btn-sm" t-att-disabled="state.busy"
+                        t-on-click="submitReasonUpdate">Save reason change</button>
+            </div>
+
+            <div t-if="!props.readonly" class="o_mes_kiosk_help_buttons">
+                <button t-if="task.state === 'help_open' &amp;&amp; supervisorSession"
+                        class="btn btn-warning" t-on-click="onSupervisorAccept">Supervisor: Accept</button>
+
+                <t t-if="task.state === 'help_supervisor_accepted'">
+                    <div class="o_mes_kiosk_confirm_box">
+                        <input type="text" t-model="state.supComment" placeholder="Closing comment (required)"/>
+                        <button class="btn btn-success" t-on-click="onSupervisorClose">Close</button>
+                        <button class="btn btn-info" t-on-click="onRequestTechnician">Request Technician</button>
+                    </div>
+                </t>
+
+                <t t-if="activeSubtask">
+                    <div class="o_mes_kiosk_subtask_box">
+                        <strong>Subtask: <t t-esc="activeSubtask.state"/></strong>
+                        <button t-if="activeSubtask.state === 'new' &amp;&amp; technicianSession"
+                                class="btn btn-primary" t-on-click="onTechnicianArrive">Technician Arrived</button>
+                        <t t-if="['new', 'assigned', 'on_hold'].includes(activeSubtask.state) &amp;&amp; technicianSession">
+                            <input type="text" t-model="state.comment" placeholder="Comment (required)"/>
+                            <button t-if="isSubtaskPaused" class="btn btn-primary" t-on-click="onTechnicianResume">Resume</button>
+                            <button t-else="" class="btn btn-warning" t-on-click="() => this.onTechnicianAction('pause')">Pause</button>
+                            <button class="btn btn-danger" t-on-click="() => this.onTechnicianAction('reject')">Reject</button>
+                            <button class="btn btn-success" t-on-click="() => this.onTechnicianAction('close')">Close</button>
+                        </t>
+                        <button t-if="canSupervisorConfirmSubtask"
+                                class="btn btn-primary" t-on-click="onSupervisorConfirmSubtask">Supervisor Confirm</button>
+                    </div>
+                </t>
+
+                <t t-if="task.state === 'help_awaiting_operator'">
+                    <div t-if="!task.operator_prompt_ready" class="o_mes_kiosk_confirm_pending text-muted">
+                        Awaiting confirmation window<t t-if="task.confirmation_prompt_remaining_sec">
+                            — opens in <t t-esc="formatRemaining(task.confirmation_prompt_remaining_sec)"/></t>.
+                    </div>
+                    <t t-elif="operatorSession">
+                        <div t-if="task.last_closed_summary" class="o_mes_work_summary">
+                            <div class="o_mes_work_summary_title">
+                                Work reported<t t-if="task.last_closed_summary.technician">
+                                    by <t t-esc="task.last_closed_summary.technician"/></t>:
+                            </div>
+                            <div t-if="task.last_closed_summary.description"
+                                 class="o_mes_work_summary_text"
+                                 t-esc="task.last_closed_summary.description"/>
+                            <div t-else="" class="text-muted">No description was provided.</div>
+                        </div>
+                        <div class="o_mes_kiosk_confirm_box">
+                        <input type="text" t-model="state.confirmComment" placeholder="Comment (optional)"/>
+                        <button class="btn btn-success" t-on-click="() => this.onOperatorConfirm(true)">Confirm Completion</button>
+                        <button class="btn btn-danger" t-on-click="() => this.onOperatorConfirm(false)">Not Done — Reopen</button>
+                        </div>
+                    </t>
+                    <div t-else="" class="o_mes_kiosk_confirm_pending">
+                        Scan an operator badge to confirm or reject this request.
+                    </div>
+                </t>
+            </div>
+        </section>
+    </t>
+
+    <t t-name="mes_core.KioskCharts">
+        <section class="o_mes_kiosk_charts_panel">
+            <div t-if="state.loading" class="o_mes_kiosk_chart_loading">Loading chart…</div>
+            <div t-elif="state.error" class="o_mes_kiosk_chart_error" t-esc="state.error"/>
+            <t t-else="">
+                <div class="o_mes_kiosk_chart_controls">
+                    <t t-if="props.customMode">
+                        <div class="o_mes_kiosk_custom_controls">
+                            <div class="o_mes_kiosk_slider_row">
+                                <label class="o_mes_kiosk_chart_ctl_label">
+                                    Period: <t t-esc="state.pendingPeriodHours"/>h
+                                </label>
+                                <input type="range" class="o_mes_kiosk_slider"
+                                       min="2" max="24" step="1"
+                                       t-att-value="state.pendingPeriodHours"
+                                       t-on-input="(ev) => this.setPendingPeriod(ev.target.value)"/>
+                            </div>
+                            <div class="o_mes_kiosk_slider_row">
+                                <label class="o_mes_kiosk_chart_ctl_label">
+                                    Interval: <t t-esc="state.pendingBucketMinutes"/>m
+                                </label>
+                                <input type="range" class="o_mes_kiosk_slider"
+                                       min="5" max="120" step="5"
+                                       t-att-value="state.pendingBucketMinutes"
+                                       t-on-input="(ev) => this.setPendingBucket(ev.target.value)"/>
+                            </div>
+                            <div class="o_mes_kiosk_slider_row">
+                                <label class="o_mes_kiosk_chart_ctl_label">Count</label>
+                                <select class="o_mes_kiosk_select"
+                                        t-on-change="(ev) => this.setPendingCount(ev.target.value)">
+                                    <option value="">Good Part</option>
+                                    <t t-foreach="state.availableCounts" t-as="cnt" t-key="cnt.id">
+                                        <option t-att-value="cnt.id"
+                                                t-att-selected="cnt.id === state.pendingCountId"
+                                                t-esc="cnt.name"/>
+                                    </t>
+                                </select>
+                                <button class="btn btn-sm btn-primary" t-on-click="showCustomChart">Show</button>
+                            </div>
+                            <div t-if="state.windowStart" class="o_mes_kiosk_chart_ctl_label">
+                                <t t-esc="state.windowStart"/> — <t t-esc="state.windowEnd"/>
+                            </div>
+                        </div>
+                    </t>
+                    <div class="o_mes_kiosk_chart_title">
+                        <t t-if="state.selectedCountName" t-esc="state.selectedCountName"/>
+                        <t t-else="">Good Part</t>
+                    </div>
+                    <button class="btn btn-sm btn-outline-info"
+                            t-on-click="() => this.resetToGoodPart()">
+                        <i class="fa fa-check-circle"/> Good Part
+                    </button>
+                    <select t-if="state.availableProcesses.length"
+                            class="o_mes_kiosk_select"
+                            t-on-change="onProcessChange">
+                        <option value="">— No process —</option>
+                        <t t-foreach="state.availableProcesses" t-as="proc" t-key="proc.id">
+                            <option t-att-value="proc.id"
+                                    t-att-selected="proc.id === state.selectedProcessId"
+                                    t-esc="proc.name"/>
+                        </t>
+                    </select>
+                    <select t-if="state.availableTextProcesses.length"
+                            class="o_mes_kiosk_select"
+                            t-on-change="onTextProcessChange">
+                        <option value="">— No text process —</option>
+                        <t t-foreach="state.availableTextProcesses" t-as="textProc" t-key="textProc.id">
+                            <option t-att-value="textProc.id"
+                                    t-att-selected="textProc.id === state.selectedTextProcessId"
+                                    t-esc="textProc.name"/>
+                        </t>
+                    </select>
+                    <div class="o_mes_kiosk_chart_mode_toggle">
+                        <button class="btn btn-sm"
+                                t-att-class="{'btn-primary': state.chartMode === 'total', 'btn-outline-secondary': state.chartMode !== 'total'}"
+                                t-on-click="() => this.setChartMode('total')">Total</button>
+                        <button class="btn btn-sm"
+                                t-att-class="{'btn-primary': state.chartMode === 'rate', 'btn-outline-secondary': state.chartMode !== 'rate'}"
+                                t-on-click="() => this.setChartMode('rate')">Rate/h</button>
+                    </div>
+                    <div t-if="state.relatedCounts.length" class="o_mes_kiosk_related_badge">
+                        <span class="o_mes_kiosk_label">+ related: </span>
+                        <t t-foreach="state.relatedCounts" t-as="rc" t-key="rc.id">
+                            <span class="badge" t-esc="rc.name"/>
+                        </t>
+                    </div>
+                </div>
+                <div class="o_mes_kiosk_chart_block">
+                    <div class="o_mes_kiosk_canvas_wrap">
+                        <canvas t-ref="kioskCanvas"/>
+                    </div>
+                    <div class="o_mes_kiosk_timeline_bar o_mes_kiosk_timeline_clickable"
+                         t-on-click="() => props.onTimelineClick &amp;&amp; props.onTimelineClick()">
+                        <t t-foreach="state.statusBlocks" t-as="blk" t-key="blk_index">
+                            <div class="o_mes_kiosk_tl_block"
+                                 t-attf-style="left:{{blk.leftPct}}%;width:{{blk.widthPct}}%;background:{{blk.color}}"
+                                 t-att-title="blk.name + ' ' + blk.durationMin + 'min'"/>
+                        </t>
+                        <t t-foreach="state.overlayBlocks" t-as="ovl" t-key="'ovl-' + ovl_index">
+                            <div class="o_mes_kiosk_tl_overlay"
+                                 t-attf-style="left:{{ovl.leftPct}}%;width:{{ovl.widthPct}}%;background:{{ovl.color}}"
+                                 t-att-title="ovl.name + ' (' + ovl.durationMin + ' min)'"/>
+                        </t>
+                    </div>
+                </div>
+            </t>
+        </section>
+    </t>
+
+
+    <t t-name="mes_core.OeeBlocks">
+        <div class="o_mes_oee_blocks">
+            <div class="o_mes_oee_block o_mes_oee_waste">
+                <span class="o_mes_oee_pct"><t t-esc="node.waste.loss_pct"/>%</span>
+                <span class="o_mes_oee_val"><t t-esc="node.waste.qty"/></span>
+                <span class="o_mes_oee_sub"><t t-esc="node.waste.per_hour"/>/h</span>
+            </div>
+            <div class="o_mes_oee_block o_mes_oee_dt">
+                <span class="o_mes_oee_pct"><t t-esc="node.downtime.loss_pct"/>%</span>
+                <span class="o_mes_oee_val"><t t-esc="node.downtime.stops"/></span>
+                <span class="o_mes_oee_sub"><t t-esc="node.downtime.stops_per_hour"/>/h</span>
+                <span class="o_mes_oee_sub"><t t-esc="node.downtime.duration_text"/></span>
+                <span class="o_mes_oee_sub">ø <t t-esc="node.downtime.avg_text"/></span>
+            </div>
+        </div>
+    </t>
+</templates>

@@ -7,3 +7,5 @@ from . import mes_downtime_planner
 from . import mes_reject_report
 from . import mes_operation_wizards
 from . import mes_hist_performance_wiz
+from . import mes_part_sync_wizard
+from . import mes_logger_config_copy

@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mes_logger_release_tree" model="ir.ui.view">
+        <field name="name">mes.logger.release.tree</field>
+        <field name="model">mes.logger.release</field>
+        <field name="arch" type="xml">
+            <tree string="Logger Releases" create="0"
+                  decoration-success="state == 'released'"
+                  decoration-info="state == 'pilot'"
+                  decoration-muted="state == 'archived'">
+                <header>
+                    <button name="action_detect_new_version" type="object"
+                            string="Check For New Version" class="btn-primary"
+                            display="always" groups="mes_core.group_mes_administrator"/>
+                </header>
+                <field name="name"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'released'"
+                       decoration-info="state == 'pilot'"/>
+                <field name="installed_count"/>
+                <field name="detected_at"/>
+                <field name="released_at"/>
+                <field name="released_by_id"/>
+                <field name="size" optional="hide"/>
+                <field name="sha256" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_logger_release_form" model="ir.ui.view">
+        <field name="name">mes.logger.release.form</field>
+        <field name="model">mes.logger.release</field>
+        <field name="arch" type="xml">
+            <form string="Logger Release" create="0">
+                <header>
+                    <button name="action_release_pilot" type="object" string="Release To Pilot"
+                            class="btn-secondary" invisible="state not in ('draft', 'pilot')"
+                            groups="mes_core.group_mes_administrator"/>
+                    <button name="action_release_all" type="object" string="Release To All Machines"
+                            class="btn-primary" invisible="state not in ('draft', 'pilot')"
+                            groups="mes_core.group_mes_administrator"
+                            confirm="Every logger will switch to this version at its next check. Continue?"/>
+                    <button name="action_back_to_draft" type="object" string="Stop Pilot"
+                            invisible="state != 'pilot'"
+                            groups="mes_core.group_mes_administrator"/>
+                    <button name="action_archive_release" type="object" string="Archive"
+                            invisible="state == 'archived'"
+                            groups="mes_core.group_mes_administrator"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,pilot,released"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="installed_count"/>
+                            <field name="size"/>
+                        </group>
+                        <group>
+                            <field name="detected_at"/>
+                            <field name="released_at"/>
+                            <field name="released_by_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="sha256"/>
+                        <field name="pilot_machine_ids" widget="many2many_tags"
+                               readonly="state not in ('draft', 'pilot')"/>
+                        <field name="note" placeholder="What changed in this version..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mes_logger_release" model="ir.actions.act_window">
+        <field name="name">Logger Releases</field>
+        <field name="res_model">mes.logger.release</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_mes_logger_release"
+              name="Logger Releases"
+              parent="menu_mes_configuration"
+              action="action_mes_logger_release"
+              groups="mes_core.group_mes_administrator"
+              sequence="90"/>
+
+    <record id="mes_workcenter_logger_version_form" model="ir.ui.view">
+        <field name="name">mes.workcenter.logger.version.form</field>
+        <field name="model">mrp.workcenter</field>
+        <field name="inherit_id" ref="mes_core.mes_workcenter_oee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='logger_health']/group" position="inside">
+                <group string="Logger Version">
+                    <field name="logger_update_state" readonly="1"/>
+                    <field name="logger_release_id" readonly="1"/>
+                    <field name="logger_target_release_id" readonly="1"/>
+                    <field name="logger_checked_at" readonly="1"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mes_machine_settings_logger_config" model="ir.ui.view">
+        <field name="name">mes.machine.settings.logger.config</field>
+        <field name="model">mes.machine.settings</field>
+        <field name="inherit_id" ref="mes_core.view_mes_machine_settings_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='signals']" position="after">
+                <page string="Logger Config" name="logger_config"
+                      groups="mes_core.group_mes_administrator">
+                    <group>
+                        <group>
+                            <field name="logger_config_state" readonly="1"
+                                   decoration-success="logger_config_state == 'applied'"
+                                   decoration-warning="logger_config_state == 'pending'"/>
+                            <field name="logger_checked_at" readonly="1"/>
+                        </group>
+                    </group>
+                    <p class="text-muted mb-2">
+                        Parameters listed here are written into the logger's config.json at its next
+                        check and the logger restarts to apply them. Removing a parameter removes it
+                        from config.json and the logger falls back to its built-in default. Machine
+                        identity and credentials stay local and cannot be set from here.
+                    </p>
+                    <div class="mb-2">
+                        <button name="action_copy_logger_config" type="object"
+                                string="Copy To Other Machines" icon="fa-copy"
+                                class="btn-secondary"/>
+                    </div>
+                    <field name="logger_config_line_ids">
+                        <tree editable="bottom">
+                            <field name="key"/>
+                            <field name="value"/>
+                            <field name="value_type"/>
+                            <field name="default_value"/>
+                        </tree>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mes_logger_config_copy_wizard_form" model="ir.ui.view">
+        <field name="name">mes.logger.config.copy.wizard.form</field>
+        <field name="model">mes.logger.config.copy.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Copy Logger Config">
+                <group>
+                    <field name="source_machine_id"/>
+                    <field name="parameter_count"/>
+                    <field name="target_machine_ids" widget="many2many_tags"
+                           domain="[('id', '!=', source_machine_id)]"
+                           options="{'no_create': True}"/>
+                    <field name="mode" widget="radio"/>
+                </group>
+                <p class="text-muted">
+                    Replace also removes parameters that the target machines have but this machine
+                    does not; those loggers then fall back to their built-in defaults.
+                </p>
+                <footer>
+                    <button name="action_apply" type="object" string="Copy"
+                            class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

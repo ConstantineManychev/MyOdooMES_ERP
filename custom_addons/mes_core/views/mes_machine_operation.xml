@@ -82,7 +82,7 @@
     </record>
 
     <record id="action_mes_supervisor_dashboard" model="ir.actions.act_window">
-        <field name="name">Supervisor Dashboard</field>
+        <field name="name">Unallocated Operations</field>
         <field name="res_model">mes.machine.operation</field>
         <field name="view_mode">tree,form</field>
         <field name="view_id" ref="view_mes_supervisor_dashboard_tree"/>
@@ -94,17 +94,5 @@
         <field name="res_model">mes.machine.operation</field>
         <field name="view_mode">tree,form</field>
     </record>
-
-    <menuitem id="menu_mes_supervisor_dashboard"
-              name="Supervisor Dashboard"
-              parent="mes_core.menu_mes_analytics"
-              action="action_mes_supervisor_dashboard"
-              sequence="30"/>
-
-    <menuitem id="menu_mes_machine_operations"
-              name="Machine Operations Logs"
-              parent="mes_core.menu_mes_documents"
-              action="action_mes_machine_operations"
-              sequence="50"/>
 
 </odoo>

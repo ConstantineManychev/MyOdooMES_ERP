@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="mes_core.StreamLayoutEditor">
+        <div class="o_mes_stream_layout_widget">
+            <button type="button" class="btn btn-secondary" t-on-click="openEditor">
+                <i class="fa fa-th-large me-1"/>Configure Stream Layout
+            </button>
+
+            <div t-if="state.open" class="o_mes_layout_backdrop" t-on-click="closeEditor">
+                <div class="o_mes_layout_dialog" t-on-click.stop="">
+                    <h4>Stream Button Layout</h4>
+
+                    <div t-if="state.loading" class="text-center p-4">
+                        <i class="fa fa-spinner fa-spin fa-2x"/>
+                    </div>
+
+                    <t t-else="">
+                        <div t-if="!state.items.length" class="text-muted p-3">
+                            No active streams are assigned to this machine.
+                        </div>
+
+                        <t t-else="">
+                            <p class="text-muted">Drag each stream button to its position on the kiosk popup.</p>
+
+                            <div class="o_mes_layout_size">
+                                <label>Canvas width
+                                    <input type="number" min="0" max="4000" step="10"
+                                           t-att-value="state.canvasWidth"
+                                           t-on-change="(ev) => this.onCanvasSizeChange('width', ev)"/>
+                                    px
+                                </label>
+                                <label>Canvas height
+                                    <input type="number" min="0" max="4000" step="10"
+                                           t-att-value="state.canvasHeight"
+                                           t-on-change="(ev) => this.onCanvasSizeChange('height', ev)"/>
+                                    px
+                                </label>
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        t-on-click="resetCanvasSize">Auto size</button>
+                                <span class="text-muted" t-if="!state.configured">
+                                    Not configured — the kiosk sizes this area automatically.
+                                </span>
+                            </div>
+                            <div class="o_mes_layout_canvas" t-ref="canvas"
+                                 t-attf-style="width:{{state.canvasWidth}}px;height:{{state.canvasHeight}}px;">
+                                <div t-foreach="state.items" t-as="item" t-key="item.stream_id"
+                                     class="o_mes_layout_item"
+                                     t-attf-style="left:{{item.pos_x}}%;top:{{item.pos_y}}%;width:{{item.width}}px;height:{{item.height}}px;"
+                                     t-on-mousedown="(ev) => this.startDrag(item, ev)"
+                                     t-on-touchstart="(ev) => this.startDrag(item, ev)">
+                                    <img t-if="item.image_url" t-att-src="item.image_url" t-att-alt="item.name"/>
+                                    <span t-else="" class="o_mes_layout_item_label" t-esc="item.name"/>
+                                </div>
+                            </div>
+                        </t>
+                    </t>
+
+                    <div class="o_mes_layout_actions">
+                        <button type="button" class="btn btn-secondary" t-on-click="closeEditor">Discard</button>
+                        <button type="button" class="btn btn-primary"
+                                t-att-disabled="state.saving or !state.items.length"
+                                t-on-click="saveLayout">
+                            <t t-if="state.saving">Saving...</t>
+                            <t t-else="">Save</t>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t>
+
+</templates>

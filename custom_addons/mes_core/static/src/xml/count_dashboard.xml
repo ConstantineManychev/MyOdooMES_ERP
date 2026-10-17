@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="mes_core.CountDashboard">
+        <div class="o_mes_count_dashboard">
+
+            <div class="o_mes_cd_toolbar">
+                <div class="o_mes_cd_tabs" role="tablist">
+                    <t t-foreach="state.counts" t-as="count" t-key="count.id">
+                        <button type="button"
+                                t-attf-class="btn btn-sm {{ count.id === state.activeCountId ? 'btn-primary' : 'btn-outline-primary' }}"
+                                t-on-click="() => this.selectCount(count.id)">
+                            <t t-esc="count.name"/>
+                        </button>
+                    </t>
+                    <span t-if="!state.counts.length" class="text-muted">No count tabs selected</span>
+                </div>
+
+                <div class="o_mes_cd_controls">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button"
+                                t-attf-class="btn {{ state.periodMode === 'shift' ? 'btn-secondary' : 'btn-outline-secondary' }}"
+                                t-on-click="() => this.setPeriodMode('shift')">
+                            Shift
+                        </button>
+                        <button type="button"
+                                t-attf-class="btn {{ state.periodMode === 'hours' ? 'btn-secondary' : 'btn-outline-secondary' }}"
+                                t-on-click="() => this.setPeriodMode('hours')">
+                            Hours
+                        </button>
+                    </div>
+
+                    <select t-if="state.periodMode === 'hours'"
+                            class="form-select form-select-sm w-auto"
+                            t-on-change="onPeriodHoursChange">
+                        <t t-foreach="state.periodHoursRange" t-as="hours" t-key="hours">
+                            <option t-att-value="hours" t-att-selected="hours === state.periodHours">
+                                <t t-esc="hours"/> h
+                            </option>
+                        </t>
+                    </select>
+
+                    <select class="form-select form-select-sm w-auto" t-on-change="onIntervalChange">
+                        <t t-foreach="state.intervalOptions" t-as="option" t-key="option.value">
+                            <option t-att-value="option.value"
+                                    t-att-selected="option.value === state.intervalMinutes">
+                                <t t-esc="option.label"/>
+                            </option>
+                        </t>
+                    </select>
+
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button"
+                                t-attf-class="btn {{ state.viewMode === 'table' ? 'btn-secondary' : 'btn-outline-secondary' }}"
+                                t-on-click="() => this.setViewMode('table')">
+                            Table
+                        </button>
+                        <button type="button"
+                                t-attf-class="btn {{ state.viewMode === 'chart' ? 'btn-secondary' : 'btn-outline-secondary' }}"
+                                t-on-click="() => this.setViewMode('chart')">
+                            Chart
+                        </button>
+                    </div>
+
+                    <button type="button"
+                            t-attf-class="btn btn-sm {{ state.settingsOpen ? 'btn-secondary' : 'btn-outline-secondary' }}"
+                            t-on-click="toggleSettings">
+                        Counts
+                    </button>
+
+                    <button type="button" class="btn btn-sm btn-outline-secondary" t-on-click="onManualRefresh">
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            <div t-if="state.settingsOpen" class="o_mes_cd_settings mt-2">
+                <div class="fw-bold mb-1">Counts shown as tabs</div>
+                <span t-if="!state.selectableCounts.length" class="text-muted">
+                    No counts are mapped to machine signals.
+                </span>
+                <t t-foreach="state.selectableCounts" t-as="option" t-key="option.id">
+                    <label class="o_mes_cd_settings_item">
+                        <input type="checkbox"
+                               t-att-checked="isCountSelected(option.id)"
+                               t-on-change="() => this.toggleCountSelection(option.id)"/>
+                        <span t-esc="option.name"/>
+                    </label>
+                </t>
+            </div>
+
+            <div class="o_mes_cd_window text-muted small">
+                <span t-if="state.windowStart" t-esc="state.windowStart"/>
+                <span t-if="state.windowStart" class="mx-1">-</span>
+                <span t-if="state.windowEnd" t-esc="state.windowEnd"/>
+                <span t-if="state.periodMode === 'shift' &amp;&amp; state.effectiveMode === 'hours'"
+                      class="badge text-bg-warning ms-2">
+                    No active shift, using the hourly window
+                </span>
+                <span t-if="state.lastUpdate" class="ms-2">updated <t t-esc="state.lastUpdate"/></span>
+                <span t-if="state.loading" class="ms-2">Loading...</span>
+            </div>
+
+            <div t-if="state.error" class="alert alert-danger mt-2" role="alert">
+                <t t-esc="state.error"/>
+            </div>
+
+            <div t-elif="state.emptyMessage" class="o_mes_cd_placeholder mt-2">
+                <t t-esc="state.emptyMessage"/>
+            </div>
+
+            <div t-elif="!state.buckets.length or !state.rows.length" class="o_mes_cd_placeholder mt-2">
+                No data for the selected count and period.
+            </div>
+
+            <div t-elif="state.viewMode === 'table'" class="o_mes_cd_table_wrapper mt-2">
+                <table class="table table-sm table-bordered table-hover o_mes_cd_table">
+                    <thead>
+                        <tr>
+                            <th class="o_mes_cd_sticky">Work Center</th>
+                            <t t-foreach="state.buckets" t-as="bucket" t-key="bucket.start">
+                                <th class="text-end" t-att-title="bucket.start + ' - ' + bucket.end">
+                                    <t t-esc="bucket.label"/>
+                                </th>
+                            </t>
+                            <th class="text-end o_mes_cd_total">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <t t-foreach="state.rows" t-as="row" t-key="row.workcenter_id">
+                            <tr>
+                                <td class="o_mes_cd_sticky">
+                                    <t t-esc="row.name"/>
+                                    <span t-if="!row.mapped" class="badge text-bg-light ms-1">no tag</span>
+                                </td>
+                                <t t-foreach="row.values" t-as="value" t-key="value_index">
+                                    <td class="text-end">
+                                        <t t-esc="formatValue(value)"/>
+                                    </td>
+                                </t>
+                                <td class="text-end fw-bold o_mes_cd_total">
+                                    <t t-esc="formatValue(row.total)"/>
+                                </td>
+                            </tr>
+                        </t>
+                    </tbody>
+                    <tfoot>
+                        <tr class="fw-bold">
+                            <td class="o_mes_cd_sticky">Total</td>
+                            <t t-foreach="state.columnTotals" t-as="total" t-key="total_index">
+                                <td class="text-end">
+                                    <t t-esc="formatValue(total)"/>
+                                </td>
+                            </t>
+                            <td class="text-end o_mes_cd_total">
+                                <t t-esc="formatValue(state.grandTotal)"/>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div t-else="" class="o_mes_cd_chart_wrapper mt-2">
+                <canvas t-ref="dashboardCanvas"/>
+            </div>
+
+        </div>
+    </t>
+
+</templates>

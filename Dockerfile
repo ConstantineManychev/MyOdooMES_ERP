@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip3 install --no-cache-dir pyodbc debugpy pandas
 
 RUN mkdir -p /mnt/oca-addons \
-    && git clone -b 17.0 --single-branch --depth 1 https://github.com/OCA/queue.git /mnt/oca-addons/queue \
+    && git clone -b 17.0 --single-branch --depth 1 https://github.com/OCA/queue.git /mnt/extra-addons/queue \
     && chown -R odoo:odoo /mnt/oca-addons
 
 USER odoo

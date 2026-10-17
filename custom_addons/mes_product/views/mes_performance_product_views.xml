@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mes_machine_performance_form_product" model="ir.ui.view">
+        <field name="name">mes.machine.performance.form.product</field>
+        <field name="model">mes.machine.performance</field>
+        <field name="inherit_id" ref="mes_core.view_mes_machine_performance_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook/page[1]" position="before">
+                <page string="Products" name="mes_products">
+                    <field name="product_line_ids" readonly="1">
+                        <tree decoration-info="source == 'manual'" decoration-warning="source == 'unknown'"
+                              decoration-bf="started_shift">
+                            <field name="started_shift" widget="boolean" optional="show"/>
+                            <field name="product_id"/>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="source"/>
+                        </tree>
+                    </field>
+                    <group groups="mes_core.group_mes_administrator">
+                        <field name="product_oee_computed_at"/>
+                        <field name="product_oee_error" invisible="not product_oee_error"/>
+                    </group>
+                </page>
+            </xpath>
+            <xpath expr="//field[@name='running_ids']/tree/field[@name='loss_id']" position="after">
+                <field name="product_id" optional="show"/>
+            </xpath>
+            <xpath expr="//field[@name='alarm_ids']/tree/field[@name='loss_id']" position="after">
+                <field name="product_id" optional="show"/>
+            </xpath>
+            <xpath expr="//field[@name='slowing_ids']/tree/field[@name='loss_id']" position="after">
+                <field name="product_id" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mes_task_search_product" model="ir.ui.view">
+        <field name="name">mes.task.search.product</field>
+        <field name="model">mes.task</field>
+        <field name="inherit_id" ref="mes_core.view_mes_task_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='group_part']" position="after">
+                <filter string="Product" name="group_product" context="{'group_by': 'product_id'}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mes_task_tree_product" model="ir.ui.view">
+        <field name="name">mes.task.tree.product</field>
+        <field name="model">mes.task</field>
+        <field name="inherit_id" ref="mes_core.view_mes_task_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree" position="inside">
+                <field name="product_id" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

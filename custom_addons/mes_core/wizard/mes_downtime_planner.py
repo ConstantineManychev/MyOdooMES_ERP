@@ -5,6 +5,7 @@ from odoo.exceptions import ValidationError
 
 class MesDowntimePlannerWizard(models.TransientModel):
     _name = 'mes.downtime.planner.wizard'
+    _description = 'Planned Downtime Planner'
 
     selected_date = fields.Date(default=fields.Date.context_today, required=True)
     
@@ -19,6 +20,10 @@ class MesDowntimePlannerWizard(models.TransientModel):
     ], default='shift', required=True)
 
     shift_id = fields.Many2one('mes.shift')
+
+    def _schedule_tz_name(self):
+        return (self.env.company.tz or self.env.context.get('tz')
+                or self.env.user.tz or 'UTC')
     
     custom_start = fields.Float(default=0.0)
     custom_end = fields.Float(default=23.98)
@@ -30,8 +35,7 @@ class MesDowntimePlannerWizard(models.TransientModel):
                 wiz.existing_downtime_ids = False
                 continue
                 
-            user_tz = self.env.context.get('tz') or self.env.user.tz or 'UTC'
-            tz = pytz.timezone(user_tz)
+            tz = pytz.timezone(wiz._schedule_tz_name())
             
             loc_start = tz.localize(datetime.combine(wiz.selected_date, time(0, 0, 0)))
             loc_end = tz.localize(datetime.combine(wiz.selected_date, time(23, 59, 59)))
@@ -59,8 +63,7 @@ class MesDowntimePlannerWizard(models.TransientModel):
         if self.creation_mode == 'shift' and not self.shift_id:
             raise ValidationError("Please select a Shift before continuing.")
 
-        user_tz = self.env.context.get('tz') or self.env.user.tz or 'UTC'
-        tz = pytz.timezone(user_tz)
+        tz = pytz.timezone(self._schedule_tz_name())
         
         final_start = False
         final_end = False

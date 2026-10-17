@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mes_signature_role_tree" model="ir.ui.view">
+        <field name="name">mes.signature.role.tree</field>
+        <field name="model">mes.signature.role</field>
+        <field name="arch" type="xml">
+            <tree string="Signature Roles" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="active" widget="boolean_toggle" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_mes_signature_role" model="ir.actions.act_window">
+        <field name="name">Signature Roles</field>
+        <field name="res_model">mes.signature.role</field>
+        <field name="view_mode">tree</field>
+    </record>
+
+    <record id="view_mes_signature_value_tree" model="ir.ui.view">
+        <field name="name">mes.signature.value.tree</field>
+        <field name="model">mes.signature.value</field>
+        <field name="arch" type="xml">
+            <tree string="Signature Values" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="role_id"/>
+                <field name="name"/>
+                <field name="attribute_value_id" options="{'no_create': True}"/>
+                <field name="active" widget="boolean_toggle" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_signature_value_search" model="ir.ui.view">
+        <field name="name">mes.signature.value.search</field>
+        <field name="model">mes.signature.value</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="role_id"/>
+                <group expand="1" string="Group By">
+                    <filter name="group_role" string="Role" context="{'group_by': 'role_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mes_signature_value" model="ir.actions.act_window">
+        <field name="name">Signature Values</field>
+        <field name="res_model">mes.signature.value</field>
+        <field name="view_mode">tree</field>
+        <field name="context">{'search_default_group_role': 1}</field>
+    </record>
+
+    <record id="view_mes_signature_alias_tree" model="ir.ui.view">
+        <field name="name">mes.signature.alias.tree</field>
+        <field name="model">mes.signature.alias</field>
+        <field name="arch" type="xml">
+            <tree string="Raw Machine Values" editable="bottom"
+                  decoration-warning="not is_mapped">
+                <field name="workcenter_id" options="{'no_create': True}"/>
+                <field name="role_id" options="{'no_create': True}"/>
+                <field name="raw_text"/>
+                <field name="value_id" options="{'no_create_edit': True}"/>
+                <field name="is_mapped" column_invisible="1"/>
+                <field name="first_seen" optional="hide"/>
+                <field name="last_seen"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_signature_alias_search" model="ir.ui.view">
+        <field name="name">mes.signature.alias.search</field>
+        <field name="model">mes.signature.alias</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="raw_text"/>
+                <field name="workcenter_id"/>
+                <field name="role_id"/>
+                <filter name="unmapped" string="Not Mapped Yet" domain="[('is_mapped', '=', False)]"/>
+                <filter name="shared" string="For Every Machine" domain="[('workcenter_id', '=', False)]"/>
+                <group expand="1" string="Group By">
+                    <filter name="group_role" string="Role" context="{'group_by': 'role_id'}"/>
+                    <filter name="group_workcenter" string="Machine" context="{'group_by': 'workcenter_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mes_signature_alias" model="ir.actions.act_window">
+        <field name="name">Raw Machine Values</field>
+        <field name="res_model">mes.signature.alias</field>
+        <field name="view_mode">tree</field>
+        <field name="context">{'search_default_unmapped': 1}</field>
+        <field name="help" type="html">
+            <p>Every program name a machine reports appears here automatically.</p>
+            <p>Say what each one means by picking a value. Clear the machine to reuse the mapping
+                on every machine.</p>
+        </field>
+    </record>
+
+    <record id="view_mes_product_rule_tree" model="ir.ui.view">
+        <field name="name">mes.product.rule.tree</field>
+        <field name="model">mes.product.rule</field>
+        <field name="arch" type="xml">
+            <tree string="Product Rules">
+                <field name="sequence" widget="handle"/>
+                <field name="value_ids" widget="many2many_tags"/>
+                <field name="product_id"/>
+                <field name="workcenter_ids" widget="many2many_tags" optional="show"/>
+                <field name="specificity" optional="hide"/>
+                <field name="active" widget="boolean_toggle" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_product_rule_form" model="ir.ui.view">
+        <field name="name">mes.product.rule.form</field>
+        <field name="model">mes.product.rule</field>
+        <field name="arch" type="xml">
+            <form string="Product Rule">
+                <sheet>
+                    <group>
+                        <field name="value_ids" widget="many2many_tags"
+                               options="{'no_create': True}"/>
+                        <field name="product_id"/>
+                        <field name="workcenter_ids" widget="many2many_tags"
+                               options="{'no_create': True}"/>
+                        <field name="sequence"/>
+                        <field name="specificity"/>
+                        <field name="active"/>
+                    </group>
+                    <p class="text-muted">
+                        The rule matches when the machine shows all the chosen values. Roles left out
+                        of the rule are ignored. When several rules match, the one with more values
+                        wins, then the lower sequence.
+                    </p>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mes_product_rule" model="ir.actions.act_window">
+        <field name="name">Product Rules</field>
+        <field name="res_model">mes.product.rule</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <record id="view_mes_signature_conflict_tree" model="ir.ui.view">
+        <field name="name">mes.signature.conflict.tree</field>
+        <field name="model">mes.signature.conflict</field>
+        <field name="arch" type="xml">
+            <tree string="Incompatible Values" editable="bottom">
+                <field name="value_a_id" options="{'no_create': True}"/>
+                <field name="value_b_id" options="{'no_create': True}"/>
+                <field name="note"/>
+                <field name="active" widget="boolean_toggle" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_mes_signature_conflict" model="ir.actions.act_window">
+        <field name="name">Incompatible Values</field>
+        <field name="res_model">mes.signature.conflict</field>
+        <field name="view_mode">tree</field>
+    </record>
+
+</odoo>

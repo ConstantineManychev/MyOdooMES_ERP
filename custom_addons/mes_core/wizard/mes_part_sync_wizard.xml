@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mes_part_sync_wizard_form" model="ir.ui.view">
+        <field name="name">mes.part.sync.wizard.form</field>
+        <field name="model">mes.part.sync.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Sync Parts With MaintainX">
+                <group>
+                    <field name="workcenter_id" readonly="1"/>
+                    <field name="fetched_count" readonly="1"/>
+                    <field name="in_sync" invisible="1"/>
+                </group>
+
+                <div class="alert alert-success" role="alert" invisible="not in_sync">
+                    The work center parts already match MaintainX. Nothing to change.
+                </div>
+
+                <div class="alert alert-info" role="alert" invisible="in_sync">
+                    Only differences are listed. Remove the rows you do not want, add rows
+                    manually if needed, then press Apply.
+                </div>
+
+                <field name="line_ids" invisible="in_sync">
+                    <tree editable="bottom" create="1" delete="1"
+                          decoration-success="kind == 'missing'"
+                          decoration-warning="kind == 'changed'"
+                          decoration-danger="kind == 'extra'"
+                          decoration-muted="kind == 'unmatched'">
+                        <field name="kind" widget="badge"
+                               decoration-success="kind == 'missing'"
+                               decoration-warning="kind == 'changed'"
+                               decoration-danger="kind == 'extra'"/>
+                        <field name="asset_name"/>
+                        <field name="part_id" options="{'no_quick_create': True}"
+                               placeholder="Pick an existing part..."/>
+                        <field name="create_part"
+                               readonly="kind != 'unmatched' or part_id"/>
+                        <field name="current_maintainx_id"/>
+                        <field name="maintainx_id"/>
+                    </tree>
+                </field>
+
+                <footer>
+                    <button name="action_apply" type="object" string="Apply To Work Center"
+                            class="btn-primary" invisible="in_sync"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

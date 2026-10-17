@@ -1,0 +1,32 @@
+{
+    'name': 'MES Product History',
+    'version': '17.0.1.10.2',
+    'category': 'Manufacturing',
+    'summary': 'Which product each machine runs and when: machine signatures, plans and corrections',
+    'depends': ['mes_core', 'product', 'mrp'],
+    'data': [
+        'security/ir.model.access.csv',
+        'security/mes_product_security.xml',
+        'data/mes_signature_role_data.xml',
+        'data/mes_product_cron.xml',
+        'views/mes_signature_views.xml',
+        'wizard/mes_product_set_wizard.xml',
+        'views/mes_production_run_views.xml',
+        'views/mrp_workcenter_views.xml',
+        'views/mes_performance_product_views.xml',
+        'views/mes_product_interval_analysis_views.xml',
+        'views/mes_product_oee_views.xml',
+        'views/mes_product_menus.xml',
+    ],
+    'license': 'LGPL-3',
+    'installable': True,
+    'application': False,
+    'assets': {
+        'web.assets_backend': [
+            'mes_product/static/src/kiosk/kiosk_product_logic.js',
+            'mes_product/static/src/kiosk/kiosk_product.js',
+            'mes_product/static/src/kiosk/kiosk_product.xml',
+            'mes_product/static/src/kiosk/kiosk_product.scss',
+        ],
+    },
+}

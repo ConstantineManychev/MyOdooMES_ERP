@@ -12,6 +12,18 @@
             <field name="category_id" ref="module_category_mes"/>
         </record>
 
+        <record id="group_mes_supervisor" model="res.groups">
+            <field name="name">Supervisor</field>
+            <field name="category_id" ref="module_category_mes"/>
+            <field name="implied_ids" eval="[(4, ref('mes_core.group_mes_operator'))]"/>
+        </record>
+
+        <record id="group_mes_technician" model="res.groups">
+            <field name="name">Technician</field>
+            <field name="category_id" ref="module_category_mes"/>
+            <field name="implied_ids" eval="[(4, ref('mes_core.group_mes_operator'))]"/>
+        </record>
+
         <record id="group_mes_manager" model="res.groups">
             <field name="name">Manager (Read All)</field>
             <field name="category_id" ref="module_category_mes"/>
@@ -23,14 +35,40 @@
             <field name="category_id" ref="module_category_mes"/>
             <field name="implied_ids" eval="[(6, 0, [ref('mes_core.group_mes_manager'), ref('mrp.group_mrp_manager')])]"/>
         </record>
+
+        <record id="group_mes_kiosk_bot" model="res.groups">
+            <field name="name">Kiosk Bot (Internal)</field>
+            <field name="category_id" ref="module_category_mes"/>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+
+        <record id="module_category_mes_api" model="ir.module.category">
+            <field name="name">MES API Access</field>
+            <field name="sequence">100</field>
+        </record>
+
+        <record id="group_mes_api_read" model="res.groups">
+            <field name="name">API Read Only (Snapshot)</field>
+            <field name="category_id" ref="module_category_mes_api"/>
+        </record>
+
+        <record id="group_mes_api_write" model="res.groups">
+            <field name="name">API Write (Telemetry Push)</field>
+            <field name="category_id" ref="module_category_mes_api"/>
+            <field name="implied_ids" eval="[(4, ref('group_mes_api_read'))]"/>
+        </record>
     </data>
 
     <data noupdate="0">
         <record id="rule_mes_operator_workcenter" model="ir.rule">
-            <field name="name">MES Operator: Own Workcenters</field>
+            <field name="name">MES Operator: IP-restricted Workcenters</field>
             <field name="model_id" ref="mrp.model_mrp_workcenter"/>
-            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="domain_force">[('id', 'in', user._get_mes_accessible_workcenter_ids())]</field>
             <field name="groups" eval="[(4, ref('mes_core.group_mes_operator'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
         </record>
 
         <record id="rule_mes_manager_workcenter" model="ir.rule">
@@ -39,5 +77,111 @@
             <field name="domain_force">[(1, '=', 1)]</field>
             <field name="groups" eval="[(4, ref('mes_core.group_mes_manager'))]"/>
         </record>
+
+        <record id="rule_mes_kiosk_session_own_wc" model="ir.rule">
+            <field name="name">Kiosk Session: Own Workcenter</field>
+            <field name="model_id" ref="model_mes_kiosk_session"/>
+            <field name="domain_force">[('workcenter_id', 'in', user._get_mes_accessible_workcenter_ids())]</field>
+            <field name="groups" eval="[(4, ref('mes_core.group_mes_operator'))]"/>
+        </record>
+
+        <record id="rule_mes_kiosk_session_all_manager" model="ir.rule">
+            <field name="name">Kiosk Session: Manager All</field>
+            <field name="model_id" ref="model_mes_kiosk_session"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('mes_core.group_mes_manager'))]"/>
+        </record>
+
+        <record id="rule_mes_task_kiosk_help_operator" model="ir.rule">
+            <field name="name">Kiosk Help Task: Operator own WC</field>
+            <field name="model_id" ref="model_mes_task"/>
+            <field name="domain_force">['|', ('task_type', '!=', 'kiosk_help'), ('machine_id', 'in', user._get_mes_accessible_workcenter_ids())]</field>
+            <field name="groups" eval="[(4, ref('mes_core.group_mes_operator'))]"/>
+        </record>
+
+        <record id="rule_mes_machine_performance_multi_company" model="ir.rule">
+            <field name="name">Machine Performance: multi-company</field>
+            <field name="model_id" ref="model_mes_machine_performance"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="rule_mes_performance_alarm_multi_company" model="ir.rule">
+            <field name="name">Performance Alarm: multi-company</field>
+            <field name="model_id" ref="model_mes_performance_alarm"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">['|', ('performance_id.company_id', '=', False), ('performance_id.company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="rule_mes_performance_running_multi_company" model="ir.rule">
+            <field name="name">Performance Running: multi-company</field>
+            <field name="model_id" ref="model_mes_performance_running"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">['|', ('performance_id.company_id', '=', False), ('performance_id.company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="rule_mes_performance_slowing_multi_company" model="ir.rule">
+            <field name="name">Performance Slowing: multi-company</field>
+            <field name="model_id" ref="model_mes_performance_slowing"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">['|', ('performance_id.company_id', '=', False), ('performance_id.company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="rule_mes_performance_rejection_multi_company" model="ir.rule">
+            <field name="name">Performance Rejection: multi-company</field>
+            <field name="model_id" ref="model_mes_performance_rejection"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">['|', ('performance_id.company_id', '=', False), ('performance_id.company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="rule_mes_performance_production_multi_company" model="ir.rule">
+            <field name="name">Performance Production: multi-company</field>
+            <field name="model_id" ref="model_mes_performance_production"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">['|', ('performance_id.company_id', '=', False), ('performance_id.company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="rule_mes_production_report_multi_company" model="ir.rule">
+            <field name="name">Production Report: multi-company</field>
+            <field name="model_id" ref="model_mes_production_report"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="rule_mes_task_multi_company" model="ir.rule">
+            <field name="name">MES Task: multi-company</field>
+            <field name="model_id" ref="model_mes_task"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="rule_mes_link_outage_multi_company" model="ir.rule">
+            <field name="name">MES Data Gaps: Multi-Company</field>
+            <field name="model_id" ref="model_mes_link_outage"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="rule_mes_anomaly_report_multi_company" model="ir.rule">
+            <field name="name">MES Anomaly Report: Multi-Company</field>
+            <field name="model_id" ref="model_mes_anomaly_report"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="rule_mes_shift_multi_company" model="ir.rule">
+            <field name="name">MES Shift: multi-company</field>
+            <field name="model_id" ref="model_mes_shift"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
     </data>
+    <record id="group_mes_workflow_override" model="res.groups">
+        <field name="name">Allow Manual Task Status Override</field>
+        <field name="category_id" ref="base.module_category_manufacturing"/>
+        <field name="comment">Lets the user change Help Request status directly,
+            bypassing the Call for Help workflow buttons. Intended for corrections
+            only.</field>
+    </record>
+
 </odoo>

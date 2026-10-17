@@ -111,6 +111,19 @@
             <search>
                 <field name="name"/>
                 <field name="code"/>
+                                <field name="part_id"/>
+                <field name="piece_id"/>
+                <filter name="calculable" string="Calculable" domain="[('calculable', '=', True)]"/>
+                <filter name="hidden_in_kiosk" string="Hidden In Kiosk"
+                        domain="[('hide_in_kiosk', '=', True)]"/>
+                <filter name="shown_in_kiosk" string="Shown In Kiosk"
+                        domain="[('hide_in_kiosk', '=', False)]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_stream" string="Stream" context="{'group_by': 'stream_id'}"/>
+                    <filter name="group_part" string="Part" context="{'group_by': 'part_id'}"/>
+                    <filter name="group_piece" string="Piece" context="{'group_by': 'piece_id'}"/>
+                    <filter name="group_calculable" string="Calculable" context="{'group_by': 'calculable'}"/>
+                </group>
                 <searchpanel>
                     <field name="parent_id" icon="fa-folder" enable_counters="1"/>
                 </searchpanel>
@@ -132,6 +145,14 @@
                         </group>
                         <group>
                             <field name="default_OPCTag"/>
+                            <field name="stream_id" options="{'no_create': True}"/>
+                            <field name="part_id" options="{'no_create': True}"/>
+                            <field name="part_has_pieces" invisible="1"/>
+                            <field name="piece_id" options="{'no_create': True}"
+                                   invisible="not part_has_pieces"/>
+                            <field name="calculable"/>
+                            <field name="hide_in_kiosk"/>
+                            <field name="is_cumulative"/>
                             <field name="is_module_count"/>
                             <field name="wheel" invisible="not is_module_count"/>
                             <field name="module" invisible="not is_module_count"/>
@@ -143,6 +164,19 @@
                                 <tree readonly="1">
                                     <field name="name"/>
                                     <field name="code"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Related Counts">
+                            <p class="text-muted">
+                                When this count is selected in a workcenter or kiosk,
+                                all related counts will be shown on the chart alongside it.
+                            </p>
+                            <field name="related_count_ids" options="{'no_create': True}">
+                                <tree>
+                                    <field name="complete_name" string="Related Count"/>
+                                    <field name="code"/>
+                                    <field name="default_OPCTag" string="OPC Tag"/>
                                 </tree>
                             </field>
                         </page>
@@ -159,12 +193,17 @@
             <tree>
                 <field name="complete_name" string="Hierarchy"/>
                 <field name="code"/>
+                <field name="stream_id" optional="show"/>
                 <field name="default_OPCTag"/>
                 <field name="is_cumulative"/>
                 <field name="is_module_count"/>
                 <field name="wheel" optional="hide"/>
                 <field name="module" optional="hide"/>
-            </tree>
+                <field name="part_id" optional="show"/>
+                <field name="piece_id" optional="show"/>
+                <field name="calculable" optional="show" widget="boolean_toggle"/>
+                <field name="hide_in_kiosk" optional="show" widget="boolean_toggle"/>
+</tree>
         </field>
     </record>
 
@@ -182,6 +221,27 @@
             <search>
                 <field name="name"/>
                 <field name="code"/>
+                <field name="stream_id"/>
+                <filter name="manual_stop" string="Manual Stop" domain="[('is_manual_stop', '=', True)]"/>
+                <filter name="priority_blocker" string="Blocker" domain="[('priority', '=', '3')]"/>
+                <filter name="priority_high" string="High" domain="[('priority', '=', '2')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_stream" string="Stream" context="{'group_by': 'stream_id'}"/>
+                    <filter name="group_priority" string="Priority" context="{'group_by': 'priority'}"/>
+                </group>
+                                <field name="part_id"/>
+                <field name="piece_id"/>
+                <filter name="calculable" string="Calculable" domain="[('calculable', '=', True)]"/>
+                <filter name="hidden_in_kiosk" string="Hidden In Kiosk"
+                        domain="[('hide_in_kiosk', '=', True)]"/>
+                <filter name="shown_in_kiosk" string="Shown In Kiosk"
+                        domain="[('hide_in_kiosk', '=', False)]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_stream" string="Stream" context="{'group_by': 'stream_id'}"/>
+                    <filter name="group_part" string="Part" context="{'group_by': 'part_id'}"/>
+                    <filter name="group_piece" string="Piece" context="{'group_by': 'piece_id'}"/>
+                    <filter name="group_calculable" string="Calculable" context="{'group_by': 'calculable'}"/>
+                </group>
                 <searchpanel>
                     <field name="parent_id" icon="fa-folder" enable_counters="1"/>
                 </searchpanel>
@@ -204,7 +264,17 @@
                         <group>
                             <field name="default_event_tag_type"/>
                             <field name="default_plc_value"/>
+                            <field name="stream_id" options="{'no_create': True}"/>
+                            <field name="part_id" options="{'no_create': True}"/>
+                            <field name="part_has_pieces" invisible="1"/>
+                            <field name="piece_id" options="{'no_create': True}"
+                                   invisible="not part_has_pieces"/>
+                            <field name="calculable"/>
+                            <field name="hide_in_kiosk"/>
+                            <field name="is_manual_stop"/>
+                            <field name="exclude_from_anomalies"/>
                             <field name="color" widget="color"/>
+                            <field name="priority" widget="priority"/>
                         </group>
                     </group>
                     <notebook>
@@ -229,9 +299,16 @@
             <tree>
                 <field name="complete_name" string="Hierarchy"/>
                 <field name="code"/>
+                <field name="stream_id" optional="show"/>
+                <field name="is_manual_stop" optional="show"/>
                 <field name="default_event_tag_type"/>
                 <field name="default_plc_value"/>
-            </tree>
+                <field name="priority" widget="priority"/>
+                <field name="part_id" optional="show"/>
+                <field name="piece_id" optional="show"/>
+                <field name="calculable" optional="show" widget="boolean_toggle"/>
+                <field name="hide_in_kiosk" optional="show" widget="boolean_toggle"/>
+</tree>
         </field>
     </record>
 
@@ -249,8 +326,13 @@
             <tree>
                 <field name="complete_name"/>
                 <field name="code"/>
+                <field name="stream_id" optional="show"/>
                 <field name="default_OPCTag"/>
-            </tree>
+                <field name="part_id" optional="show"/>
+                <field name="piece_id" optional="show"/>
+                <field name="calculable" optional="show" widget="boolean_toggle"/>
+                <field name="hide_in_kiosk" optional="show" widget="boolean_toggle"/>
+</tree>
         </field>
     </record>
 
@@ -270,6 +352,13 @@
                         </group>
                         <group>
                             <field name="default_OPCTag"/>
+                            <field name="stream_id" options="{'no_create': True}"/>
+                            <field name="part_id" options="{'no_create': True}"/>
+                            <field name="part_has_pieces" invisible="1"/>
+                            <field name="piece_id" options="{'no_create': True}"
+                                   invisible="not part_has_pieces"/>
+                            <field name="calculable"/>
+                            <field name="hide_in_kiosk"/>
                         </group>
                     </group>
                     <notebook>
@@ -287,46 +376,249 @@
         </field>
     </record>
 
+    <record id="view_mes_process_search" model="ir.ui.view">
+        <field name="name">mes.process.search</field>
+        <field name="model">mes.process</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="stream_id"/>
+                <field name="part_id"/>
+                <field name="piece_id"/>
+                <filter name="calculable" string="Calculable" domain="[('calculable', '=', True)]"/>
+                <filter name="hidden_in_kiosk" string="Hidden In Kiosk"
+                        domain="[('hide_in_kiosk', '=', True)]"/>
+                <filter name="shown_in_kiosk" string="Shown In Kiosk"
+                        domain="[('hide_in_kiosk', '=', False)]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_stream" string="Stream" context="{'group_by': 'stream_id'}"/>
+                    <filter name="group_part" string="Part" context="{'group_by': 'part_id'}"/>
+                    <filter name="group_piece" string="Piece" context="{'group_by': 'piece_id'}"/>
+                    <filter name="group_calculable" string="Calculable" context="{'group_by': 'calculable'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
     <record id="action_mes_process" model="ir.actions.act_window">
         <field name="name">Processes Dictionary</field>
         <field name="res_model">mes.process</field>
         <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_mes_process_search"/>
     </record>
 
     <record id="view_mes_stream_tree" model="ir.ui.view">
         <field name="name">mes.stream.tree</field>
         <field name="model">mes.stream</field>
         <field name="arch" type="xml">
-            <tree editable="bottom">
-                <field name="stream_number"/>
-                <field name="machine_id"/>
+            <tree>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="workcenter_ids" widget="many2many_tags"/>
+                <field name="button_width" optional="hide"/>
+                <field name="button_height" optional="hide"/>
+                <field name="default_pos_x" optional="hide"/>
+                <field name="default_pos_y" optional="hide"/>
+                <field name="active" widget="boolean_toggle"/>
             </tree>
+        </field>
+    </record>
+
+    <record id="view_mes_stream_form" model="ir.ui.view">
+        <field name="name">mes.stream.form</field>
+        <field name="model">mes.stream</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <field name="image" widget="image" class="oe_avatar"/>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Stream Name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code"/>
+                            <field name="sequence"/>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                        <group>
+                            <field name="workcenter_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                        </group>
+                        <group string="Kiosk Button">
+                            <field name="button_width"/>
+                            <field name="button_height"/>
+                        </group>
+                        <group string="Default Position">
+                            <field name="default_pos_x"/>
+                            <field name="default_pos_y"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Manual Stop Events" name="manual_stop_events">
+                            <field name="manual_stop_event_ids" readonly="1">
+                                <tree>
+                                    <field name="complete_name"/>
+                                    <field name="code"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Events" name="events">
+                            <field name="event_ids" readonly="1">
+                                <tree>
+                                    <field name="complete_name"/>
+                                    <field name="code"/>
+                                    <field name="is_manual_stop"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Counts" name="counts">
+                            <field name="count_ids" readonly="1">
+                                <tree>
+                                    <field name="complete_name"/>
+                                    <field name="code"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Processes" name="processes">
+                            <field name="process_ids" readonly="1">
+                                <tree>
+                                    <field name="complete_name"/>
+                                    <field name="code"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
         </field>
     </record>
 
     <record id="action_mes_stream" model="ir.actions.act_window">
-        <field name="name">Streams</field>
+        <field name="name">Machine Streams</field>
         <field name="res_model">mes.stream</field>
-        <field name="view_mode">tree</field>
+        <field name="view_mode">tree,form</field>
     </record>
 
-    <record id="view_mes_wheel_tree" model="ir.ui.view">
-        <field name="name">mes.wheel.tree</field>
-        <field name="model">mes.wheel</field>
+    <record id="view_mes_part_tree" model="ir.ui.view">
+        <field name="name">mes.part.tree</field>
+        <field name="model">mes.part</field>
         <field name="arch" type="xml">
-            <tree editable="bottom">
-                <field name="wheel_number"/>
+            <tree string="Parts">
+                <field name="name"/>
+                <field name="code"/>
                 <field name="stream_id"/>
-                <field name="modules_amount"/>
-                <field name="maintainx_id"/>
+                <field name="wheel_number" optional="hide"/>
+                <field name="modules_amount" optional="hide"/>
+                <field name="piece_count"/>
+                <field name="active" widget="boolean_toggle" optional="hide"/>
             </tree>
         </field>
     </record>
 
-    <record id="action_mes_wheel" model="ir.actions.act_window">
-        <field name="name">Wheels</field>
-        <field name="res_model">mes.wheel</field>
-        <field name="view_mode">tree</field>
+    <record id="view_mes_part_form" model="ir.ui.view">
+        <field name="name">mes.part.form</field>
+        <field name="model">mes.part</field>
+        <field name="arch" type="xml">
+            <form string="Part">
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger"
+                            invisible="active"/>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                        <group>
+                            <field name="stream_id" options="{'no_create': True}"/>
+                            <field name="stream_removal_pending" invisible="1"/>
+                            <field name="stream_removal_policy" widget="radio"
+                                   invisible="not stream_removal_pending"
+                                   required="stream_removal_pending"/>
+                            <field name="wheel_number"/>
+                            <field name="modules_amount"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Pieces" name="pieces">
+                            <field name="piece_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="code"/>
+                                    <field name="active" widget="boolean_toggle" optional="hide"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mes_part" model="ir.actions.act_window">
+        <field name="name">Parts</field>
+        <field name="res_model">mes.part</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <record id="mrp_workcenter_tree_view_mes_override" model="ir.ui.view">
+        <field name="name">mrp.workcenter.tree.mes.override</field>
+        <field name="model">mrp.workcenter</field>
+        <field name="inherit_id" ref="mrp.mrp_workcenter_tree_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree" position="replace">
+                <tree string="Work Centers Live" 
+                      decoration-success="current_oee &gt;= 85" 
+                      decoration-warning="current_oee &gt;= 67 and current_oee &lt; 85" 
+                      decoration-danger="current_oee &lt; 67">
+                    
+                    <field name="mes_status_color" column_invisible="True"/>
+                    <field name="mes_status_label" column_invisible="True"/>
+                    <field name="mes_status_since" column_invisible="True"/>
+                    <field name="mes_status_provisional" column_invisible="True"/>
+                    <field name="name" string="Machine name" class="text-center"
+                           widget="mes_status_colored_name"/>
+                    <field name="pm_active" string="PM" widget="boolean_toggle" class="o_mes_pm_toggle"
+                           groups="mes_core.group_mes_manager"/>
+                    <field name="pm_active" string="PM" widget="boolean_toggle" class="o_mes_pm_toggle"
+                           readonly="1" groups="!mes_core.group_mes_manager"/>
+                    <field name="current_first_running_time" column_invisible="True"/>
+                    <field name="current_first_running_time_disp" string="Start Time" class="text-center"/>
+                    
+                    <field name="current_produced" string="Produced" sum="Total Produced" class="text-center"/>
+                    
+                    <field name="current_runtime_formatted" string="Runtime" class="text-center"/>
+                    
+                    <field name="current_waste_losses" string="Waste Loss (%)" avg="Avg. Waste" class="text-center"/>
+                    <button name="action_open_waste_losses" type="object" icon="fa-list" title="Waste Details" class="btn btn-sm btn-link"/>
+
+                    <field name="current_downtime_losses" string="DT Loss (%)" avg="Avg. DT" class="text-center"/>
+                    <button name="action_open_downtime_losses" type="object" icon="fa-list" title="Downtime Details" class="btn btn-sm btn-link"/>
+                    <field name="current_oee" string="OEE (%)" avg="Avg. OEE" class="text-center"/>
+                    
+                    <field name="current_top_rejection" string="Top Rejection" class="text-center"/>
+                    <field name="current_top_alarm" string="Top Alarm" class="text-center"/>
+                </tree>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mrp_workcenter_search_mes" model="ir.ui.view">
+        <field name="name">mrp.workcenter.search.mes</field>
+        <field name="model">mrp.workcenter</field>
+        <field name="inherit_id" ref="mrp.view_mrp_workcenter_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <separator/>
+                <filter string="Critical OEE (&lt; 67%)" name="bad_oee" domain="[('current_oee', '&lt;', 67)]"/>
+                <filter string="Excellent OEE (&gt;= 85%)" name="good_oee" domain="[('current_oee', '&gt;=', 85)]"/>
+                <separator/>
+                <filter string="Waste losses" name="has_waste" domain="[('current_waste_losses', '&gt;', 7.5)]"/>
+                <filter string="Downtime losses" name="has_dt" domain="[('current_downtime_losses', '&gt;', 7.5)]"/>
+            </xpath>
+        </field>
     </record>
 
     <record id="mes_workcenter_oee_form" model="ir.ui.view">
@@ -422,6 +714,13 @@
                             
                             <field name="telemetry_state_logic" widget="radio"/>
                         </group>
+                        <group string="Kiosk">
+                            <field name="operator_feedback_delay"/>
+                            <field name="stream_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                            <div colspan="2" invisible="not stream_ids">
+                                <widget name="mes_stream_layout_editor"/>
+                            </div>
+                        </group>
                         <group string="Security">
                             <field name="allowed_pc_ips" placeholder="192.168.0.1"/>
                         </group>
@@ -443,63 +742,39 @@
                             <field name="log_plc_recv_dt" readonly="1" string="Last PLC Event"/>
                             <field name="log_odoo_send_dt" readonly="1" string="Last Sent to Odoo"/>
                         </group>
+                        <group string="Pulse">
+                            <field name="log_pulse_dt" readonly="1" placeholder="Never: update the logger"/>
+                            <field name="log_started_dt" readonly="1"/>
+                            <field name="log_ads_ok" readonly="1"/>
+                            <field name="log_ads_ok_dt" readonly="1"/>
+                            <field name="log_ads_down_since_dt" readonly="1" invisible="log_ads_ok or not log_ads_down_since_dt"/>
+                            <field name="log_backlog" readonly="1"/>
+                            <field name="log_backlog_from_dt" readonly="1" invisible="not log_backlog"/>
+                            <field name="log_clock_skew_sec" readonly="1"/>
+                            <field name="log_cut_dt" readonly="1"/>
+                        </group>
                         <group string="Recent Errors">
                             <field name="log_err_dt" readonly="1" string="Error Time"/>
                             <field name="log_err_msg" readonly="1" string="Error Message" decoration-danger="log_err_msg != False"/>
                         </group>
                     </group>
+                    <separator string="Data Gaps"/>
+                    <field name="link_outage_ids" readonly="1" nolabel="1">
+                        <tree limit="10"
+                              decoration-danger="state == 'ongoing'"
+                              decoration-warning="state in ('lost', 'checking')"
+                              decoration-muted="state in ('recovered', 'planned')">
+                            <field name="cause"/>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="duration_minutes"/>
+                            <field name="state"/>
+                            <field name="counts_cut"/>
+                        </tree>
+                    </field>
                 </page>
             </xpath>
             
-        </field>
-    </record>
-
-    <record id="mrp_workcenter_tree_view_mes_override" model="ir.ui.view">
-        <field name="name">mrp.workcenter.tree.mes.override</field>
-        <field name="model">mrp.workcenter</field>
-        <field name="inherit_id" ref="mrp.mrp_workcenter_tree_view"/>
-        <field name="arch" type="xml">
-            <xpath expr="//tree" position="replace">
-                <tree string="Work Centers Live" 
-                      decoration-success="current_oee &gt;= 85" 
-                      decoration-warning="current_oee &gt;= 67 and current_oee &lt; 85" 
-                      decoration-danger="current_oee &lt; 67">
-                    
-                    <field name="name" string="Machine name" class="text-center"/>
-                    <field name="current_first_running_time" column_invisible="True"/>
-                    <field name="current_first_running_time_disp" string="Start Time" class="text-center"/>
-                    
-                    <field name="current_produced" string="Produced" sum="Total Produced" class="text-center"/>
-                    
-                    <field name="current_runtime_formatted" string="Runtime" class="text-center"/>
-                    
-                    <field name="current_waste_losses" string="Waste Loss (%)" avg="Avg. Waste" class="text-center"/>
-                    <button name="action_open_waste_losses" type="object" icon="fa-list" title="Waste Details" class="btn btn-sm btn-link"/>
-
-                    <field name="current_downtime_losses" string="DT Loss (%)" avg="Avg. DT" class="text-center"/>
-                    <button name="action_open_downtime_losses" type="object" icon="fa-list" title="Downtime Details" class="btn btn-sm btn-link"/>
-                    <field name="current_oee" string="OEE (%)" avg="Avg. OEE" class="text-center"/>
-                    
-                    <field name="current_top_rejection" string="Top Rejection" class="text-center"/>
-                    <field name="current_top_alarm" string="Top Alarm" class="text-center"/>
-                </tree>
-            </xpath>
-        </field>
-    </record>
-
-    <record id="view_mrp_workcenter_search_mes" model="ir.ui.view">
-        <field name="name">mrp.workcenter.search.mes</field>
-        <field name="model">mrp.workcenter</field>
-        <field name="inherit_id" ref="mrp.view_mrp_workcenter_search"/>
-        <field name="arch" type="xml">
-            <xpath expr="//search" position="inside">
-                <separator/>
-                <filter string="Critical OEE (&lt; 67%)" name="bad_oee" domain="[('current_oee', '&lt;', 67)]"/>
-                <filter string="Excellent OEE (&gt;= 85%)" name="good_oee" domain="[('current_oee', '&gt;=', 85)]"/>
-                <separator/>
-                <filter string="Waste losses" name="has_waste" domain="[('current_waste_losses', '&gt;', 7.5)]"/>
-                <filter string="Downtime losses" name="has_dt" domain="[('current_downtime_losses', '&gt;', 7.5)]"/>
-            </xpath>
         </field>
     </record>
 
@@ -522,8 +797,11 @@
                             <field name="b_min"/>
                             <field name="available_count_ids" invisible="1"/>
                             <field name="available_proc_ids" invisible="1"/>
+                            <field name="available_text_proc_ids" invisible="1"/>
                             <field name="count_id" domain="[('id', 'in', available_count_ids)]" options="{'no_create': True, 'no_open': True}"/>
                             <field name="proc_id" domain="[('id', 'in', available_proc_ids)]" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="text_proc_id" domain="[('id', 'in', available_text_proc_ids)]" options="{'no_create': True, 'no_open': True}"
+                                   invisible="not available_text_proc_ids"/>
                         </group>
                     </group>
                     <div class="mt-3 mb-4 text-center">

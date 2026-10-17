@@ -1,0 +1,70 @@
+.o_mes_badge_name_row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    max-width: 100%;
+    min-width: 0;
+
+    .o_mes_badge_name {
+        min-width: 0;
+    }
+}
+
+.o_mes_badge_edit {
+    flex: none;
+    padding: 0.1rem 0.25rem;
+    font-size: 0.9rem;
+    line-height: 1;
+    color: var(--mes-kiosk-muted);
+    border: none;
+    border-radius: 0.3rem;
+    background: transparent;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+        color: var(--mes-kiosk-accent);
+        background: var(--mes-kiosk-surface-2, rgba(255, 255, 255, 0.06));
+    }
+}
+
+.o_mes_kiosk_product_modal {
+    max-width: 640px;
+
+    .o_mes_product_section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+
+    .o_mes_product_label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--mes-kiosk-muted);
+    }
+
+    .o_mes_product_time {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+
+        input {
+            flex: 1;
+            min-width: 0;
+        }
+    }
+
+    .o_mes_product_result {
+        padding: 0.6rem 0.8rem;
+        border-radius: 8px;
+        background: var(--mes-kiosk-surface-2, rgba(255, 255, 255, 0.06));
+        color: var(--mes-kiosk-text);
+        font-weight: 600;
+    }
+
+    .o_mes_product_missing {
+        color: var(--mes-kiosk-warning);
+    }
+}
